@@ -6,3 +6,8 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# KoSIT Validator writes these next to whatever it validates
+# (packages/einvoice-conformance/src/cli.ts, plan-v0.1 §3.2/T-044).
+*-report.xml
+*-report.html

@@ -27,7 +27,14 @@ pnpm typecheck
 pnpm test
 ```
 
-Running the conformance suite additionally requires Docker; see `docs/README.md` once it is documented.
+Running the conformance validators additionally requires Docker:
+
+```bash
+docker compose -f docker/compose.conformance.yml build
+pnpm conformance validate <file.xml|file.pdf>
+```
+
+See [`docs/README.md`](docs/README.md) for more.
 
 ## License
 

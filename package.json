@@ -12,6 +12,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "conformance": "node packages/einvoice-conformance/dist/cli.js",
     "lint": "eslint .",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
     "@eslint/js": "^9.15.0",
+    "@types/node": "^22.10.1",
     "eslint": "^9.15.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.3.3",
