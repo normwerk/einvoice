@@ -1,0 +1,3 @@
+# Generated code is committed for reviewable diffs but excluded from
+# manual-review noise (AGENTS.md §9). Populated by tools/codegen/*.
+packages/*/src/generated/** linguist-generated

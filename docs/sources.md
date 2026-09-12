@@ -1,0 +1,58 @@
+# Artifact sources and licensing
+
+Every official artifact used to generate or validate code in this repository is recorded here and in
+[`artifacts/MANIFEST.json`](../artifacts/MANIFEST.json), per `AGENTS.md` §5.1 and §9. No artifact is used
+before it has an entry with a URL, version, hash, and licence.
+
+**Why this document exists.** EN 16931-1 (the semantic data model) and EN 16931-3-2 / -3-3 (the UBL/CII
+syntax binding tables) are paid CEN standards sold by national bodies (DIN/Beuth, NEN, SFS, …). This
+repository is MIT-licensed and public from its first commit (`AGENTS.md` §5.1, decision D-17: zero
+third-party e-invoicing libraries in runtime, our own serializers only). Before generating a single line of
+binding code, we needed to know whether a complete BT/BG → XPath binding for CII and XRechnung is
+reconstructable from **freely usable, redistributable** artifacts alone — without buying or redistributing
+the paid standard texts. This was spike A (plan-v0.1 §3.2, task T-013), run 2026-09-12.
+
+## Findings
+
+| Source                                                                                                                                                                                                                                                                                            | What it provides                                                                                        | Licence (as verified)                                                                                                                                                                                                                                          | Verdict                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ConnectingEurope/eInvoicing-EN16931](https://github.com/ConnectingEurope/eInvoicing-EN16931)                                                                                                                                                                                                     | Schematron business rules (BR-\*, BR-CO-\*, …) for UBL and CII, the CII D16B XSD, codelists, test files | **EUPL-1.2** (repo `LICENSE.txt`, confirmed by direct fetch)                                                                                                                                                                                                   | **Can vendor**, unmodified, with the licence text kept alongside (EUPL copyleft applies to modifications)                                                                               |
+| [KoSIT / xeinkauf.de](https://xeinkauf.de/xrechnung/) — [validator-configuration-xrechnung](https://github.com/itplr-kosit/validator-configuration-xrechnung), [xrechnung-schematron](https://github.com/itplr-kosit/xrechnung-schematron), [validator](https://github.com/itplr-kosit/validator) | German XRechnung CIUS: Schematron rules, validator engine + configuration bundle, codelists, test suite | **Apache-2.0** for all three GitHub repos (confirmed via GitHub API `license.spdx_id`)                                                                                                                                                                         | **Can vendor/use** the machine-readable artifacts. The XRechnung specification **PDF** itself derives from EN 16931-1 under DIN's royalty-free licensing — link to it, do not vendor it |
+| [OASIS UBL 2.1](https://docs.oasis-open.org/ubl/os-UBL-2.1/UBL-2.1.html)                                                                                                                                                                                                                          | Full UBL 2.1 XSD schema set                                                                             | **OASIS IPR/Notices**: copying and derivative works permitted, unmodified, with the copyright notice retained                                                                                                                                                  | **Can vendor**, unmodified, notice retained. Deferred to v0.2 (`einvoice-ubl`, decision M-018)                                                                                          |
+| UN/CEFACT D16B CII XSD (via [ConnectingEurope's copy](https://github.com/ConnectingEurope/eInvoicing-EN16931/tree/master/cii/schema))                                                                                                                                                             | The CII XSD itself                                                                                      | UN/CEFACT's standard document notice is reported to permit unrestricted implementation copies with attribution, but we could not re-verify this by fetching a live `unece.org` page in this session (got HTTP 403)                                             | We use the **ConnectingEurope EUPL-1.2 copy** of this XSD instead of going to UN/CEFACT directly — same bytes, clearer licence chain                                                    |
+| [OpenPeppol BIS Billing 3.0](https://github.com/OpenPEPPOL/peppol-bis-invoice-3)                                                                                                                                                                                                                  | UBL BT→XPath binding guide, Schematron, codelists                                                       | **Unclear.** No `LICENSE` file in the repo; the rendered spec at [docs.peppol.eu](https://docs.peppol.eu/poacc/billing/3.0/bis/) states the document "may not be modified, re-distributed, sold or repackaged … without the prior consent of OpenPeppol AISBL" | **Read-only.** Use it to derive our own mapping notes; do not commit its `.sch`/codelist files verbatim. Out of scope for v0.1 anyway (UBL/Peppol is v0.2, M-018)                       |
+| [EN 16931 codelist registry](https://ec.europa.eu/digital-building-blocks/sites/spaces/DIGITAL/pages/467108957/Code+lists) (EC Digital Building Blocks)                                                                                                                                           | UNCL1001/5305/4461, EAS, ICD, ISO 4217/3166 code list values                                            | **Unclear.** No licence/terms-of-use statement found on the registry page itself                                                                                                                                                                               | Prefer the already-open mirrors of the same code lists inside the ConnectingEurope (EUPL-1.2) or OpenPEPPOL repos over the raw EC files                                                 |
+| [ZUGFeRD / Factur-X](https://www.ferd-net.de/en/standards/zugferd/factur-x) (FeRD / FNFE-MPE)                                                                                                                                                                                                     | Spec ZIP: PDF, XSD, Schematron, code lists, samples for all profiles                                    | **Unclear.** No licence/terms-of-use text found on the official download page                                                                                                                                                                                  | Not needed directly: we generate our own CII XML and embed it into PDF/A-3b (plan-v0.1 §4.3) rather than starting from FeRD's schema files. Confirmed feasible pending spike B (T-031)  |
+
+Full research notes (URLs fetched, exact quotes, and the reasoning above) are kept with task T-013 in the
+private planning log; this table is the summary that matters for engineering decisions.
+
+## Conclusion
+
+A complete, freely usable BT/BG → XPath binding for **CII and XRechnung** — the v0.1 scope — is
+reconstructable end to end from the ConnectingEurope (EUPL-1.2) and KoSIT (Apache-2.0) artifacts alone,
+without purchasing or redistributing EN 16931-1 / -3-2 / -3-3. Schematron rules are themselves a de facto
+BT → XPath binding (each rule's `context` attribute is an XPath assertion against the CII/UBL tree), so
+reading them is sufficient to derive the mapping.
+
+The residual gaps — Peppol BIS's redistribution terms, the EC codelist registry's silence on licensing, and
+ZUGFeRD/Factur-X's spec ZIP — do not block v0.1: UBL/Peppol is v0.2 scope (M-018), the codelist values are
+consumed via their already-open mirrors, and ZUGFeRD is planned as "generate CII, embed in PDF" rather than
+needing FeRD's own schema files.
+
+This supports option (б)/(в) from plan-v0.1 §3.2 for the pending decision on binding-artifact licensing:
+reconstruct the binding from free derivative artifacts, with no need to purchase the paid standards for the
+v0.1 scope.
+
+## Vendored artifacts
+
+See [`artifacts/MANIFEST.json`](../artifacts/MANIFEST.json) for the authoritative, machine-readable list.
+Currently vendored (copied into `artifacts/` with a matching `sha256`):
+
+- `artifacts/cii-d16b/schema/CrossIndustryInvoice_100pD16B.xsd` — CII D16B XSD (EUPL-1.2)
+- `artifacts/cii-d16b/schematron/EN16931-CII-validation-preprocessed.sch` — composed EN 16931 CII business
+  rules (EUPL-1.2)
+
+The XRechnung validator configuration and Schematron bundles (Apache-2.0) are recorded but not vendored —
+they are consumed by the Docker-based conformance tooling (spike C, T-044 / T-040), not by the codegen
+pipeline.

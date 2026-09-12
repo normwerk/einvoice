@@ -1,0 +1,24 @@
+{
+  "name": "@normwerk/einvoice-ubl",
+  "version": "0.0.0",
+  "description": "OASIS UBL 2.1 serializer. Scaffold only; implementation is planned for a later release (plan-v0.1 §14, M-018).",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  }
+}
