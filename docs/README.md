@@ -5,7 +5,8 @@ folder are in `AGENTS.md` §1 and §12.
 
 ## Status
 
-Sprint 0 (monorepo scaffold + spikes). No feature docs yet — nothing is implemented.
+Sprint 0 (monorepo scaffold + spikes A/B/C done; no package has real logic yet). Spike findings that landed
+here: `docs/sources.md` (artifact licensing) and `docs/tax-semantics.md` (draft VAT scenario table).
 
 ## Conformance validators
 
@@ -24,10 +25,11 @@ later scope (T-040).
 
 ## Structure
 
-- `docs/sources.md` — official artifacts used for code generation: URL, version, hash, licence, vendoring decision (populated by spike A, T-013).
+- [`docs/sources.md`](sources.md) — official artifacts used for code generation: URL, version, hash, licence, vendoring decision (populated by spike A, T-013).
 - [`docs/domain-glossary.md`](domain-glossary.md) — EN 16931 domain conventions and pitfalls (AGENTS.md §2).
 - `docs/mapping-reference.md` — platform field → BT mapping (mandatory before v0.1, generated from the serialization plan, plan-v0.1 §5).
-- `docs/tax-semantics.md` — what the validators do not catch (mandatory before v0.1, plan-v0.1 §3.5 / §9).
+- [`docs/tax-semantics.md`](tax-semantics.md) — what the validators do not catch (draft, not reviewed by a
+  tax advisor — M-006; plan-v0.1 §3.5 / §9).
 - `docs/test-cases.md` — test catalog by suite.
 - `docs/manual-testing.md` — scenarios that cannot be automated.
 - `docs/adr/` — architecture decision records (ADR-001…005, plan-v0.1 §3.3).
