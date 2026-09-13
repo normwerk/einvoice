@@ -1,6 +1,6 @@
 # eInvoice
 
-MIT-licensed TypeScript core for structured e-invoices ([EN 16931](https://en.wikipedia.org/wiki/EN_16931)), with thin adapters for [Medusa](https://medusajs.com/) v2 and [Vendure](https://www.vendure.io/).
+MIT-licensed TypeScript core for structured e-invoices ([EN 16931](https://en.wikipedia.org/wiki/CEN/TC_434)), with thin adapters for [Medusa](https://medusajs.com/) v2 and [Vendure](https://www.vendure.io/).
 
 **Status: pre-alpha.** The monorepo is being scaffolded; no package is published or usable yet. See [`docs/README.md`](docs/README.md) for the documentation index and current state.
 
