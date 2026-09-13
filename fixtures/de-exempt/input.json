@@ -1,0 +1,43 @@
+{
+  "number": "RE-2026-0005",
+  "issueDate": "2026-09-13",
+  "typeCode": "380",
+  "currencyCode": "EUR",
+  "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "seller": {
+    "name": "Musterpraxis GmbH",
+    "vatIdentifier": "DE123456789",
+    "countryCode": "DE"
+  },
+  "buyer": {
+    "name": "Beispielpatient",
+    "countryCode": "DE"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "250.00",
+      "netPrice": "250.00",
+      "itemName": "Medical treatment (§4 Nr. 14 UStG)",
+      "vat": { "categoryCode": "E", "rate": "0" }
+    }
+  ],
+  "vatBreakdown": [
+    {
+      "taxableAmount": "250.00",
+      "taxAmount": "0.00",
+      "categoryCode": "E",
+      "rate": "0",
+      "exemptionReasonText": "Steuerfreie Heilbehandlung gemäß §4 Nr. 14 UStG"
+    }
+  ],
+  "totals": {
+    "sumOfLineNetAmounts": "250.00",
+    "totalAmountWithoutVat": "250.00",
+    "totalVatAmount": "0.00",
+    "totalAmountWithVat": "250.00",
+    "amountDueForPayment": "250.00"
+  }
+}

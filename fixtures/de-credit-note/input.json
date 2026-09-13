@@ -1,0 +1,38 @@
+{
+  "number": "GS-2026-0001",
+  "issueDate": "2026-09-20",
+  "typeCode": "381",
+  "currencyCode": "EUR",
+  "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "precedingInvoiceReferences": [{ "invoiceNumber": "RE-2026-0001", "issueDate": "2026-09-13" }],
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "vatIdentifier": "DE123456789",
+    "countryCode": "DE"
+  },
+  "buyer": {
+    "name": "Beispielkunde GmbH",
+    "countryCode": "DE"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "100.00",
+      "netPrice": "100.00",
+      "itemName": "Consulting services (EN 16931 integration) — full return",
+      "vat": { "categoryCode": "S", "rate": "19" }
+    }
+  ],
+  "vatBreakdown": [
+    { "taxableAmount": "100.00", "taxAmount": "19.00", "categoryCode": "S", "rate": "19" }
+  ],
+  "totals": {
+    "sumOfLineNetAmounts": "100.00",
+    "totalAmountWithoutVat": "100.00",
+    "totalVatAmount": "19.00",
+    "totalAmountWithVat": "119.00",
+    "amountDueForPayment": "119.00"
+  }
+}

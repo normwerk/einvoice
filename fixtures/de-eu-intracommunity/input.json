@@ -1,0 +1,49 @@
+{
+  "number": "RE-2026-0003",
+  "issueDate": "2026-09-13",
+  "typeCode": "380",
+  "currencyCode": "EUR",
+  "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "vatIdentifier": "DE123456789",
+    "countryCode": "DE"
+  },
+  "buyer": {
+    "name": "Exemple Client SARL",
+    "vatIdentifier": "FR12345678901",
+    "countryCode": "FR"
+  },
+  "delivery": {
+    "actualDeliveryDate": "2026-09-10",
+    "deliverToCountryCode": "FR"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "10",
+      "unitCode": "C62",
+      "netAmount": "2000.00",
+      "netPrice": "200.00",
+      "itemName": "Machine parts, dispatched to France",
+      "vat": { "categoryCode": "K", "rate": "0" }
+    }
+  ],
+  "vatBreakdown": [
+    {
+      "taxableAmount": "2000.00",
+      "taxAmount": "0.00",
+      "categoryCode": "K",
+      "rate": "0",
+      "exemptionReasonCode": "VATEX-EU-IC",
+      "exemptionReasonText": "Innergemeinschaftliche Lieferung (§4 Nr. 1b, §6a UStG) / Intra-Community supply"
+    }
+  ],
+  "totals": {
+    "sumOfLineNetAmounts": "2000.00",
+    "totalAmountWithoutVat": "2000.00",
+    "totalVatAmount": "0.00",
+    "totalAmountWithVat": "2000.00",
+    "amountDueForPayment": "2000.00"
+  }
+}

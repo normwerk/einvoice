@@ -1,0 +1,44 @@
+{
+  "number": "RE-2026-0002",
+  "issueDate": "2026-09-13",
+  "typeCode": "380",
+  "currencyCode": "EUR",
+  "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "vatIdentifier": "DE123456789",
+    "countryCode": "DE"
+  },
+  "buyer": {
+    "name": "Bau-Subunternehmer GmbH",
+    "countryCode": "DE"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "5000.00",
+      "netPrice": "5000.00",
+      "itemName": "Subcontracted construction work (§13b UStG)",
+      "vat": { "categoryCode": "AE", "rate": "0" }
+    }
+  ],
+  "vatBreakdown": [
+    {
+      "taxableAmount": "5000.00",
+      "taxAmount": "0.00",
+      "categoryCode": "AE",
+      "rate": "0",
+      "exemptionReasonCode": "VATEX-EU-AE",
+      "exemptionReasonText": "Steuerschuldnerschaft des Leistungsempfängers (§13b UStG) / Reverse charge"
+    }
+  ],
+  "totals": {
+    "sumOfLineNetAmounts": "5000.00",
+    "totalAmountWithoutVat": "5000.00",
+    "totalVatAmount": "0.00",
+    "totalAmountWithVat": "5000.00",
+    "amountDueForPayment": "5000.00"
+  }
+}

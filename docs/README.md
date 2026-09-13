@@ -42,6 +42,12 @@ This is the spike C (T-044) slice: one file in, one machine-readable JSON report
 all conformance levels (`AGENTS.md` §8), all fixtures, differential oracles — is `einvoice-conformance`'s
 later scope (T-040).
 
+## Fixtures
+
+[`fixtures/`](../fixtures/README.md) holds the base scenario fixtures (T-050): 6 DE VAT scenarios, each an
+`Invoice` (model form) plus a `scenario.md` explaining the applicable BR-\* rules and norm source.
+Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
+
 ## Structure
 
 - [`docs/sources.md`](sources.md) — official artifacts used for code generation: URL, version, hash, licence, vendoring decision (populated by spike A, T-013).
