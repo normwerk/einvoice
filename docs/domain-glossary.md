@@ -30,3 +30,13 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   (grep the vendored artifact, or read the raw fetched text yourself), never as the citation itself —
   `tools/codegen/model/generate.mjs`'s artifact cross-check exists specifically to catch this class of
   error before it reaches generated code.
+- **`currencyID` may only be set on `ram:TaxTotalAmount`, never on any other `ram:*Amount` element**, under
+  the XRechnung CII profile (`CII-DT-031`, in `XRechnung-CII-validation.xsl`, KoSIT/Apache-2.0) — base
+  UN/CEFACT CII allows it everywhere, so this is an XRechnung-specific tightening, not obvious from the CII
+  XSD alone. Found by running our own serializer output through the real KoSIT validator (T-020).
+- **CII caps "Preceding Invoice reference" (BG-3) at one occurrence**, even though the EN 16931 semantic
+  model phrases the rule as "**Each** Preceding Invoice reference (BG-3) shall contain..." implying it can
+  repeat. `HeaderTradeSettlementType`'s `InvoiceReferencedDocument` element has no
+  `maxOccurs="unbounded"` in the CII D16B XSD — a genuine binding limitation of the CII syntax, not
+  something the UBL binding necessarily shares. A credit note referencing multiple prior invoices needs a
+  different mechanism (out of scope for v0.1's single-reference credit-note scenario).

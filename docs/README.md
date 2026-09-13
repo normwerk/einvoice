@@ -52,7 +52,9 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
 
 - [`docs/sources.md`](sources.md) — official artifacts used for code generation: URL, version, hash, licence, vendoring decision (populated by spike A, T-013).
 - [`docs/domain-glossary.md`](domain-glossary.md) — EN 16931 domain conventions and pitfalls (AGENTS.md §2).
-- `docs/mapping-reference.md` — platform field → BT mapping (mandatory before v0.1, generated from the serialization plan, plan-v0.1 §5).
+- [`docs/mapping-reference.md`](mapping-reference.md) — model → CII XPath mapping, generated from
+  `packages/einvoice-cii/src/generated/plan.ts` (T-020). Platform field → BT mapping (the adapter side)
+  comes later with `einvoice-medusa` (T-070+).
 - [`docs/tax-semantics.md`](tax-semantics.md) — what the validators do not catch (draft, not reviewed by a
   tax advisor — M-006; plan-v0.1 §3.5 / §9).
 - `docs/test-cases.md` — test catalog by suite.

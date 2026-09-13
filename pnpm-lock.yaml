@@ -39,7 +39,11 @@ importers:
         specifier: ^2.1.5
         version: 2.1.9(@types/node@22.20.2)
 
-  packages/einvoice-cii: {}
+  packages/einvoice-cii:
+    dependencies:
+      '@normwerk/einvoice-model':
+        specifier: workspace:*
+        version: link:../einvoice-model
 
   packages/einvoice-commerce: {}
 

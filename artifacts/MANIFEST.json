@@ -27,6 +27,43 @@
       ]
     },
     {
+      "id": "cii-d16b-xsd-reusable-aggregate",
+      "url": "https://raw.githubusercontent.com/ConnectingEurope/eInvoicing-EN16931/validation-1.3.16/cii/schema/D16B%20SCRDM%20(Subset)/coupled%20clm/CII/uncefact/data/standard/CrossIndustryInvoice_ReusableAggregateBusinessInformationEntity_100pD16B.xsd",
+      "version": "D16B SCRDM (Subset), coupled CLM — ConnectingEurope tag validation-1.3.16",
+      "sha256": "1f4b5926bae1ca87fe3845ca67e7257a1a35993ce8c775b87ae906a799b5e98f",
+      "licence": "EUPL-1.2",
+      "vendored": true,
+      "vendored_path": "artifacts/cii-d16b/schema/CrossIndustryInvoice_ReusableAggregateBusinessInformationEntity_100pD16B.xsd",
+      "fetched_at": "2026-09-13",
+      "used_for": [
+        "complex type definitions (TradePartyType, TradeTaxType, HeaderTradeSettlementType, etc.) — element sequence order for the CII serialization plan, T-020"
+      ]
+    },
+    {
+      "id": "cii-d16b-xsd-qualified-datatype",
+      "url": "https://raw.githubusercontent.com/ConnectingEurope/eInvoicing-EN16931/validation-1.3.16/cii/schema/D16B%20SCRDM%20(Subset)/coupled%20clm/CII/uncefact/data/standard/CrossIndustryInvoice_QualifiedDataType_100pD16B.xsd",
+      "version": "D16B SCRDM (Subset), coupled CLM — ConnectingEurope tag validation-1.3.16",
+      "sha256": "dd9e18d58cd1179583402b7dc65078fea29e30a03b70197d7844efa8a23db1c7",
+      "licence": "EUPL-1.2",
+      "vendored": true,
+      "vendored_path": "artifacts/cii-d16b/schema/CrossIndustryInvoice_QualifiedDataType_100pD16B.xsd",
+      "fetched_at": "2026-09-13",
+      "used_for": ["qualified leaf types (FormattedDateTimeType, TaxCategoryCodeType, etc.), T-020"]
+    },
+    {
+      "id": "cii-d16b-xsd-unqualified-datatype",
+      "url": "https://raw.githubusercontent.com/ConnectingEurope/eInvoicing-EN16931/validation-1.3.16/cii/schema/D16B%20SCRDM%20(Subset)/coupled%20clm/CII/uncefact/data/standard/CrossIndustryInvoice_UnqualifiedDataType_100pD16B.xsd",
+      "version": "D16B SCRDM (Subset), coupled CLM — ConnectingEurope tag validation-1.3.16",
+      "sha256": "4d96bd3fecef80afa8b6f0d369a833b7bd12d91123cd62b4f17a23ae8b79228a",
+      "licence": "EUPL-1.2",
+      "vendored": true,
+      "vendored_path": "artifacts/cii-d16b/schema/CrossIndustryInvoice_UnqualifiedDataType_100pD16B.xsd",
+      "fetched_at": "2026-09-13",
+      "used_for": [
+        "leaf types (AmountType/@currencyID, IDType/@schemeID, DateTimeType, QuantityType/@unitCode, IndicatorType) — confirms exact attribute names used by the serializer, T-020"
+      ]
+    },
+    {
       "id": "cii-d16b-en16931-codes-schematron",
       "url": "https://raw.githubusercontent.com/ConnectingEurope/eInvoicing-EN16931/validation-1.3.16/cii/schematron/codelist/EN16931-CII-codes.sch",
       "version": "ConnectingEurope tag validation-1.3.16",

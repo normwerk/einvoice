@@ -49,9 +49,15 @@ v0.1 scope.
 See [`artifacts/MANIFEST.json`](../artifacts/MANIFEST.json) for the authoritative, machine-readable list.
 Currently vendored (copied into `artifacts/` with a matching `sha256`):
 
-- `artifacts/cii-d16b/schema/CrossIndustryInvoice_100pD16B.xsd` — CII D16B XSD (EUPL-1.2)
+- `artifacts/cii-d16b/schema/CrossIndustryInvoice_100pD16B.xsd` — CII D16B root XSD (EUPL-1.2)
+- `artifacts/cii-d16b/schema/CrossIndustryInvoice_ReusableAggregateBusinessInformationEntity_100pD16B.xsd`,
+  `..._QualifiedDataType_100pD16B.xsd`, `..._UnqualifiedDataType_100pD16B.xsd` — the complex/leaf type
+  definitions the root XSD imports (EUPL-1.2), needed to get element sequence order and attribute names
+  right for the CII serialization plan (T-020)
 - `artifacts/cii-d16b/schematron/EN16931-CII-validation-preprocessed.sch` — composed EN 16931 CII business
   rules (EUPL-1.2)
+- `artifacts/cii-d16b/schematron/EN16931-CII-codes.sch` — EN 16931 codelist restrictions (VAT category,
+  VATEX, ISO 4217/3166, UNTDID 1001/4461, ISO 6523 ICD, …), EUPL-1.2
 
 The XRechnung validator configuration and Schematron bundles (Apache-2.0) are recorded but not vendored —
 they are consumed by the Docker-based conformance tooling (spike C, T-044 / T-040), not by the codegen
