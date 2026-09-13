@@ -15,10 +15,14 @@ const domesticStandardRateInvoice: Invoice = {
     name: "Musterfirma GmbH",
     vatIdentifier: "DE123456789",
     countryCode: "DE",
+    city: "Berlin",
+    postCode: "10115",
   },
   buyer: {
     name: "Beispielkunde GmbH",
     countryCode: "DE",
+    city: "Hamburg",
+    postCode: "20095",
   },
   lines: [
     {

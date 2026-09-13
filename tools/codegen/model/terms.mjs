@@ -33,6 +33,16 @@
  *    (Peppol, KoSIT, ConnectingEurope) — not independently phrased as
  *    "the X (BG-N)" in our vendored rule text, so not cross-checked, but
  *    not something we invented either.
+ *  - "kosit-xrechnung": name is asserted, quoted verbatim in `source`, in
+ *    the KoSIT `validator-configuration-xrechnung` bundle (Apache-2.0,
+ *    `artifacts/MANIFEST.json` id `xrechnung-validator-configuration`) —
+ *    not the ConnectingEurope Schematron `extract-term-names.mjs` checks
+ *    against, so not run through that automatic cross-check, but still a
+ *    direct quote from a real, licensed artifact, not memory. These are
+ *    fields the DE XRechnung profile (or KoSIT's bundled Peppol-derived
+ *    EN 16931 rules) requires beyond the base ConnectingEurope ruleset —
+ *    found by running our own serializer output through the real KoSIT
+ *    Docker validator (T-021) and reading the rejection.
  */
 
 /**
@@ -1145,5 +1155,184 @@ export const terms = [
     group: "ItemAttribute",
     verified: "extraction",
     source: "text near BT-161",
+  },
+
+  // --- XRechnung-profile-required fields (T-021), found by running our
+  // serializer output through the real KoSIT validator. Each `source`
+  // quotes the exact validator message or the exact XPath asserted in
+  // XRechnung-CII-validation.xsl (KoSIT, Apache-2.0). ---
+  {
+    id: "BT-23",
+    name: "Business process type",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "Invoice",
+    verified: "kosit-xrechnung",
+    source:
+      "PEPPOL-EN16931-R001: 'Business process MUST be provided.' — test=\"not(ram:BusinessProcessSpecifiedDocumentContextParameter/ram:ID)\", context rsm:ExchangedDocumentContext",
+  },
+  {
+    id: "BT-34",
+    name: "Seller electronic address",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "SellerParty",
+    verified: "kosit-xrechnung",
+    source:
+      "PEPPOL-EN16931-R020: 'Seller electronic address MUST be provided' — test=\"not(ram:URIUniversalCommunication/ram:URIID)\", context ram:SellerTradeParty",
+  },
+  {
+    id: "BT-34-1",
+    name: "Seller electronic address scheme identifier",
+    kind: "BT",
+    tsType: "EasCode",
+    required: false,
+    repeats: false,
+    group: "SellerParty",
+    verified: "kosit-xrechnung",
+    source:
+      "BR-CL-25 (ConnectingEurope EUPL-1.2 codes.sch): 'Endpoint identifier scheme identifier MUST belong to the CEF EAS code list' — this is BT-34's @schemeID attribute, not a separately numbered BT; the '-1' suffix is our own convention for a scheme qualifier, not an official EN 16931 id",
+  },
+  {
+    id: "BT-49",
+    name: "Buyer electronic address",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "BuyerParty",
+    verified: "kosit-xrechnung",
+    source:
+      "PEPPOL-EN16931-R010: 'Buyer electronic address MUST be provided' — test=\"not(ram:URIUniversalCommunication/ram:URIID)\", context ram:BuyerTradeParty",
+  },
+  {
+    id: "BT-49-1",
+    name: "Buyer electronic address scheme identifier",
+    kind: "BT",
+    tsType: "EasCode",
+    required: false,
+    repeats: false,
+    group: "BuyerParty",
+    verified: "kosit-xrechnung",
+    source: "Same BR-CL-25 basis as BT-34-1, applied to the buyer's endpoint identifier",
+  },
+  {
+    id: "BG-6",
+    name: "Seller contact",
+    kind: "BG",
+    tsType: "SellerContact",
+    required: false,
+    repeats: false,
+    group: "SellerParty",
+    verified: "kosit-xrechnung",
+    source: "BR-DE-2: 'Die Gruppe \"SELLER CONTACT\" (BG-6) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-41",
+    name: "Seller contact point",
+    kind: "BT",
+    tsType: "string",
+    required: true,
+    repeats: false,
+    group: "SellerContact",
+    verified: "kosit-xrechnung",
+    source:
+      "CII-SR-465 mentions 'BT-41 element' for SellerTradeParty/DefinedTradeContact/PersonName|DepartmentName; BR-DE-2 requires the DefinedTradeContact group to exist",
+  },
+  {
+    id: "BT-37",
+    name: "Seller city",
+    kind: "BT",
+    tsType: "string",
+    required: true,
+    repeats: false,
+    group: "SellerParty",
+    verified: "kosit-xrechnung",
+    source: "BR-DE-3: 'Das Element \"Seller city\" (BT-37) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-38",
+    name: "Seller post code",
+    kind: "BT",
+    tsType: "string",
+    required: true,
+    repeats: false,
+    group: "SellerParty",
+    verified: "kosit-xrechnung",
+    source: "BR-DE-4: 'Das Element \"Seller post code\" (BT-38) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-52",
+    name: "Buyer city",
+    kind: "BT",
+    tsType: "string",
+    required: true,
+    repeats: false,
+    group: "BuyerParty",
+    verified: "kosit-xrechnung",
+    source: "BR-DE-8: 'Das Element \"Buyer city\" (BT-52) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-53",
+    name: "Buyer post code",
+    kind: "BT",
+    tsType: "string",
+    required: true,
+    repeats: false,
+    group: "BuyerParty",
+    verified: "kosit-xrechnung",
+    source: "BR-DE-9: 'Das Element \"Buyer post code\" (BT-53) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-42",
+    name: "Seller contact telephone number",
+    kind: "BT",
+    tsType: "string",
+    required: true,
+    repeats: false,
+    group: "SellerContact",
+    verified: "kosit-xrechnung",
+    source:
+      "BR-DE-6: 'Das Element \"Seller contact telephone number\" (BT-42) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-43",
+    name: "Seller contact email address",
+    kind: "BT",
+    tsType: "string",
+    required: true,
+    repeats: false,
+    group: "SellerContact",
+    verified: "kosit-xrechnung",
+    source:
+      "BR-DE-7: 'Das Element \"Seller contact email address\" (BT-43) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-77",
+    name: "Deliver to city",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "Delivery",
+    verified: "kosit-xrechnung",
+    source:
+      'BR-DE-10: \'Das Element "Deliver to city" (BT-77) muss übermittelt werden, wenn die Gruppe "DELIVER TO ADDRESS" (BG-15) übermittelt wird.\'',
+  },
+  {
+    id: "BT-78",
+    name: "Deliver to post code",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "Delivery",
+    verified: "kosit-xrechnung",
+    source:
+      'BR-DE-11: \'Das Element "Deliver to post code" (BT-78) muss übermittelt werden, wenn die Gruppe "DELIVER TO ADDRESS" (BG-15) übermittelt wird.\'',
   },
 ];

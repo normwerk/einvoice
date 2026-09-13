@@ -4,14 +4,29 @@
   "typeCode": "380",
   "currencyCode": "EUR",
   "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "businessProcessType": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
+  "buyerReference": "Buchhaltung-2026-09",
   "seller": {
     "name": "Musterpraxis GmbH",
     "vatIdentifier": "DE123456789",
-    "countryCode": "DE"
+    "countryCode": "DE",
+    "city": "Berlin",
+    "postCode": "10115",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
   },
   "buyer": {
     "name": "Beispielpatient",
-    "countryCode": "DE"
+    "countryCode": "DE",
+    "city": "Hamburg",
+    "postCode": "20095",
+    "electronicAddress": "ap@de-exempt.example",
+    "electronicAddressScheme": "EM"
   },
   "lines": [
     {
@@ -21,7 +36,10 @@
       "netAmount": "250.00",
       "netPrice": "250.00",
       "itemName": "Medical treatment (§4 Nr. 14 UStG)",
-      "vat": { "categoryCode": "E", "rate": "0" }
+      "vat": {
+        "categoryCode": "E",
+        "rate": "0"
+      }
     }
   ],
   "vatBreakdown": [
@@ -33,6 +51,10 @@
       "exemptionReasonText": "Steuerfreie Heilbehandlung gemäß §4 Nr. 14 UStG"
     }
   ],
+  "paymentInstructions": {
+    "meansTypeCode": "58",
+    "accountIdentifier": "DE89370400440532013000"
+  },
   "totals": {
     "sumOfLineNetAmounts": "250.00",
     "totalAmountWithoutVat": "250.00",

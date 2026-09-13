@@ -85,7 +85,7 @@ describe("serializeCii", () => {
     const invoice = loadFixture("de-eu-intracommunity");
     const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
     expect(xml).toContain(
-      "<ram:ShipToTradeParty><ram:PostalTradeAddress><ram:CountryID>FR</ram:CountryID>",
+      "<ram:ShipToTradeParty><ram:PostalTradeAddress><ram:PostcodeCode>75001</ram:PostcodeCode><ram:CityName>Paris</ram:CityName><ram:CountryID>FR</ram:CountryID>",
     );
     expect(xml).toContain(
       '<ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime><udt:DateTimeString format="102">20260910</udt:DateTimeString>',
@@ -102,11 +102,36 @@ describe("serializeCii", () => {
   });
 
   it("never emits an empty element for a missing optional field", () => {
-    const invoice = loadFixture("de-b2b-standard"); // has no buyerReference, no payment, no delivery
+    const invoice = loadFixture("de-b2b-standard"); // has no delivery, no legal registration ids
     const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
-    expect(xml).not.toContain("<ram:BuyerReference>");
+    expect(xml).not.toContain("<ram:SpecifiedLegalOrganization>"); // seller/buyer legalRegistrationIdentifier unset
+    expect(xml).not.toContain('<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">'); // taxRegistrationIdentifier unset
     // ApplicableHeaderTradeDelivery is still mandatory as a container (XSD),
     // but self-closes since this fixture has no delivery data.
     expect(xml).toContain("<ram:ApplicableHeaderTradeDelivery/>");
+  });
+
+  it("de-b2b-standard: business process, contact, and electronic address (XRechnung-profile fields, T-021)", () => {
+    const invoice = loadFixture("de-b2b-standard");
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    expect(xml).toContain(
+      "<ram:BusinessProcessSpecifiedDocumentContextParameter><ram:ID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</ram:ID></ram:BusinessProcessSpecifiedDocumentContextParameter>",
+    );
+    expect(xml).toContain("<ram:BuyerReference>Buchhaltung-2026-09</ram:BuyerReference>");
+    expect(xml).toContain(
+      "<ram:DefinedTradeContact><ram:PersonName>Rechnungsstelle</ram:PersonName>",
+    );
+    expect(xml).toContain(
+      "<ram:TelephoneUniversalCommunication><ram:CompleteNumber>+493012345678</ram:CompleteNumber></ram:TelephoneUniversalCommunication>",
+    );
+    expect(xml).toContain(
+      "<ram:EmailURIUniversalCommunication><ram:URIID>rechnung@musterfirma.example</ram:URIID></ram:EmailURIUniversalCommunication>",
+    );
+    expect(xml).toContain(
+      '<ram:URIUniversalCommunication><ram:URIID schemeID="EM">rechnung@musterfirma.example</ram:URIID></ram:URIUniversalCommunication>',
+    );
+    expect(xml).toContain(
+      "<ram:PostalTradeAddress><ram:PostcodeCode>10115</ram:PostcodeCode><ram:CityName>Berlin</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>",
+    );
   });
 });

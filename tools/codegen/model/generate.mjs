@@ -169,6 +169,21 @@ const FIELD_NAME_OVERRIDES = {
   "BG-32": "itemAttributes",
   "BT-160": "name",
   "BT-161": "value",
+  "BT-23": "businessProcessType",
+  "BT-34": "electronicAddress",
+  "BT-34-1": "electronicAddressScheme",
+  "BT-49": "electronicAddress",
+  "BT-49-1": "electronicAddressScheme",
+  "BG-6": "contact",
+  "BT-41": "name",
+  "BT-42": "telephone",
+  "BT-43": "email",
+  "BT-37": "city",
+  "BT-38": "postCode",
+  "BT-52": "city",
+  "BT-53": "postCode",
+  "BT-77": "deliverToCity",
+  "BT-78": "deliverToPostCode",
 };
 
 function generateInterfaces() {
@@ -195,7 +210,7 @@ function generateInterfaces() {
 
   let out = HEADER;
   out += `import type { Amount, IsoDate } from "./primitives";\n`;
-  out += `import type {\n  CountryCode,\n  CurrencyCode,\n  InvoiceTypeCode,\n  PaymentMeansCode,\n  UnitCode,\n  VatCategoryCode,\n  VatexCode,\n} from "./codelists";\n\n`;
+  out += `import type {\n  CountryCode,\n  CurrencyCode,\n  EasCode,\n  InvoiceTypeCode,\n  PaymentMeansCode,\n  UnitCode,\n  VatCategoryCode,\n  VatexCode,\n} from "./codelists";\n\n`;
 
   // Emit Invoice root first, then the rest alphabetically for stable diffs.
   out += `/** EN 16931 invoice or credit note, in model form. Amounts are decimal strings (ADR-004) — never a JS number. */\n`;
@@ -242,6 +257,11 @@ function generateCodelists() {
     "PaymentMeansCode",
     lists.get("BR-CL-16").codes,
     "UNTDID 4461 payment means code (BT-81).",
+  );
+  out += tsUnion(
+    "EasCode",
+    lists.get("BR-CL-25").codes,
+    "CEF Electronic Address Scheme (EAS) code (BT-34-1/BT-49-1's @schemeID).",
   );
   out += `/**\n * UN/ECE Recommendation 20 (+ Rec 21 extension) unit of measure code (BT-130).\n`;
   out += ` * Kept as \`string\`, not a literal union — the codelist has ${lists.get("BR-CL-23").codes.length} entries,\n`;

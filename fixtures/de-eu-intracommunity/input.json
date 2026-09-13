@@ -4,19 +4,36 @@
   "typeCode": "380",
   "currencyCode": "EUR",
   "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "businessProcessType": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
+  "buyerReference": "Buchhaltung-2026-09",
   "seller": {
     "name": "Musterfirma GmbH",
     "vatIdentifier": "DE123456789",
-    "countryCode": "DE"
+    "countryCode": "DE",
+    "city": "Berlin",
+    "postCode": "10115",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
   },
   "buyer": {
     "name": "Exemple Client SARL",
     "vatIdentifier": "FR12345678901",
-    "countryCode": "FR"
+    "countryCode": "FR",
+    "city": "Paris",
+    "postCode": "75008",
+    "electronicAddress": "ap@de-eu-intracommunity.example",
+    "electronicAddressScheme": "EM"
   },
   "delivery": {
     "actualDeliveryDate": "2026-09-10",
-    "deliverToCountryCode": "FR"
+    "deliverToCountryCode": "FR",
+    "deliverToCity": "Paris",
+    "deliverToPostCode": "75001"
   },
   "lines": [
     {
@@ -26,7 +43,10 @@
       "netAmount": "2000.00",
       "netPrice": "200.00",
       "itemName": "Machine parts, dispatched to France",
-      "vat": { "categoryCode": "K", "rate": "0" }
+      "vat": {
+        "categoryCode": "K",
+        "rate": "0"
+      }
     }
   ],
   "vatBreakdown": [
@@ -39,6 +59,10 @@
       "exemptionReasonText": "Innergemeinschaftliche Lieferung (§4 Nr. 1b, §6a UStG) / Intra-Community supply"
     }
   ],
+  "paymentInstructions": {
+    "meansTypeCode": "58",
+    "accountIdentifier": "DE89370400440532013000"
+  },
   "totals": {
     "sumOfLineNetAmounts": "2000.00",
     "totalAmountWithoutVat": "2000.00",

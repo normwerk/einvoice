@@ -40,3 +40,15 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   `maxOccurs="unbounded"` in the CII D16B XSD — a genuine binding limitation of the CII syntax, not
   something the UBL binding necessarily shares. A credit note referencing multiple prior invoices needs a
   different mechanism (out of scope for v0.1's single-reference credit-note scenario).
+- **The XRechnung CII profile requires far more than the base EN 16931 rule set** (T-021): a seller contact
+  with name, phone, and email (BG-6/BT-41/42/43); seller **and** buyer city/postcode, not just country
+  (BT-37/38/52/53); payment instructions (BG-16) on every invoice, not just ones with a bank transfer;
+  seller and buyer electronic addresses with an EAS scheme (BT-34/49, `@schemeID` from the CEF EAS code
+  list, `BR-CL-25`); and a business process type (BT-23) — this last one and the electronic-address checks
+  (`PEPPOL-EN16931-R001/R010/R020`) come from rules KoSIT bundles into the "EN16931 (CII)" Schematron step
+  itself, not the XRechnung-specific layer, so they fire even outside the DE profile once validated through
+  KoSIT's tooling. None of this is discoverable from the base ConnectingEurope EUPL-1.2 Schematron alone —
+  found by serializing real fixtures and reading the KoSIT rejection.
+- **`BR-AE-02` (reverse charge) needs identification on _both_ parties**, not just the seller: the seller's
+  VAT-ID or tax registration **and** the buyer's VAT-ID or legal registration identifier. Easy to miss
+  because `BR-S-02`-style rules for other categories only ever check the seller.

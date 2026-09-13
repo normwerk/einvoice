@@ -13,6 +13,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "conformance": "node packages/einvoice-conformance/dist/cli.js",
+    "conformance:fixtures": "node tools/conformance/serialize-and-validate-fixtures.mjs",
     "codegen:model": "node tools/codegen/model/generate.mjs",
     "codegen:cii-mapping": "pnpm --filter @normwerk/einvoice-cii build && node tools/codegen/cii/generate-mapping-reference.mjs",
     "codegen": "pnpm codegen:model && pnpm codegen:cii-mapping",

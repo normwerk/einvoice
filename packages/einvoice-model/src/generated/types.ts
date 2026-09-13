@@ -12,6 +12,7 @@ import type { Amount, IsoDate } from "./primitives";
 import type {
   CountryCode,
   CurrencyCode,
+  EasCode,
   InvoiceTypeCode,
   PaymentMeansCode,
   UnitCode,
@@ -65,6 +66,8 @@ export interface Invoice {
   readonly additionalSupportingDocuments?: readonly AdditionalSupportingDocument[];
   /** BG-25 Invoice line */
   readonly lines: readonly InvoiceLine[];
+  /** BT-23 Business process type (name not independently quoted in our extraction — see terms.mjs) */
+  readonly businessProcessType?: string;
 }
 
 /** BG-24 Additional supporting document */
@@ -83,6 +86,14 @@ export interface BuyerParty {
   readonly vatIdentifier?: string;
   /** BT-55 Buyer country code */
   readonly countryCode: CountryCode;
+  /** BT-49 Buyer electronic address (name not independently quoted in our extraction — see terms.mjs) */
+  readonly electronicAddress?: string;
+  /** BT-49-1 Buyer electronic address scheme identifier (name not independently quoted in our extraction — see terms.mjs) */
+  readonly electronicAddressScheme?: EasCode;
+  /** BT-52 Buyer city (name not independently quoted in our extraction — see terms.mjs) */
+  readonly city: string;
+  /** BT-53 Buyer post code (name not independently quoted in our extraction — see terms.mjs) */
+  readonly postCode: string;
 }
 
 /** BG-13 Delivery information */
@@ -91,6 +102,10 @@ export interface Delivery {
   readonly actualDeliveryDate?: IsoDate;
   /** BT-80 Deliver to country code */
   readonly deliverToCountryCode?: CountryCode;
+  /** BT-77 Deliver to city (name not independently quoted in our extraction — see terms.mjs) */
+  readonly deliverToCity?: string;
+  /** BT-78 Deliver to post code (name not independently quoted in our extraction — see terms.mjs) */
+  readonly deliverToPostCode?: string;
 }
 
 /** BG-20 Document level allowance */
@@ -247,6 +262,16 @@ export interface PrecedingInvoiceReference {
   readonly issueDate?: IsoDate;
 }
 
+/** BG-6 Seller contact */
+export interface SellerContact {
+  /** BT-41 Seller contact point (name not independently quoted in our extraction — see terms.mjs) */
+  readonly name: string;
+  /** BT-42 Seller contact telephone number (name not independently quoted in our extraction — see terms.mjs) */
+  readonly telephone: string;
+  /** BT-43 Seller contact email address (name not independently quoted in our extraction — see terms.mjs) */
+  readonly email: string;
+}
+
 /** BG-4 Seller */
 export interface SellerParty {
   /** BT-27 Seller name */
@@ -261,6 +286,16 @@ export interface SellerParty {
   readonly taxRegistrationIdentifier?: string;
   /** BT-40 Seller country code */
   readonly countryCode: CountryCode;
+  /** BT-34 Seller electronic address (name not independently quoted in our extraction — see terms.mjs) */
+  readonly electronicAddress?: string;
+  /** BT-34-1 Seller electronic address scheme identifier (name not independently quoted in our extraction — see terms.mjs) */
+  readonly electronicAddressScheme?: EasCode;
+  /** BG-6 Seller contact (name not independently quoted in our extraction — see terms.mjs) */
+  readonly contact?: SellerContact;
+  /** BT-37 Seller city (name not independently quoted in our extraction — see terms.mjs) */
+  readonly city: string;
+  /** BT-38 Seller post code (name not independently quoted in our extraction — see terms.mjs) */
+  readonly postCode: string;
 }
 
 /** BG-11 Seller tax representative party */

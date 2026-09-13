@@ -24,10 +24,12 @@
  * explicitly rather than silently worked around.
  *
  * COVERAGE: exactly the `Invoice` fields the 6 base fixtures
- * (fixtures/, T-050) use. Payment means/account (BG-16), item attributes
- * (BG-32), and additional supporting documents (BG-24) are modeled in
- * einvoice-model but not yet in this plan — none of the 6 fixtures need
- * them. Follow-up: T-020 continuation, extend as new fixtures need them.
+ * (fixtures/, T-050) use, now including the XRechnung-profile fields
+ * added in T-021 (business process, seller contact, seller/buyer
+ * electronic address, city/postcode). Item attributes (BG-32) and
+ * additional supporting documents (BG-24) are modeled in einvoice-model
+ * but not yet in this plan — none of the 6 fixtures need them. Follow-up:
+ * extend as new fixtures need them.
  */
 import type { PlanNode, QName } from "../plan-types.js";
 
@@ -147,9 +149,18 @@ export const invoicePlan: PlanNode = {
   name: rsm("CrossIndustryInvoice"),
   children: [
     {
+      // ExchangedDocumentContextType sequence: ..., BusinessProcess..., ...,
+      // GuidelineSpecifiedDocumentContextParameter, ... — Business process
+      // comes before Guideline.
       kind: "element",
       name: rsm("ExchangedDocumentContext"),
       children: [
+        {
+          kind: "element",
+          name: ram("BusinessProcessSpecifiedDocumentContextParameter"),
+          from: "businessProcessType",
+          children: [{ kind: "value", name: ram("ID"), from: "", bt: "BT-23" }],
+        },
         {
           kind: "element",
           name: ram("GuidelineSpecifiedDocumentContextParameter"),
@@ -205,14 +216,26 @@ export const invoicePlan: PlanNode = {
           name: ram("ApplicableHeaderTradeDelivery"),
           children: [
             {
+              // Gated on the whole `delivery` object (a simplification: BR-IC-12
+              // strictly only requires deliverToCountryCode, but every one of
+              // our 6 fixtures that sets delivery sets it alongside
+              // deliverToCountryCode, so gating one level up is equivalent
+              // here and lets the children below use plain relative paths).
               kind: "element",
               name: ram("ShipToTradeParty"),
-              from: "delivery.deliverToCountryCode",
+              from: "delivery",
               children: [
                 {
+                  // TradeAddressType sequence: ..., PostcodeCode, ...,
+                  // CityName, ..., CountryID, ... — Postcode and City
+                  // precede Country.
                   kind: "element",
                   name: ram("PostalTradeAddress"),
-                  children: [{ kind: "value", name: ram("CountryID"), from: "", bt: "BT-80" }],
+                  children: [
+                    { kind: "value", name: ram("PostcodeCode"), from: "deliverToPostCode", bt: "BT-78" },
+                    { kind: "value", name: ram("CityName"), from: "deliverToCity", bt: "BT-77" },
+                    { kind: "value", name: ram("CountryID"), from: "deliverToCountryCode", bt: "BT-80" },
+                  ],
                 },
               ],
             },
@@ -245,6 +268,13 @@ export const invoicePlan: PlanNode = {
   ],
 };
 
+/**
+ * TradePartyType sequence (shared by seller/buyer/tax-rep): ID, GlobalID,
+ * Name, RoleCode, Description, SpecifiedLegalOrganization,
+ * DefinedTradeContact, PostalTradeAddress, URIUniversalCommunication,
+ * SpecifiedTaxRegistration, ... — Contact comes before the address, and the
+ * electronic address comes after the address but before tax registrations.
+ */
 function sellerPartyNode(): PlanNode {
   return {
     kind: "element",
@@ -260,9 +290,56 @@ function sellerPartyNode(): PlanNode {
         children: [{ kind: "value", name: ram("ID"), from: "", bt: "BT-30" }],
       },
       {
+        // BG-6 Seller contact — BR-DE-2 requires the group to exist;
+        // TradeContactType sequence: PersonName, ..., TelephoneUniversalCommunication,
+        // ..., EmailURIUniversalCommunication, ... (BT-41/42/43, BR-DE-2/6/7).
+        kind: "element",
+        name: ram("DefinedTradeContact"),
+        from: "contact",
+        children: [
+          { kind: "value", name: ram("PersonName"), from: "name", bt: "BT-41" },
+          {
+            kind: "element",
+            name: ram("TelephoneUniversalCommunication"),
+            from: "telephone",
+            children: [{ kind: "value", name: ram("CompleteNumber"), from: "", bt: "BT-42" }],
+          },
+          {
+            kind: "element",
+            name: ram("EmailURIUniversalCommunication"),
+            from: "email",
+            children: [{ kind: "value", name: ram("URIID"), from: "", bt: "BT-43" }],
+          },
+        ],
+      },
+      {
         kind: "element",
         name: ram("PostalTradeAddress"),
-        children: [{ kind: "value", name: ram("CountryID"), from: "countryCode", bt: "BT-40" }],
+        children: [
+          { kind: "value", name: ram("PostcodeCode"), from: "postCode", bt: "BT-38" },
+          { kind: "value", name: ram("CityName"), from: "city", bt: "BT-37" },
+          { kind: "value", name: ram("CountryID"), from: "countryCode", bt: "BT-40" },
+        ],
+      },
+      {
+        // No `from` gate on the wrapper: the wrapper self-closes when
+        // `electronicAddress` is absent (same as any other optional
+        // container, e.g. ApplicableHeaderTradeDelivery). Keeping context
+        // at the party level (not descending into the address string
+        // first) is what lets `schemeID` read `electronicAddressScheme` as
+        // a sibling field, not a property of the address string itself —
+        // an earlier draft descended first and broke exactly this.
+        kind: "element",
+        name: ram("URIUniversalCommunication"),
+        children: [
+          {
+            kind: "value",
+            name: ram("URIID"),
+            from: "electronicAddress",
+            attributes: [{ name: "schemeID", from: "electronicAddressScheme" }],
+            bt: "BT-34",
+          },
+        ],
       },
       {
         kind: "element",
@@ -296,7 +373,24 @@ function buyerPartyNode(): PlanNode {
       {
         kind: "element",
         name: ram("PostalTradeAddress"),
-        children: [{ kind: "value", name: ram("CountryID"), from: "countryCode", bt: "BT-55" }],
+        children: [
+          { kind: "value", name: ram("PostcodeCode"), from: "postCode", bt: "BT-53" },
+          { kind: "value", name: ram("CityName"), from: "city", bt: "BT-52" },
+          { kind: "value", name: ram("CountryID"), from: "countryCode", bt: "BT-55" },
+        ],
+      },
+      {
+        kind: "element",
+        name: ram("URIUniversalCommunication"),
+        children: [
+          {
+            kind: "value",
+            name: ram("URIID"),
+            from: "electronicAddress",
+            attributes: [{ name: "schemeID", from: "electronicAddressScheme" }],
+            bt: "BT-49",
+          },
+        ],
       },
       {
         kind: "element",
@@ -341,6 +435,24 @@ function headerSettlementNode(): PlanNode {
     name: ram("ApplicableHeaderTradeSettlement"),
     children: [
       { kind: "value", name: ram("InvoiceCurrencyCode"), from: "currencyCode", bt: "BT-5" },
+      {
+        // BG-16 Payment instruction — BR-DE-1 requires the group to exist
+        // (element itself is optional per the base XSD, but the DE profile
+        // makes it mandatory in practice). TradeSettlementPaymentMeansType
+        // sequence: ..., TypeCode, ..., PayeePartyCreditorFinancialAccount.
+        kind: "element",
+        name: ram("SpecifiedTradeSettlementPaymentMeans"),
+        from: "paymentInstructions",
+        children: [
+          { kind: "value", name: ram("TypeCode"), from: "meansTypeCode", bt: "BT-81" },
+          {
+            kind: "element",
+            name: ram("PayeePartyCreditorFinancialAccount"),
+            from: "accountIdentifier",
+            children: [{ kind: "value", name: ram("IBANID"), from: "", bt: "BT-84" }],
+          },
+        ],
+      },
       {
         kind: "repeat",
         name: ram("ApplicableTradeTax"),
