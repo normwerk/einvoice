@@ -1,0 +1,510 @@
+/**
+ * GENERATED FILE — do not hand-edit (AGENTS.md §9).
+ *
+ * Generator: tools/codegen/model/generate.mjs
+ * Source artifacts (see artifacts/MANIFEST.json for hashes):
+ *   - artifacts/cii-d16b/schematron/EN16931-CII-validation-preprocessed.sch (EUPL-1.2)
+ *   - artifacts/cii-d16b/schematron/EN16931-CII-codes.sch (EUPL-1.2)
+ * To change: edit tools/codegen/model/terms.mjs or the artifact, then
+ * re-run `pnpm codegen:model` from the repo root.
+ */
+export const invoiceJsonSchema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "GENERATED — see packages/einvoice-model/src/generated/README.md",
+  "$id": "https://normwerk.dev/schema/einvoice-model/invoice.json",
+  "title": "EN 16931 Invoice (model form)",
+  "type": "object",
+  "properties": {
+    "number": {
+      "type": "string"
+    },
+    "issueDate": {
+      "type": "string",
+      "format": "date"
+    },
+    "typeCode": {
+      "type": "string",
+      "enum": [
+        "71",
+        "80",
+        "81",
+        "82",
+        "83",
+        "84",
+        "102",
+        "130",
+        "202",
+        "203",
+        "204",
+        "211",
+        "218",
+        "219",
+        "261",
+        "262",
+        "295",
+        "296",
+        "308",
+        "325",
+        "326",
+        "331",
+        "380",
+        "381",
+        "382",
+        "383",
+        "384",
+        "385",
+        "386",
+        "387",
+        "388",
+        "389",
+        "390",
+        "393",
+        "394",
+        "395",
+        "396",
+        "420",
+        "456",
+        "457",
+        "458",
+        "471",
+        "472",
+        "473",
+        "500",
+        "501",
+        "502",
+        "503",
+        "527",
+        "532",
+        "553",
+        "575",
+        "623",
+        "633",
+        "751",
+        "780",
+        "817",
+        "870",
+        "875",
+        "876",
+        "877",
+        "935"
+      ]
+    },
+    "currencyCode": {
+      "type": "string",
+      "enum": [
+        "AED",
+        "AFN",
+        "ALL",
+        "AMD",
+        "AOA",
+        "ARS",
+        "AUD",
+        "AWG",
+        "AZN",
+        "BAM",
+        "BBD",
+        "BDT",
+        "BHD",
+        "BIF",
+        "BMD",
+        "BND",
+        "BOB",
+        "BOV",
+        "BRL",
+        "BSD",
+        "BTN",
+        "BWP",
+        "BYN",
+        "BZD",
+        "CAD",
+        "CDF",
+        "CHE",
+        "CHF",
+        "CHW",
+        "CLF",
+        "CLP",
+        "CNH",
+        "CNY",
+        "COP",
+        "COU",
+        "CRC",
+        "CUP",
+        "CVE",
+        "CZK",
+        "DJF",
+        "DKK",
+        "DOP",
+        "DZD",
+        "EGP",
+        "ERN",
+        "ETB",
+        "EUR",
+        "FJD",
+        "FKP",
+        "GBP",
+        "GEL",
+        "GHS",
+        "GIP",
+        "GMD",
+        "GNF",
+        "GTQ",
+        "GYD",
+        "HKD",
+        "HNL",
+        "HTG",
+        "HUF",
+        "IDR",
+        "ILS",
+        "INR",
+        "IQD",
+        "IRR",
+        "ISK",
+        "JMD",
+        "JOD",
+        "JPY",
+        "KES",
+        "KGS",
+        "KHR",
+        "KMF",
+        "KPW",
+        "KRW",
+        "KWD",
+        "KYD",
+        "KZT",
+        "LAK",
+        "LBP",
+        "LKR",
+        "LRD",
+        "LSL",
+        "LYD",
+        "MAD",
+        "MDL",
+        "MGA",
+        "MKD",
+        "MMK",
+        "MNT",
+        "MOP",
+        "MRU",
+        "MUR",
+        "MVR",
+        "MWK",
+        "MXN",
+        "MXV",
+        "MYR",
+        "MZN",
+        "NAD",
+        "NGN",
+        "NIO",
+        "NOK",
+        "NPR",
+        "NZD",
+        "OMR",
+        "PAB",
+        "PEN",
+        "PGK",
+        "PHP",
+        "PKR",
+        "PLN",
+        "PYG",
+        "QAR",
+        "RON",
+        "RSD",
+        "RUB",
+        "RWF",
+        "SAR",
+        "SBD",
+        "SCR",
+        "SDG",
+        "SEK",
+        "SGD",
+        "SHP",
+        "SLE",
+        "SOS",
+        "SRD",
+        "SSP",
+        "STD",
+        "SVC",
+        "SYP",
+        "SZL",
+        "THB",
+        "TJS",
+        "TMT",
+        "TND",
+        "TOP",
+        "TRY",
+        "TTD",
+        "TWD",
+        "TZS",
+        "UAH",
+        "UGX",
+        "USD",
+        "USN",
+        "UYI",
+        "UYU",
+        "UYW",
+        "UZS",
+        "VES",
+        "VED",
+        "VND",
+        "VUV",
+        "WST",
+        "XAF",
+        "XAG",
+        "XAU",
+        "XBA",
+        "XBB",
+        "XBC",
+        "XBD",
+        "XCD",
+        "XCG",
+        "XDR",
+        "XOF",
+        "XPD",
+        "XPF",
+        "XPT",
+        "XSU",
+        "XTS",
+        "XUA",
+        "XXX",
+        "YER",
+        "ZAR",
+        "ZMW",
+        "ZWG"
+      ]
+    },
+    "specificationIdentifier": {
+      "type": "string"
+    },
+    "vatBreakdown": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "taxableAmount": {
+            "type": "string"
+          },
+          "taxAmount": {
+            "type": "string"
+          },
+          "categoryCode": {
+            "type": "string",
+            "enum": [
+              "AE",
+              "L",
+              "M",
+              "E",
+              "S",
+              "Z",
+              "G",
+              "O",
+              "K",
+              "B"
+            ]
+          },
+          "rate": {
+            "type": "string"
+          },
+          "exemptionReasonText": {
+            "type": "string"
+          },
+          "exemptionReasonCode": {
+            "type": "string",
+            "enum": [
+              "VATEX-EU-79-C",
+              "VATEX-EU-132",
+              "VATEX-EU-132-1A",
+              "VATEX-EU-132-1B",
+              "VATEX-EU-132-1C",
+              "VATEX-EU-132-1D",
+              "VATEX-EU-132-1E",
+              "VATEX-EU-132-1F",
+              "VATEX-EU-132-1G",
+              "VATEX-EU-132-1H",
+              "VATEX-EU-132-1I",
+              "VATEX-EU-132-1J",
+              "VATEX-EU-132-1K",
+              "VATEX-EU-132-1L",
+              "VATEX-EU-132-1M",
+              "VATEX-EU-132-1N",
+              "VATEX-EU-132-1O",
+              "VATEX-EU-132-1P",
+              "VATEX-EU-132-1Q",
+              "VATEX-EU-135-1",
+              "VATEX-EU-143",
+              "VATEX-EU-143-1A",
+              "VATEX-EU-143-1B",
+              "VATEX-EU-143-1C",
+              "VATEX-EU-143-1D",
+              "VATEX-EU-143-1E",
+              "VATEX-EU-143-1F",
+              "VATEX-EU-143-1FA",
+              "VATEX-EU-143-1G",
+              "VATEX-EU-143-1H",
+              "VATEX-EU-143-1I",
+              "VATEX-EU-143-1J",
+              "VATEX-EU-143-1K",
+              "VATEX-EU-143-1L",
+              "VATEX-EU-144",
+              "VATEX-EU-146-1E",
+              "VATEX-EU-159",
+              "VATEX-EU-309",
+              "VATEX-EU-148",
+              "VATEX-EU-148-A",
+              "VATEX-EU-148-B",
+              "VATEX-EU-148-C",
+              "VATEX-EU-148-D",
+              "VATEX-EU-148-E",
+              "VATEX-EU-148-F",
+              "VATEX-EU-148-G",
+              "VATEX-EU-151",
+              "VATEX-EU-151-1A",
+              "VATEX-EU-151-1AA",
+              "VATEX-EU-151-1B",
+              "VATEX-EU-151-1C",
+              "VATEX-EU-151-1D",
+              "VATEX-EU-151-1E",
+              "VATEX-EU-G",
+              "VATEX-EU-O",
+              "VATEX-EU-IC",
+              "VATEX-EU-AE",
+              "VATEX-EU-D",
+              "VATEX-EU-F",
+              "VATEX-EU-I",
+              "VATEX-EU-J",
+              "VATEX-FR-FRANCHISE",
+              "VATEX-FR-CNWVAT",
+              "VATEX-EU-153",
+              "VATEX-FR-CGI261-1",
+              "VATEX-FR-CGI261-2",
+              "VATEX-FR-CGI261-3",
+              "VATEX-FR-CGI261-4",
+              "VATEX-FR-CGI261-5",
+              "VATEX-FR-CGI261-7",
+              "VATEX-FR-CGI261-8",
+              "VATEX-FR-CGI261A",
+              "VATEX-FR-CGI261B",
+              "VATEX-FR-CGI261C-1",
+              "VATEX-FR-CGI261C-2",
+              "VATEX-FR-CGI261C-3",
+              "VATEX-FR-CGI261D-1",
+              "VATEX-FR-CGI261D-1BIS",
+              "VATEX-FR-CGI261D-2",
+              "VATEX-FR-CGI261D-3",
+              "VATEX-FR-CGI261D-4",
+              "VATEX-FR-CGI261E-1",
+              "VATEX-FR-CGI261E-2",
+              "VATEX-FR-CGI277A",
+              "VATEX-FR-CGI275",
+              "VATEX-FR-298SEXDECIESA",
+              "VATEX-FR-CGI295",
+              "VATEX-FR-AE"
+            ]
+          }
+        },
+        "required": [
+          "taxableAmount",
+          "taxAmount",
+          "categoryCode"
+        ]
+      }
+    },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "unitCode": {
+            "type": "string"
+          },
+          "netAmount": {
+            "type": "string"
+          },
+          "netPrice": {
+            "type": "string"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "vat": {
+            "type": "object",
+            "properties": {
+              "categoryCode": {
+                "type": "string",
+                "enum": [
+                  "AE",
+                  "L",
+                  "M",
+                  "E",
+                  "S",
+                  "Z",
+                  "G",
+                  "O",
+                  "K",
+                  "B"
+                ]
+              },
+              "rate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "categoryCode"
+            ]
+          }
+        },
+        "required": [
+          "identifier",
+          "quantity",
+          "unitCode",
+          "netAmount",
+          "netPrice",
+          "itemName",
+          "vat"
+        ]
+      }
+    },
+    "totals": {
+      "type": "object",
+      "properties": {
+        "sumOfLineNetAmounts": {
+          "type": "string"
+        },
+        "totalAmountWithoutVat": {
+          "type": "string"
+        },
+        "totalAmountWithVat": {
+          "type": "string"
+        },
+        "amountDueForPayment": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sumOfLineNetAmounts",
+        "totalAmountWithoutVat",
+        "totalAmountWithVat",
+        "amountDueForPayment"
+      ]
+    }
+  },
+  "required": [
+    "number",
+    "issueDate",
+    "typeCode",
+    "currencyCode",
+    "specificationIdentifier",
+    "vatBreakdown",
+    "lines",
+    "totals"
+  ],
+  "additionalProperties": true,
+  "$comment2": "additionalProperties: true deliberately — this schema covers the core scenario fields checked by scenario fixtures (docs/tax-semantics.md); it is not yet a full structural schema for every field in generated/types.ts (T-011 continuation)."
+} as const;

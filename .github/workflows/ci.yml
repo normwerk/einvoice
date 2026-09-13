@@ -25,6 +25,14 @@ jobs:
       - run: pnpm lint
       - run: pnpm build
       - run: pnpm test
+      - run: node --test tools/codegen/model/*.test.mjs
+
+      # T-011 / W4 acceptance: regenerating on a clean tree twice must give
+      # a zero diff (ADR-002 — determinism, not just "it ran").
+      - name: einvoice-model codegen is deterministic
+        run: |
+          pnpm codegen:model
+          git diff --exit-code -- packages/einvoice-model/src/generated
 
   # Spike C (T-044, plan-v0.1 §3.2): proves the Docker validator images
   # build and run the same way in CI as locally, with a machine-readable

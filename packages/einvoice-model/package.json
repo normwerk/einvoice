@@ -17,8 +17,13 @@
     "dist"
   ],
   "scripts": {
+    "codegen": "node ../../tools/codegen/model/generate.mjs",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
   }
 }

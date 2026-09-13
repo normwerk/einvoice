@@ -21,3 +21,12 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   parse the emitted report/JSON rather than trusting the exit code alone (a crash produces no report).
 - **veraPDF's JSON output nests `validationSummary` under `report.batchSummary`**, not at the top level of
   `report` — easy to miswire when parsing the CLI's `--format json` output.
+- **A summarized fetch of a BT reference page can simply be wrong, even when the page itself is real.**
+  While building `einvoice-model` (T-011), a summarized read of a Peppol postal-address page claimed
+  BT-40 = "Seller country subdivision" and BT-41 = "Seller country code" — both wrong. Our own vendored
+  Schematron directly asserts BR-09: "The Seller postal address (BG-5) shall contain a Seller country code
+  (BT-40)", and a raw (non-summarized) fetch of the same Peppol page confirmed BT-41 = "Seller contact
+  point". Treat a _summarized_ answer about a specific BT/BG number as a lead to verify via direct quote
+  (grep the vendored artifact, or read the raw fetched text yourself), never as the citation itself —
+  `tools/codegen/model/generate.mjs`'s artifact cross-check exists specifically to catch this class of
+  error before it reaches generated code.

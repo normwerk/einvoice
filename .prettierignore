@@ -1,3 +1,7 @@
 pnpm-lock.yaml
 AGENTS.md
 dist
+# Generated output (AGENTS.md §9) — determinism matters here, not prettier
+# style; reformatting it is the generator's job if it ever cares to, not
+# ours to enforce after the fact.
+packages/*/src/generated/**

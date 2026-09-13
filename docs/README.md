@@ -5,8 +5,27 @@ folder are in `AGENTS.md` §1 and §12.
 
 ## Status
 
-Sprint 0 (monorepo scaffold + spikes A/B/C done; no package has real logic yet). Spike findings that landed
-here: `docs/sources.md` (artifact licensing) and `docs/tax-semantics.md` (draft VAT scenario table).
+Sprint 0 (monorepo scaffold + spikes A/B/C done). Spike findings that landed here: `docs/sources.md`
+(artifact licensing) and `docs/tax-semantics.md` (draft VAT scenario table). `einvoice-model` (T-011) is the
+first package with real generated content — see below.
+
+## `einvoice-model`
+
+Generated EN 16931 types, code lists, and JSON Schema (`AGENTS.md` §6, ADR-002). Regenerate after editing
+`tools/codegen/model/terms.mjs` or updating a vendored artifact:
+
+```bash
+pnpm codegen:model
+```
+
+Coverage note: this first pass covers every BT/BG term that has its own explicit business rule in the base
+EN 16931 CII Schematron (96 terms) — enough to model all 10 scenarios in `docs/tax-semantics.md`, not yet
+the full ~155/35 BT/BG set (full postal addresses beyond the seller's country code are the main gap). See
+the coverage note at the top of `tools/codegen/model/terms.mjs` for specifics and why.
+
+Every generated field cites its BT/BG number and is cross-checked against the vendored artifact text before
+generation — `tools/codegen/model/generate.mjs` refuses to run if a curated term's name doesn't actually
+appear next to that number in the source.
 
 ## Conformance validators
 
