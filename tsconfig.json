@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "files": [],
+  "references": [
+    { "path": "packages/einvoice-model" },
+    { "path": "packages/einvoice-cii" },
+    { "path": "packages/einvoice-ubl" },
+    { "path": "packages/einvoice-pdfa" },
+    { "path": "packages/einvoice-commerce" },
+    { "path": "packages/einvoice-conformance" },
+    { "path": "packages/einvoice-medusa" }
+  ]
+}

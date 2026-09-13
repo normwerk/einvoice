@@ -32,5 +32,5 @@ later scope (T-040).
   tax advisor — M-006; plan-v0.1 §3.5 / §9).
 - `docs/test-cases.md` — test catalog by suite.
 - `docs/manual-testing.md` — scenarios that cannot be automated.
-- `docs/adr/` — architecture decision records (ADR-001…005, plan-v0.1 §3.3).
+- [`docs/adr/`](adr/README.md) — architecture decision records (ADR-001…005, plan-v0.1 §3.3).
 - `docs/features/<feature>.md` — per-feature docs, added as features ship.
