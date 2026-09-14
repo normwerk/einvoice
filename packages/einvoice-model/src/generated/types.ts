@@ -114,6 +114,8 @@ export interface DocumentLevelAllowance {
   readonly amount: Amount;
   /** BT-93 Document level allowance base amount */
   readonly baseAmount?: Amount;
+  /** BT-94 Document level allowance calculation percent (name not independently quoted in our extraction — see terms.mjs) */
+  readonly calculationPercent?: Amount;
   /** BT-95 Document level allowance VAT category code */
   readonly vatCategoryCode: VatCategoryCode;
   /** BT-96 Document level allowance VAT rate */
@@ -130,6 +132,8 @@ export interface DocumentLevelCharge {
   readonly amount: Amount;
   /** BT-100 Document level charge base amount */
   readonly baseAmount?: Amount;
+  /** BT-101 Document level charge calculation percent (name not independently quoted in our extraction — see terms.mjs) */
+  readonly calculationPercent?: Amount;
   /** BT-102 Document level charge VAT category code */
   readonly vatCategoryCode: VatCategoryCode;
   /** BT-103 Document level charge VAT rate */
@@ -196,6 +200,8 @@ export interface InvoiceLineAllowance {
   readonly amount: Amount;
   /** BT-137 Invoice line allowance base amount */
   readonly baseAmount?: Amount;
+  /** BT-138 Invoice line allowance calculation percent (name not independently quoted in our extraction — see terms.mjs) */
+  readonly calculationPercent?: Amount;
   /** BT-139 Invoice line allowance reason */
   readonly reason?: string;
   /** BT-140 Invoice line allowance reason code */
@@ -208,6 +214,8 @@ export interface InvoiceLineCharge {
   readonly amount: Amount;
   /** BT-142 Invoice line charge base amount */
   readonly baseAmount?: Amount;
+  /** BT-143 Invoice line charge calculation percent (name not independently quoted in our extraction — see terms.mjs) */
+  readonly calculationPercent?: Amount;
   /** BT-144 Invoice line charge reason */
   readonly reason?: string;
   /** BT-145 Invoice line charge reason code */

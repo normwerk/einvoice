@@ -87,6 +87,25 @@ test("document-level allowances and charges are merged with the correct isCharge
   assert.equal(input.allowancesCharges[1].isCharge, true);
 });
 
+test("calculationPercent maps to the numeric 'percent' field, not vatRatePercent (T-027)", () => {
+  const invoice = {
+    ...BASE,
+    documentLevelAllowances: [
+      {
+        amount: "50.00",
+        baseAmount: "1000.00",
+        calculationPercent: "5",
+        vatCategoryCode: "S",
+        vatRate: "19",
+      },
+    ],
+  };
+  const input = mapInvoiceToFacturXInput(invoice);
+  assert.equal(input.allowancesCharges[0].percent, 5);
+  assert.equal(typeof input.allowancesCharges[0].percent, "number");
+  assert.equal(input.allowancesCharges[0].vatRatePercent, 19);
+});
+
 test("refuses to map line-level allowances/charges (BG-27/28, no equivalent field)", () => {
   const invoice = {
     ...BASE,

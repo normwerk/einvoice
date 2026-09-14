@@ -210,6 +210,10 @@ export function mapInvoiceToFacturXInput(invoice) {
       vatCategoryCode: a.vatCategoryCode,
       ...(a.vatRate !== undefined ? { vatRatePercent: num(a.vatRate) } : {}),
       ...(a.baseAmount !== undefined ? { baseAmount: num(a.baseAmount) } : {}),
+      // T-027: AllowanceChargeInput.percent, confirmed against the real
+      // .d.ts — not to be confused with vatRatePercent above (a different
+      // field, the VAT rate, not the allowance/charge calculation percent).
+      ...(a.calculationPercent !== undefined ? { percent: num(a.calculationPercent) } : {}),
       ...(a.reasonCode ? { reasonCode: a.reasonCode } : {}),
       ...(a.reason ? { reason: a.reason } : {}),
     })),
@@ -219,6 +223,7 @@ export function mapInvoiceToFacturXInput(invoice) {
       vatCategoryCode: c.vatCategoryCode,
       ...(c.vatRate !== undefined ? { vatRatePercent: num(c.vatRate) } : {}),
       ...(c.baseAmount !== undefined ? { baseAmount: num(c.baseAmount) } : {}),
+      ...(c.calculationPercent !== undefined ? { percent: num(c.calculationPercent) } : {}),
       ...(c.reasonCode ? { reasonCode: c.reasonCode } : {}),
       ...(c.reason ? { reason: c.reason } : {}),
     })),

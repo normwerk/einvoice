@@ -31,15 +31,15 @@ convention KoSIT's own XRechnung test suite uses.
 
 **Extended set (T-022/W7, plan-v0.1 §7):**
 
-| Fixture                | Scenario                                                     |
-| ---------------------- | ------------------------------------------------------------ |
-| `de-mixed-rates`       | Standard (19%) and reduced (7%) rates on one invoice         |
-| `de-line-discount`     | Line-level allowance (BG-27)                                 |
-| `de-document-discount` | Document-level allowance (BG-20)                             |
-| `de-shipping-charge`   | Document-level charge (BG-21), shipping cost                 |
-| `de-special-chars`     | XML-escaping stress test (`&`, `<`, `>`, `"`, non-ASCII)     |
-| `de-many-lines`        | 25 invoice lines — cardinality stress test                   |
-| `de-b2g-leitweg-id`    | Public-sector buyer, real Leitweg-ID-shaped `buyerReference` |
+| Fixture                | Scenario                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| `de-mixed-rates`       | Standard (19%) and reduced (7%) rates on one invoice                             |
+| `de-line-discount`     | Line-level allowance (BG-27)                                                     |
+| `de-document-discount` | Document-level allowance (BG-20), with `baseAmount`+`calculationPercent` (T-027) |
+| `de-shipping-charge`   | Document-level charge (BG-21), shipping cost                                     |
+| `de-special-chars`     | XML-escaping stress test (`&`, `<`, `>`, `"`, non-ASCII)                         |
+| `de-many-lines`        | 25 invoice lines — cardinality stress test                                       |
+| `de-b2g-leitweg-id`    | Public-sector buyer, real Leitweg-ID-shaped `buyerReference`                     |
 
 **T-093 (found by the L4 oracle, T-041):**
 

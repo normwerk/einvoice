@@ -93,6 +93,33 @@ test("document-level allowances and charges are merged with the correct ChargeIn
   assert.equal(ac[1]["cbc:ChargeIndicator"], "true");
 });
 
+test("calculationPercent maps to MultiplierFactorNumeric, not cbc:Percent (T-027)", () => {
+  const invoice = {
+    ...BASE,
+    documentLevelAllowances: [
+      {
+        amount: "50.00",
+        baseAmount: "1000.00",
+        calculationPercent: "5",
+        vatCategoryCode: "S",
+        vatRate: "19",
+      },
+    ],
+    lines: [
+      {
+        ...BASE.lines[0],
+        allowances: [{ amount: "10.00", baseAmount: "100.00", calculationPercent: "10" }],
+      },
+    ],
+  };
+  const ubl = mapInvoiceToUbl(invoice)["ubl:Invoice"];
+  const docAc = ubl["cac:AllowanceCharge"][0];
+  assert.equal(docAc["cbc:MultiplierFactorNumeric"], "5");
+  assert.ok(!("cbc:Percent" in docAc), "cbc:Percent is TaxCategory's VAT rate, not this field");
+  const lineAc = ubl["cac:InvoiceLine"][0]["cac:AllowanceCharge"][0];
+  assert.equal(lineAc["cbc:MultiplierFactorNumeric"], "10");
+});
+
 test("maps sellerTaxRepresentative to TaxRepresentativeParty (T-093)", () => {
   const invoice = {
     ...BASE,

@@ -528,6 +528,34 @@ export const terms = [
     source: "text near BT-93",
   },
   {
+    // T-027: not in our vendored EN16931-CII schematron at all (checked —
+    // zero matches for "BT-94" in either vendored .sch file), so
+    // `extraction` is genuinely impossible; this is a PEPPOL/XRechnung
+    // profile-level rule, not a base EN16931 one. `well-known` here means:
+    // the real CII XSD (TradeAllowanceChargeType, artifacts/cii-d16b/
+    // schema/CrossIndustryInvoice_ReusableAggregateBusinessInformationEntity_100pD16B.xsd:955)
+    // places `CalculationPercent` right before `BasisAmount`, and the real
+    // KoSIT XRechnung validator config (not vendored — inspected inside the
+    // built `einvoice-conformance-kosit:local` image, /opt/kosit/config/
+    // resources/xrechnung/3.0.2/xsl/XRechnung-CII-validation.xsl, rule
+    // PEPPOL-EN16931-R042: "Allowance/charge percentage MUST be provided
+    // when allowance/charge base amount is provided") confirms this is
+    // the percentage counterpart to BT-93 — but neither source literally
+    // spells out "Document level allowance calculation percent" as an
+    // English phrase to quote, so this can't be auto-checked the way
+    // BT-92/93/97/98 are.
+    id: "BT-94",
+    name: "Document level allowance calculation percent",
+    kind: "BT",
+    tsType: "Amount",
+    required: false,
+    repeats: false,
+    group: "DocumentLevelAllowance",
+    verified: "well-known",
+    source:
+      "not independently quoted — see the comment above this term for the real (XSD + KoSIT PEPPOL-EN16931-R042) evidence that does exist",
+  },
+  {
     id: "BT-95",
     name: "Document level allowance VAT category code",
     kind: "BT",
@@ -605,6 +633,21 @@ export const terms = [
     group: "DocumentLevelCharge",
     verified: "extraction",
     source: "text near BT-100",
+  },
+  {
+    // T-027: same well-known tier and same real evidence as BT-94 above —
+    // BasisAmount/CalculationPercent are the same TradeAllowanceChargeType
+    // regardless of allowance vs. charge, so the same XSD line and the
+    // same PEPPOL-EN16931-R042 rule apply here too.
+    id: "BT-101",
+    name: "Document level charge calculation percent",
+    kind: "BT",
+    tsType: "Amount",
+    required: false,
+    repeats: false,
+    group: "DocumentLevelCharge",
+    verified: "well-known",
+    source: "not independently quoted — see the comment on BT-94 for the real evidence",
   },
   {
     id: "BT-102",
@@ -1026,6 +1069,20 @@ export const terms = [
     source: "text near BT-137",
   },
   {
+    // T-027: same tier/evidence as BT-94 — TradeAllowanceChargeType is
+    // reused unchanged at line level (SpecifiedLineTradeSettlement/
+    // SpecifiedTradeAllowanceCharge), same PEPPOL-EN16931-R042 rule.
+    id: "BT-138",
+    name: "Invoice line allowance calculation percent",
+    kind: "BT",
+    tsType: "Amount",
+    required: false,
+    repeats: false,
+    group: "InvoiceLineAllowance",
+    verified: "well-known",
+    source: "not independently quoted — see the comment on BT-94 for the real evidence",
+  },
+  {
     id: "BT-139",
     name: "Invoice line allowance reason",
     kind: "BT",
@@ -1081,6 +1138,18 @@ export const terms = [
     group: "InvoiceLineCharge",
     verified: "extraction",
     source: "text near BT-142",
+  },
+  {
+    // T-027: same tier/evidence as BT-94.
+    id: "BT-143",
+    name: "Invoice line charge calculation percent",
+    kind: "BT",
+    tsType: "Amount",
+    required: false,
+    repeats: false,
+    group: "InvoiceLineCharge",
+    verified: "well-known",
+    source: "not independently quoted — see the comment on BT-94 for the real evidence",
   },
   {
     id: "BT-144",

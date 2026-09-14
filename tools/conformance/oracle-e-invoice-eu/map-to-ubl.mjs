@@ -73,6 +73,12 @@ function mapDocumentAllowanceCharge(item, chargeIndicator, currencyCode) {
   amountAttrs(node, "cbc:Amount", item.amount, currencyCode);
   if (item.baseAmount !== undefined)
     amountAttrs(node, "cbc:BaseAmount", item.baseAmount, currencyCode);
+  // T-027: UBL's percent field for an allowance/charge is
+  // MultiplierFactorNumeric — NOT cbc:Percent, which above is TaxCategory's
+  // VAT rate (BT-96/103), a different field with the same English name.
+  // Confirmed from the .d.ts, not assumed by analogy.
+  if (item.calculationPercent !== undefined)
+    node["cbc:MultiplierFactorNumeric"] = item.calculationPercent;
   if (item.reasonCode) node["cbc:AllowanceChargeReasonCode"] = item.reasonCode;
   if (item.reason) node["cbc:AllowanceChargeReason"] = item.reason;
   return node;
@@ -83,6 +89,8 @@ function mapLineAllowanceCharge(item, chargeIndicator, currencyCode) {
   amountAttrs(node, "cbc:Amount", item.amount, currencyCode);
   if (item.baseAmount !== undefined)
     amountAttrs(node, "cbc:BaseAmount", item.baseAmount, currencyCode);
+  if (item.calculationPercent !== undefined)
+    node["cbc:MultiplierFactorNumeric"] = item.calculationPercent;
   if (item.reasonCode) node["cbc:AllowanceChargeReasonCode"] = item.reasonCode;
   if (item.reason) node["cbc:AllowanceChargeReason"] = item.reason;
   return node;

@@ -59,8 +59,8 @@ const lineVatNode: PlanNode = {
 
 /**
  * BG-20/21 Document level allowance/charge — TradeAllowanceChargeType
- * sequence: ChargeIndicator, ..., BasisAmount, ..., ActualAmount, ...,
- * ReasonCode, Reason, ..., CategoryTradeTax.
+ * sequence: ChargeIndicator, ..., CalculationPercent, BasisAmount, ...,
+ * ActualAmount, ..., ReasonCode, Reason, ..., CategoryTradeTax.
  */
 function allowanceChargeNode(isCharge: boolean): PlanNode {
   return {
@@ -72,6 +72,19 @@ function allowanceChargeNode(isCharge: boolean): PlanNode {
         kind: "element",
         name: ram("ChargeIndicator"),
         children: [{ kind: "value", name: udt("Indicator"), literal: isCharge ? "true" : "false" }],
+      },
+      {
+        // T-027 / PEPPOL-EN16931-R042 (not in the base EN16931 schematron —
+        // a KoSIT/XRechnung profile rule, see terms.mjs's comment on
+        // BT-94): "Allowance/charge percentage MUST be provided when
+        // allowance/charge base amount is provided." We don't enforce that
+        // conditional in the type system (same as other conditional BRs
+        // already in this plan) — just bind the field where the XSD puts it.
+        kind: "value",
+        name: ram("CalculationPercent"),
+        from: "calculationPercent",
+        format: "amount",
+        bt: isCharge ? "BT-101" : "BT-94",
       },
       { kind: "value", name: ram("BasisAmount"), from: "baseAmount", format: "amount", bt: isCharge ? "BT-100" : "BT-93" },
       { kind: "value", name: ram("ActualAmount"), from: "amount", format: "amount", bt: isCharge ? "BT-99" : "BT-92" },
@@ -108,6 +121,15 @@ function lineAllowanceChargeNode(isCharge: boolean): PlanNode {
         kind: "element",
         name: ram("ChargeIndicator"),
         children: [{ kind: "value", name: udt("Indicator"), literal: isCharge ? "true" : "false" }],
+      },
+      {
+        // T-027 / PEPPOL-EN16931-R042 — same rule and same XSD position as
+        // the document-level version above.
+        kind: "value",
+        name: ram("CalculationPercent"),
+        from: "calculationPercent",
+        format: "amount",
+        bt: isCharge ? "BT-143" : "BT-138",
       },
       { kind: "value", name: ram("BasisAmount"), from: "baseAmount", format: "amount", bt: isCharge ? "BT-142" : "BT-137" },
       { kind: "value", name: ram("ActualAmount"), from: "amount", format: "amount", bt: isCharge ? "BT-141" : "BT-136" },

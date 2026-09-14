@@ -53,6 +53,8 @@
   "documentLevelAllowances": [
     {
       "amount": "50.00",
+      "baseAmount": "1000.00",
+      "calculationPercent": "5",
       "vatCategoryCode": "S",
       "vatRate": "19",
       "reason": "Treuerabatt / Loyalty discount",

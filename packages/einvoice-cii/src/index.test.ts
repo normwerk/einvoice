@@ -129,6 +129,22 @@ describe("serializeCii", () => {
     expect(xml).not.toContain("FormattedIssueDateTime");
   });
 
+  it("de-document-discount: CalculationPercent (BT-94) before BasisAmount (BT-93), T-027", () => {
+    const invoice = loadFixture("de-document-discount");
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    // Order matters — TradeAllowanceChargeType's XSD sequence puts
+    // CalculationPercent before BasisAmount, not after.
+    expect(xml).toContain(
+      "<ram:CalculationPercent>5</ram:CalculationPercent><ram:BasisAmount>1000.00</ram:BasisAmount>",
+    );
+  });
+
+  it("de-shipping-charge: CalculationPercent is omitted, not emitted empty, when unset", () => {
+    const invoice = loadFixture("de-shipping-charge"); // charge has no calculationPercent
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    expect(xml).not.toContain("CalculationPercent");
+  });
+
   it("de-b2b-standard: business process, contact, and electronic address (XRechnung-profile fields, T-021)", () => {
     const invoice = loadFixture("de-b2b-standard");
     const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
