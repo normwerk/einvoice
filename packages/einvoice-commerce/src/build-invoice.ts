@@ -15,6 +15,7 @@ import { validateModel, type Invoice, type VatCategoryCode } from "@normwerk/ein
 import { DE_STANDARD_RATE, decideVatCategory, resolveLineRate } from "./tax-rules.js";
 import { multiplyToAmount, percentOfAmount, subtractAmounts, sumAmounts } from "./decimal.js";
 import { looksLikeLeitwegId, validateLeitwegId } from "./leitweg-id.js";
+import { validateCommerceInvoiceInput } from "./validate.js";
 import type {
   BuildResult,
   BuildWarning,
@@ -105,6 +106,18 @@ export class InvalidAssembledInvoiceError extends Error {
   }
 }
 
+export class InvalidCommerceInvoiceInputError extends Error {
+  constructor(readonly errors: readonly string[]) {
+    super(
+      `input fails structural validation against the generated CommerceInvoiceInput JSON Schema ` +
+        `(T-060, ADR-003): ${errors.join("; ")} — TypeScript cannot catch this for a hand-built or ` +
+        "non-TypeScript payload, which is exactly the caller ADR-003 names as the reason this contract " +
+        "carries an explicit schemaVersion in the first place.",
+    );
+    this.name = "InvalidCommerceInvoiceInputError";
+  }
+}
+
 export interface BuildInvoiceOptions {
   /** Result of a `VatIdVerifier.verify()` call made *before* calling `buildInvoice` (ADR-003: this
    * function does not perform I/O itself). Only consulted when the resolved regime needs it (intra-EU
@@ -138,6 +151,14 @@ export function buildInvoice(
 ): BuildResult {
   if (input.schemaVersion !== 1) {
     throw new UnsupportedSchemaVersionError(input.schemaVersion);
+  }
+  // Structural gate (T-060) before anything below touches input.document/.seller/.lines directly — a
+  // hand-built or non-TypeScript payload with a missing/malformed field would otherwise crash here with a
+  // raw TypeError instead of a named, listable error (ADR-003's own stated reason this contract has a
+  // generated JSON Schema at all).
+  const structural = validateCommerceInvoiceInput(input);
+  if (!structural.valid) {
+    throw new InvalidCommerceInvoiceInputError(structural.errors);
   }
   if (input.document.kind === "credit-note" && input.document.correctedInvoice === undefined) {
     throw new MissingCorrectedInvoiceReferenceError();

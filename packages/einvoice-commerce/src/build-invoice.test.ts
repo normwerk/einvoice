@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateModel } from "@normwerk/einvoice-model";
 import {
   InvalidAssembledInvoiceError,
+  InvalidCommerceInvoiceInputError,
   InvalidLeitwegIdError,
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
@@ -270,11 +271,12 @@ describe("buildInvoice — input validation", () => {
   });
 });
 
-describe("buildInvoice — defends against a malformed non-TypeScript caller (ADR-003)", () => {
-  it("InvalidAssembledInvoiceError would fire for an assembly that produces a structurally invalid Invoice", () => {
+describe("buildInvoice — defends against a malformed non-TypeScript caller (ADR-003, T-060)", () => {
+  it("a currency code outside ISO 4217 is now caught by the structural gate, not deep in assembly", () => {
     // A currency code outside the real ISO 4217 CurrencyCode enum (confirmed absent, not guessed — "XXX" is
     // itself a real ISO 4217 code, "no currency", and would have made this test a false negative), arriving
-    // as plain JSON from a non-TS caller.
+    // as plain JSON from a non-TS caller. Before T-060's JSON Schema this reached InvalidAssembledInvoiceError
+    // deep inside tax logic; now it is rejected at the door, before any of that logic runs.
     const input = domesticInput({
       document: {
         kind: "invoice",
@@ -283,6 +285,24 @@ describe("buildInvoice — defends against a malformed non-TypeScript caller (AD
         currency: "ZZZ" as never,
       },
     });
-    expect(() => buildInvoice(input)).toThrow(InvalidAssembledInvoiceError);
+    expect(() => buildInvoice(input)).toThrow(InvalidCommerceInvoiceInputError);
   });
+
+  it("rejects an unknown top-level property a hand-built payload might carry by typo", () => {
+    const input = {
+      ...domesticInput(),
+      documnet: domesticInput().document,
+    } as CommerceInvoiceInput;
+    expect(() => buildInvoice(input)).toThrow(InvalidCommerceInvoiceInputError);
+  });
+
+  it(
+    "InvalidAssembledInvoiceError still exists as a defence-in-depth check after the structural gate — an " +
+      "empty lines array is structurally valid input (types.ts has no minItems on `lines`) but assembles an " +
+      "Invoice that fails @normwerk/einvoice-model's own schema (minItems: 1 there)",
+    () => {
+      const input = domesticInput({ lines: [] });
+      expect(() => buildInvoice(input)).toThrow(InvalidAssembledInvoiceError);
+    },
+  );
 });

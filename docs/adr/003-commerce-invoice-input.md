@@ -93,6 +93,38 @@ category is K; every other regime leaves `delivery` optional, consistent with th
 `buildInvoice` cannot produce a valid document without it" rule — this is that rule actually firing, not an
 exception to it.
 
+## Addendum (2026-09-14, T-060 — JSON Schema)
+
+This ADR's own acceptance criterion named three deliverables: the ADR, the types, and a JSON Schema. The
+first two closed with the W9 implementation above; the schema did not — closed now.
+
+Generated (`packages/einvoice-commerce/src/generated/json-schema.ts`) via `ts-json-schema-generator`,
+reading `types.ts`'s `CommerceInvoiceInput` (and everything it references — `CommerceParty`, `CommerceLine`,
+`CommerceCharge`, `TaxContext`, `RegimeOverride`, the code-list types re-exported from
+`@normwerk/einvoice-model`) directly from the TypeScript AST, run by `tools/codegen/commerce/generate-json-schema.mjs`
+(`pnpm codegen:commerce`). Deliberately different from `codegen:model`'s generator: that one traces
+generated code back to an external spec artifact (the vendored Schematron) because the model layer's source
+of truth *is* that artifact; `CommerceInvoiceInput`'s source of truth is this ADR's own decision, already
+expressed as a TypeScript type — deriving the schema from the type via a real AST-reading tool means it can
+never silently drift from `types.ts`, without hand-duplicating the shape a second time the way a
+hand-written JSON Schema would.
+
+Structural-only, matching `@normwerk/einvoice-model`'s own `validateModel()` split: the schema enforces
+shape (required fields, enums drawn from the same code lists the model layer uses, `additionalProperties:
+false`, the `RegimeOverride` discriminated union's own per-variant requirements — e.g. `exempt` requires
+`reasonText`, `zero-rated` forbids it, both already true at the TypeScript level and now enforced at
+runtime too) but knows nothing about business rules or tax semantics; `decideVatCategory` and `buildInvoice`'s
+own extra checks (Leitweg-ID checksum, category K's delivery requirement, XRechnung's mandatory seller
+contact) still own those, layered after this structural gate, not folded into it.
+
+Wired into `buildInvoice` itself (`packages/einvoice-commerce/src/validate.ts`,
+`InvalidCommerceInvoiceInputError`) as the first check after the `schemaVersion` gate — directly serving
+this ADR's own stated reason a runtime version field exists at all: "someone building `CommerceInvoiceInput`
+... by hand or from a different language's tooling, without going through our `.d.ts` files at all." Before
+this, such a caller's malformed payload (e.g. a currency code outside ISO 4217, confirmed via a test using
+`"ZZZ"`) reached `InvalidAssembledInvoiceError` deep inside tax logic, or a raw `TypeError`, rather than a
+named, listable error at the door.
+
 ## Alternatives considered
 
 - **npm semver only, no runtime field** — rejected: invisible to a hand-built or non-TypeScript payload,

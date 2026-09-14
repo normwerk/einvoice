@@ -22,6 +22,7 @@ export type {
 export {
   buildInvoice,
   InvalidAssembledInvoiceError,
+  InvalidCommerceInvoiceInputError,
   InvalidLeitwegIdError,
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
@@ -30,6 +31,12 @@ export {
   UnsupportedSchemaVersionError,
   type BuildInvoiceOptions,
 } from "./build-invoice.js";
+
+export { commerceInvoiceInputJsonSchema } from "./generated/json-schema.js";
+export {
+  validateCommerceInvoiceInput,
+  type CommerceInvoiceInputValidationResult,
+} from "./validate.js";
 
 export {
   computeLeitwegIdCheckDigits,

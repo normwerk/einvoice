@@ -17,9 +17,12 @@
     "dist"
   ],
   "dependencies": {
-    "@normwerk/einvoice-model": "workspace:*"
+    "@normwerk/einvoice-model": "workspace:*",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
   },
   "scripts": {
+    "codegen": "node ../../tools/codegen/commerce/generate-json-schema.mjs",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
