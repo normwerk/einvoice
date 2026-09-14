@@ -36,6 +36,7 @@ import type { PlanNode, QName } from "../plan-types.js";
 const rsm = (local: string): QName => ({ prefix: "rsm", local });
 const ram = (local: string): QName => ({ prefix: "ram", local });
 const udt = (local: string): QName => ({ prefix: "udt", local });
+const qdt = (local: string): QName => ({ prefix: "qdt", local });
 
 /** BT-118/95/102/151: every VAT category code uses the same "VAT" type code — UNCL5153, not modeled per-field. */
 const VAT_TYPE_CODE = "VAT";
@@ -554,7 +555,39 @@ function headerSettlementNode(): PlanNode {
         name: ram("InvoiceReferencedDocument"),
         from: "precedingInvoiceReferences",
         firstOnly: true,
-        children: [{ kind: "value", name: ram("IssuerAssignedID"), from: "invoiceNumber", bt: "BT-25" }],
+        children: [
+          { kind: "value", name: ram("IssuerAssignedID"), from: "invoiceNumber", bt: "BT-25" },
+          {
+            // BT-26. Found missing by the L4 differential oracle
+            // (tools/conformance/oracle-e-invoice-eu.mjs, T-041) — the
+            // field was modeled but never bound. ReferencedDocumentType's
+            // sequence (artifacts/cii-d16b/schema/
+            // CrossIndustryInvoice_ReusableAggregateBusinessInformationEntity_100pD16B.xsd)
+            // places FormattedIssueDateTime after IssuerAssignedID; its
+            // DateTimeString child is qdt:, not udt: (QualifiedDataType.xsd
+            // is elementFormDefault="qualified" in the qdt namespace) —
+            // same date-102 shape as the header IssueDateTime.
+            // `from: "issueDate"` on the element itself (not the value
+            // child) so the whole wrapper is omitted when issueDate is
+            // absent — DateTimeString is required *within*
+            // FormattedIssueDateTime, so an empty self-closing element
+            // would be an XSD violation, unlike the usual "render empty
+            // container" default for structural elements.
+            kind: "element",
+            name: ram("FormattedIssueDateTime"),
+            from: "issueDate",
+            children: [
+              {
+                kind: "value",
+                name: qdt("DateTimeString"),
+                from: "",
+                format: "date-cii",
+                attributes: [{ name: "format", literal: "102" }],
+                bt: "BT-26",
+              },
+            ],
+          },
+        ],
       },
     ],
   };

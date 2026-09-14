@@ -8,7 +8,9 @@ Scenario fixtures (plan-v0.1 §7). One directory per scenario:
   matching row in [`docs/tax-semantics.md`](../docs/tax-semantics.md) where one exists.
 - `expected/` — golden CII XML and PDF/A metadata. Still empty: all 13 fixtures are verified live against
   the real KoSIT validator (`pnpm conformance:fixtures`, T-021/T-022) rather than compared to a committed
-  golden file yet — that's an L4/L5 concern (differential oracles, round-trip), not yet done.
+  golden file — L4/L5 verification instead runs live against independent implementations: Mustang for L5
+  round-trip (`pnpm conformance:roundtrip`, T-043) and `@e-invoice-eu/core` for the L4 differential oracle
+  (`pnpm conformance:oracle-eu`, T-041 — see [`docs/l4-oracle-eu-report.md`](../docs/l4-oracle-eu-report.md)).
 
 All identifiers are synthetic (`AGENTS.md` §5.2) — `Musterfirma GmbH`, `DE 123456789` follows the
 convention KoSIT's own XRechnung test suite uses.
@@ -36,5 +38,9 @@ convention KoSIT's own XRechnung test suite uses.
 | `de-many-lines`        | 25 invoice lines — cardinality stress test                   |
 | `de-b2g-leitweg-id`    | Public-sector buyer, real Leitweg-ID-shaped `buyerReference` |
 
-All 13 pass the real KoSIT validator (L1 XSD + L2 Schematron, `pnpm conformance:fixtures`) — a full run
-takes well under a minute.
+All 13 pass the real KoSIT validator (L1 XSD + L2 Schematron, `pnpm conformance:fixtures`) and the real
+Mustang validator's arithmetic recalculation (L5, `pnpm conformance:roundtrip`) — a full run of either
+takes well under a minute. 11/13 also produce CII that's byte-for-byte-equivalent (after canonicalization)
+to an independent generator's output once a known, verified difference in that generator is accounted for;
+the other 2 (`de-eu-intracommunity`, `de-export`) are exactly equivalent with no difference at all — see
+[`docs/l4-oracle-eu-report.md`](../docs/l4-oracle-eu-report.md) (L4, `pnpm conformance:oracle-eu`, T-041).

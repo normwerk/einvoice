@@ -96,8 +96,11 @@ describe("serializeCii", () => {
     const invoice = loadFixture("de-credit-note");
     const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
     expect(xml).toContain("<ram:TypeCode>381</ram:TypeCode>");
+    // BT-25 + BT-26 (issue date) — the latter found missing by the L4
+    // differential oracle (tools/conformance/oracle-e-invoice-eu.mjs,
+    // T-041) and fixed in generated/plan.ts.
     expect(xml).toContain(
-      "<ram:InvoiceReferencedDocument><ram:IssuerAssignedID>RE-2026-0001</ram:IssuerAssignedID></ram:InvoiceReferencedDocument>",
+      '<ram:InvoiceReferencedDocument><ram:IssuerAssignedID>RE-2026-0001</ram:IssuerAssignedID><ram:FormattedIssueDateTime><qdt:DateTimeString format="102">20260913</qdt:DateTimeString></ram:FormattedIssueDateTime></ram:InvoiceReferencedDocument>',
     );
   });
 
@@ -109,6 +112,21 @@ describe("serializeCii", () => {
     // ApplicableHeaderTradeDelivery is still mandatory as a container (XSD),
     // but self-closes since this fixture has no delivery data.
     expect(xml).toContain("<ram:ApplicableHeaderTradeDelivery/>");
+  });
+
+  it("omits FormattedIssueDateTime entirely (not empty) when a preceding invoice reference has no issue date", () => {
+    // DateTimeString is required *within* FormattedIssueDateTime (XSD), so
+    // an empty self-closing element there would be invalid — unlike
+    // ApplicableHeaderTradeDelivery above, this one must be dropped.
+    const invoice = {
+      ...loadFixture("de-credit-note"),
+      precedingInvoiceReferences: [{ invoiceNumber: "RE-2026-0001" }],
+    };
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    expect(xml).toContain(
+      "<ram:InvoiceReferencedDocument><ram:IssuerAssignedID>RE-2026-0001</ram:IssuerAssignedID></ram:InvoiceReferencedDocument>",
+    );
+    expect(xml).not.toContain("FormattedIssueDateTime");
   });
 
   it("de-b2b-standard: business process, contact, and electronic address (XRechnung-profile fields, T-021)", () => {
