@@ -73,9 +73,15 @@ importers:
 
   packages/einvoice-medusa:
     dependencies:
+      '@normwerk/einvoice-cii':
+        specifier: workspace:*
+        version: link:../einvoice-cii
       '@normwerk/einvoice-commerce':
         specifier: workspace:*
         version: link:../einvoice-commerce
+      '@normwerk/einvoice-model':
+        specifier: workspace:*
+        version: link:../einvoice-model
     devDependencies:
       '@medusajs/admin-sdk':
         specifier: 2.19.0

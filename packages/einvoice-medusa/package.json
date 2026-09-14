@@ -40,7 +40,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@normwerk/einvoice-commerce": "workspace:*"
+    "@normwerk/einvoice-cii": "workspace:*",
+    "@normwerk/einvoice-commerce": "workspace:*",
+    "@normwerk/einvoice-model": "workspace:*"
   },
   "devDependencies": {
     "@medusajs/admin-sdk": "2.19.0",

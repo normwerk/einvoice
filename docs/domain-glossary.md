@@ -59,7 +59,7 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   (BT-94/101/138/143), so fixtures with a discount/charge (T-022) simply omit `baseAmount` rather than
   half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
 
-## Medusa v2 (`einvoice-medusa`, T-070, W10)
+## Medusa v2 (`einvoice-medusa`, T-070/T-071, W10)
 
 Per plan-v0.1 §4.6's own warning, none of the following is taken from documentation by memory — every item
 was read directly from a real, freshly-created `create-medusa-app@latest --plugin`/full app (v2.19.0/2.21.0
@@ -122,3 +122,114 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   `@normwerk/einvoice-model` and `@normwerk/einvoice-commerce` must themselves be published to npm before
   `@normwerk/einvoice-medusa` can be a normally-installable plugin for anyone outside this repo — relevant
   to T-076 ("Публикация в npm"), not previously an explicit finding.
+
+### T-071 (subscribers, idempotency, W10)
+
+- **A CommonJS-mode Medusa plugin cannot statically `import` a value from one of this repo's own ESM
+  packages** (`@normwerk/einvoice-commerce`/`@normwerk/einvoice-cii`, both `"type": "module"` with no
+  `require` export condition) — that compiles to a `require()` that throws `ERR_REQUIRE_ESM` at runtime.
+  This is a _different_ problem from the one T-070's `resolution-mode: "import"` fixed: that attribute only
+  ever changes how TypeScript resolves _types_, never how Node resolves a _value_ at runtime. The real,
+  necessary fix for a subscriber that needs to actually _call_ `buildInvoice`/`selectProfile`/
+  `SequentialNumberer`/`serializeCii` is a dynamic `import()` inside the (already-async) subscriber
+  function body — TypeScript compiles a dynamic `import()` expression to a real ES dynamic import even
+  under CommonJS output, which is the sanctioned interop path. Pure type-only usage elsewhere in the plugin
+  (`service.ts`, `numbering-store.ts`, the `mapping/` module) still uses the static
+  `resolution-mode: "import"` form — the two techniques solve different halves of the same CJS/ESM
+  boundary and neither substitutes for the other.
+- **A Medusa v2 order line item's own DML model (`OrderLineItem`) has no `quantity` field at all** —
+  confirmed directly from `@medusajs/order@2.19.0`'s compiled model source. Quantity lives on a separate,
+  linked `OrderItem` row, reached in a `query.graph` fields array as `items.detail` (the exact path real
+  admin routes use, `api/admin/orders/query-config.js`'s `defaultAdminRetrieveOrderFields`). Naively
+  reading `item.quantity` off a queried order line compiles and often "looks right" in a quick manual
+  check (a wrongly-defaulted `1` for a single-item cart is easy to miss) — this is exactly the kind of
+  "obviously simple" platform field this project's own rule (`docs/domain-glossary.md`'s own earlier BT-40/
+  BT-41 entry) says to verify rather than assume, applied here to platform schema instead of an EN 16931 BT.
+- **`OrderLineItem.is_tax_inclusive` is a real, per-line boolean** — a store's prices can be tax-inclusive
+  or tax-exclusive per line, not fixed store-wide. `CommerceLine.netPrice` is always ex-tax
+  (`buildInvoice` computes tax itself from `TaxContext`), so a tax-inclusive Medusa line needs the rate
+  backed out of `unit_price` before mapping — skipping this would double an already-included tax on top of
+  `buildInvoice`'s own calculation for any merchant with tax-inclusive pricing turned on (Medusa's default
+  for storefronts in several regions), not a rare edge case.
+- **Race-safe per-series counters in real Medusa module services don't use `SELECT` then `UPDATE` from
+  application code** — `display_id` (Medusa's own order-numbering field) is a native Postgres `SERIAL`
+  column (`model.autoincrement()`, confirmed in `@medusajs/order`'s compiled model + migration), and the
+  one real first-party precedent for an _application-level_ concurrency-sensitive counter,
+  `@medusajs/promotion`'s `registerUsage` (compiled source), takes an explicit `SELECT ... FOR UPDATE`
+  row lock inside a transaction (needed there because it also enforces a budget/usage-limit check, not a
+  pure increment). This plugin's own `EinvoiceCounter` (T-071) needs no limit check, so a single atomic
+  `INSERT ... ON CONFLICT (series) DO UPDATE SET value = value + 1 RETURNING value` is the simpler, still
+  fully race-safe mechanism for that narrower case — reached via `@InjectTransactionManager()` +
+  `@MedusaContext()` (the same real decorator pair `@medusajs/order`'s own module service methods use
+  throughout, confirmed by name in its compiled source) to get a transaction-bound knex instance
+  (`transactionManager.getTransactionContext() ?? transactionManager.getKnex()`).
+- **A real MikroORM unique-constraint violation is detectable by `error.name === "UniqueConstraintViolationException"`**
+  without adding `@mikro-orm/core` as a new dependency — confirmed from its compiled `exceptions.js`:
+  every exception in that file's hierarchy sets `this.name = this.constructor.name` in a shared
+  `DriverException` base constructor. This plugin's own idempotency guard (`EinvoiceDocument`'s
+  `(type, idempotency_key)` unique index) relies on catching exactly this, duck-typed, rather than a
+  "check, then insert" that would race under concurrent duplicate event delivery.
+- **Medusa's local event bus (the default, no Redis configured) never retries a subscriber that throws** —
+  confirmed from `@medusajs/event-bus-local@2.19.0`'s compiled source: it wraps every subscriber call in a
+  try/catch that only logs the error, nothing more. The Redis event bus _can_ retry (BullMQ `attempts`),
+  but its own default job options set `attempts: 1` — so even with Redis configured, a genuine automatic
+  retry only happens if whoever emits the event explicitly opts in with a higher `attempts` value. This
+  matters for T-071's idempotency design: a "redelivered" `order.fulfillment_created`/`payment.refunded` in
+  practice means a manual replay, not an automatic retry storm — informed how strict the idempotency check
+  needs to be (checked up front, before allocating a document number, to keep `SequentialNumberer`'s
+  gap-free guarantee under the realistic case) versus how strict it only needs to be as a backstop (the
+  database-level unique constraint, for the truly-concurrent case the local event bus can't even produce).
+- **`payment.refunded`'s payload-only-carries-`{id}` gap (flagged unresolved in T-070's own entry above)
+  needs two `query.graph` calls, not one, and the working filter shape is a nested object, not a dotted
+  string.** A `query.graph({ entity: "order", filters: { "payment_collections.payments.id": paymentId } })`
+  — the same dot-notation path `@medusajs/core-flows`' `refundCapturedPaymentsWorkflow` reads in its own
+  `fields` array — looks like the natural filter equivalent, but a real e2e run (Docker Postgres) produced
+  an actual Postgres error: `missing FROM-clause entry for table "payments"`. The reason: `payment_collections
+.payments` is a **two-hop path across a module link** (order↔payment_collection is a real `defineLink`;
+  payment_collection→payment is a plain FK inside the payment module alone) — `query.graph`'s filter
+  resolution only builds a SQL join for a path present in `fields` _within one module's own schema_, it does
+  not reach across a module link that way, even though the _identical_ path works fine as a `fields` entry
+  (reading, not filtering, apparently takes a different resolution path). The real, working fix: (1) query
+  `payment` for its own `payment_collection_id` (no link — a plain field), then (2) query `order` filtered by
+  the _nested-object_ form `{ payment_collections: { id: paymentCollectionId } }` — one hop, and a nested
+  object rather than a dotted string. This nested-object shape is what actually resolves a cross-module link
+  filter. Neither of these two facts (two-hop paths need two queries; a cross-module link filter needs the
+  nested-object form) is visible from reading `@medusajs/core-flows`' own source, which never filters by a
+  linked field at all in any bundled workflow — found only by running the real query against a real instance
+  and reading its actual SQL error (T-071).
+- **The admin API's own `"*relation"` wildcard-prefix field syntax (`api/admin/orders/query-config.js`)
+  silently returns nothing when passed directly to `query.graph()` from a subscriber** — no error, the
+  relation is just absent from the result, easy to mistake for "this order really has no customer/address"
+  rather than a syntax problem. Confirmed against a real running instance: `fields: ["*customer",
+"*shipping_address", "*items"]` returned only the top-level scalar fields; the explicit `relation.field`
+  dot-notation form (`"customer.email"`, `"items.detail.quantity"`, …) returns the real data. The admin
+  route's own resolution of `"*relation"` must go through a different layer (its own field-config
+  expansion) that a direct `query.graph()` call from a subscriber doesn't get — this repo's first attempt at
+  `ORDER_QUERY_FIELDS` copied the admin route's own convention and had to be corrected once run for real.
+- **`buildInvoice`'s XML output always targets the full XRechnung 3.0 CIUS, regardless of which profile
+  `selectProfile` resolves** (`EN16931` vs `XRECHNUNG` is only about which ZUGFeRD/PDF-embedding profile
+  string to use — `profile.ts`'s own doc comment already said this, but its practical consequence wasn't
+  obvious until a real KoSIT run showed it): every invoice/credit-note this plugin builds is validated
+  against the _same_ Schematron rule set either way, including three fields nothing in `buildInvoice` itself
+  enforces (it just passes each through unchanged if given):
+  - **BT-34/BT-49 (seller/buyer electronic address) need a scheme identifier (BR-62/BR-63)** — real KoSIT
+    rejection on a mapping that left both unset. `service.ts`'s `assertValidOptions` now requires
+    `seller.electronicAddress`/`electronicAddressScheme`; the mapping (`mapOrderToCommerceInvoiceInput`)
+    fills the buyer's from the order's own email with EAS scheme `"EM"` — the same convention every fixture
+    in this repo already used for a plain email address.
+  - **BT-10 (buyer reference) is mandatory on every invoice, not just a B2G one (BR-DE-15)** — conflicts
+    with `selectProfile`'s own heuristic ("presence of `buyerReference` signals a B2G buyer"), since always
+    supplying one would make every order resolve to `XRECHNUNG` regardless of `defaultProfile`. Resolved by
+    keeping two distinct values: the _raw_ B2G signal (`resolveB2gBuyerReference`, only a real
+    `customer.metadata.buyer_reference`/Leitweg-ID) is what `selectProfile` is called with; the _mapped_
+    `CommerceInvoiceInput.references.buyerReference` always gets a value — the order's own `display_id`
+    when there's no real B2G reference — to satisfy BR-DE-15 without corrupting profile selection.
+  - **BG-16 (payment instructions) is mandatory on every invoice (BR-DE-1)** — merchant-level bank details
+    (which account the buyer should pay into), the same kind of static config as `seller` itself, not
+    derivable from an order. Added as a new required `EinvoiceModuleOptions.payment` field
+    (`{ means, iban?, terms? }`); `service.ts`'s `assertValidOptions` refuses to construct the module
+    without it, the same way it already refused a seller missing `vatIdentifier`.
+    All three were found by actually running the plugin's own output through the real KoSIT Validator inside
+    this task's e2e proof (not anticipated from reading `build-invoice.ts` or the base Schematron alone) —
+    each fix was verified by re-running the same validator until it returned `ACCEPTABLE`, not just by making
+    the error message go away.
