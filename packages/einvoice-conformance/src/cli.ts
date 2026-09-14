@@ -30,6 +30,10 @@ interface ValidationResult {
   readonly tool: string;
   readonly file: string;
   readonly valid: boolean;
+  /** KoSIT only: its own accept/reject business verdict, distinct from `valid` (see `kosit-report.ts`'s
+   * `KositReport.accepted` doc comment — a warning-only document can be `accepted: true` while `valid:
+   * false`). Not applicable to veraPDF's binary compliant/non-compliant result. */
+  readonly accepted?: boolean;
   readonly durationMs: number;
   readonly messages: readonly { level: string; code: string | null; text: string }[];
 }
@@ -74,9 +78,9 @@ function validateXml(filePath: string): ValidationResult {
   // mounted (read-write) directory.
   const reportPath = resolve(dir, `${name.replace(/\.xml$/i, "")}-report.xml`);
   const reportXml = readFileSync(reportPath, "utf-8");
-  const { valid, messages } = parseKositReport(reportXml);
+  const { valid, accepted, messages } = parseKositReport(reportXml);
 
-  return { tool: "kosit", file: filePath, valid, durationMs, messages };
+  return { tool: "kosit", file: filePath, valid, accepted, durationMs, messages };
 }
 
 interface VeraPdfReport {

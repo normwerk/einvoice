@@ -14,14 +14,30 @@ export interface KositMessage {
 }
 
 export interface KositReport {
+  /** The report's own top-level `valid` attribute: strictly "zero warnings or errors at any validation
+   * step" — an "information"-level message alone leaves this `true`, but a single `warning` already flips
+   * it to `false`, even when KoSIT's own business verdict (`accepted`) is to accept and process the
+   * document (found while writing docs/tax-semantics.md row 11's corrected-invoice example, T-052: a
+   * document with only a `BR-DE-26` warning has `valid: false` here but `accepted: true`). Every existing
+   * conformance gate in this repo (`pnpm conformance:fixtures`, `conformance:commerce`, …) asserts this
+   * field, matching this project's deliberately strict bar for "green" — not `accepted`. */
   readonly valid: boolean;
+  /** KoSIT's own recommendation (`<rep:assessment><rep:accept>` vs `<rep:reject>`) — what the CLI's own
+   * human-readable "Acceptable: N, Rejected: M" summary reflects. A document can be `accepted: true` with
+   * `valid: false` (warnings only); it is never `accepted: true` with a `valid: false` caused by a `error`-
+   * or `fatal`-level message — only `warning`/`information` ones leave `accepted` true. */
+  readonly accepted: boolean;
   readonly messages: readonly KositMessage[];
 }
 
-/** BT: parse the top-level `valid` attribute and every `<rep:message>` node. */
+/** BT: parse the top-level `valid` attribute, the accept/reject assessment, and every `<rep:message>` node. */
 export function parseKositReport(xml: string): KositReport {
   const validMatch = /<rep:report\b[^>]*\bvalid="(true|false)"/.exec(xml);
   const valid = validMatch?.[1] === "true";
+
+  // <rep:assessment><rep:accept>…</rep:accept></rep:assessment> vs …<rep:reject>… — absent entirely (e.g.
+  // a hand-built XML fixture in a unit test) defaults to false rather than assuming acceptance.
+  const accepted = /<rep:assessment>\s*<rep:accept\b/.test(xml);
 
   const messages: KositMessage[] = [];
   const messageRe = /<rep:message\b([^>]*)>([\s\S]*?)<\/rep:message>/g;
@@ -34,5 +50,5 @@ export function parseKositReport(xml: string): KositReport {
     messages.push({ level, code, text });
   }
 
-  return { valid, messages };
+  return { valid, accepted, messages };
 }
