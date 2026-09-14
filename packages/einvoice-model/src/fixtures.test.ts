@@ -14,7 +14,7 @@ const fixtureIds = readdirSync(FIXTURES_DIR).filter((name) =>
 );
 
 describe("T-050/T-022 fixtures validate against the generated JSON Schema", () => {
-  it("found the expected 6 base + 7 extended fixtures", () => {
+  it("found the expected 6 base + 7 extended + 1 T-093 fixtures", () => {
     expect(fixtureIds.sort()).toEqual(
       [
         // T-050 base set
@@ -32,6 +32,9 @@ describe("T-050/T-022 fixtures validate against the generated JSON Schema", () =
         "de-special-chars",
         "de-many-lines",
         "de-b2g-leitweg-id",
+        // T-093: exercises BT-62/63/69 (sellerTaxRepresentative), the model
+        // gap the L4 oracle (T-041) found.
+        "de-fiscal-representative",
       ].sort(),
     );
   });

@@ -93,6 +93,7 @@ const FIELD_NAME_OVERRIDES = {
   "BT-32": "taxRegistrationIdentifier",
   "BT-40": "countryCode",
   "BG-11": "sellerTaxRepresentative",
+  "BT-62": "name",
   "BT-63": "vatIdentifier",
   "BT-69": "countryCode",
   "BG-7": "buyer",

@@ -300,6 +300,8 @@ export interface SellerParty {
 
 /** BG-11 Seller tax representative party */
 export interface TaxRepresentativeParty {
+  /** BT-62 Seller tax representative name */
+  readonly name: string;
   /** BT-63 Seller tax representative VAT identifier */
   readonly vatIdentifier: string;
   /** BT-69 Tax representative country code */

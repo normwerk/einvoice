@@ -441,6 +441,19 @@ function taxRepresentativeNode(): PlanNode {
     from: "sellerTaxRepresentative",
     children: [
       {
+        // BT-62. T-093: found missing (no model field existed at all) by
+        // the L4 differential oracle (T-041) — @e-invoice-eu/core's UBL
+        // binding requires a party name here, ours had nowhere to put one.
+        // TradePartyType's sequence (same type SellerTradeParty/
+        // BuyerTradeParty use) places Name before PostalTradeAddress; BR-18
+        // requires it whenever BG-11 is present, matching the model field
+        // being required (not optional) within TaxRepresentativeParty.
+        kind: "value",
+        name: ram("Name"),
+        from: "name",
+        bt: "BT-62",
+      },
+      {
         kind: "element",
         name: ram("PostalTradeAddress"),
         children: [{ kind: "value", name: ram("CountryID"), from: "countryCode", bt: "BT-69" }],

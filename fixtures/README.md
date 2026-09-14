@@ -6,7 +6,7 @@ Scenario fixtures (plan-v0.1 §7). One directory per scenario:
   generated JSON Schema by `packages/einvoice-model/src/fixtures.test.ts`.
 - `scenario.md` — what the scenario is, which BR-\* rules apply, and the norm source. Cross-references the
   matching row in [`docs/tax-semantics.md`](../docs/tax-semantics.md) where one exists.
-- `expected/` — golden CII XML and PDF/A metadata. Still empty: all 13 fixtures are verified live against
+- `expected/` — golden CII XML and PDF/A metadata. Still empty: all 14 fixtures are verified live against
   the real KoSIT validator (`pnpm conformance:fixtures`, T-021/T-022) rather than compared to a committed
   golden file — L4/L5 verification instead runs live against independent implementations: Mustang for L5
   round-trip (`pnpm conformance:roundtrip`, T-043) and two independent generators for the L4 differential
@@ -41,13 +41,21 @@ convention KoSIT's own XRechnung test suite uses.
 | `de-many-lines`        | 25 invoice lines — cardinality stress test                   |
 | `de-b2g-leitweg-id`    | Public-sector buyer, real Leitweg-ID-shaped `buyerReference` |
 
-All 13 pass the real KoSIT validator (L1 XSD + L2 Schematron, `pnpm conformance:fixtures`) and the real
+**T-093 (found by the L4 oracle, T-041):**
+
+| Fixture                    | Scenario                                                                                           |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| `de-fiscal-representative` | CH seller with no direct EU VAT-ID, represented by a DE fiscal representative (BG-11, BT-62/63/69) |
+
+All 14 pass the real KoSIT validator (L1 XSD + L2 Schematron, `pnpm conformance:fixtures`) and the real
 Mustang validator's arithmetic recalculation (L5, `pnpm conformance:roundtrip`) — a full run of either
-takes well under a minute. Against `@e-invoice-eu/core` (L4, T-041), 11/13 produce CII that's
-byte-for-byte-equivalent (after canonicalization) once a known, verified difference in that generator is
-accounted for, and the other 2 (`de-eu-intracommunity`, `de-export`) are exactly equivalent with no
-difference at all — see [`docs/l4-oracle-eu-report.md`](../docs/l4-oracle-eu-report.md). Against
-`@stackforge-eu/factur-x` (L4, T-042), 12/13 differ in two verified, explained ways (a real empty-element
-bug in that library, and a permissible difference in how each side defaults an unset delivery date) and 1
-(`de-line-discount`) can't be compared at all — its input type has no field for line-level allowances — see
+takes well under a minute. Against `@e-invoice-eu/core` (L4, T-041): 2/14 (`de-eu-intracommunity`,
+`de-export`) produce CII that's byte-for-byte-equivalent (after canonicalization); the other 12 differ, but
+every difference reduces to one of two already-investigated, verified causes (a real bug in that generator,
+confirmed by running its own output through the real KoSIT validator) — see
+[`docs/l4-oracle-eu-report.md`](../docs/l4-oracle-eu-report.md). Against `@stackforge-eu/factur-x`
+(L4, T-042): 0/14 are byte-identical, but all 13 comparable fixtures' differences reduce to two verified
+causes (a real empty-element bug in that library, and a permissible difference in how each side defaults an
+unset delivery date), and 1 (`de-line-discount`) can't be compared at all — its input type has no field for
+line-level allowances — see
 [`docs/l4-oracle-facturx-report.md`](../docs/l4-oracle-facturx-report.md).

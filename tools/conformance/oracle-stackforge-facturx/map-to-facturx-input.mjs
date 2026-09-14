@@ -58,6 +58,23 @@ function mapParty(party) {
   return out;
 }
 
+function mapTaxRepresentative(rep) {
+  // TradePartyInput.address is optional in the .d.ts, but leaving it out
+  // entirely means BT-69 (country) never renders, which fails BR-20 on a
+  // real KoSIT run — and the address builder crashes (TypeError) if any of
+  // line1/city/postalCode is `undefined` rather than a string (confirmed
+  // empirically, same root cause as the LineOne bug in D-22/T-042: it
+  // never checks for undefined before calling .replace()). Our model has
+  // no city/postCode/street for the tax representative at all (only
+  // country, T-093), so all three become "" — which reproduces the exact
+  // same already-classified empty-element finding (D-22 #1), not a new one.
+  return {
+    name: rep.name,
+    address: { line1: "", city: "", postalCode: "", country: rep.countryCode },
+    taxRegistrations: [{ id: rep.vatIdentifier, schemeId: "VA" }],
+  };
+}
+
 function mapLine(line) {
   if (line.allowances?.length || line.charges?.length) {
     // BG-27/28 (line-level allowance/charge, BT-136/141 — a settlement-level
@@ -100,15 +117,6 @@ function mapLine(line) {
  * @returns {object} `@stackforge-eu/factur-x`'s `FacturXInvoiceInput` shape.
  */
 export function mapInvoiceToFacturXInput(invoice) {
-  if (invoice.sellerTaxRepresentative) {
-    // TradePartyInput has no dedicated name-required constraint the way
-    // @e-invoice-eu/core's UBL binding does, but our model still has no
-    // BT-62 field at all (T-093) — same refusal as map-to-ubl.mjs, for the
-    // same underlying reason.
-    throw new Error(
-      "mapToFacturXInput: sellerTaxRepresentative is not supported (no BT-62 field, T-093)",
-    );
-  }
   if (invoice.additionalSupportingDocuments?.length) {
     throw new Error(
       "mapToFacturXInput: additionalSupportingDocuments (BG-24) has no equivalent field",
@@ -156,6 +164,9 @@ export function mapInvoiceToFacturXInput(invoice) {
 
   if (invoice.buyerReference) input.document.buyerReference = invoice.buyerReference;
   if (invoice.businessProcessType) input.document.businessProcessId = invoice.businessProcessType;
+  if (invoice.sellerTaxRepresentative) {
+    input.sellerTaxRepresentative = mapTaxRepresentative(invoice.sellerTaxRepresentative);
+  }
 
   if (invoice.precedingInvoiceReferences?.length) {
     input.references = invoice.precedingInvoiceReferences.map((r) => ({

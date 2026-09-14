@@ -46,8 +46,15 @@ function listFixtureIds() {
  * unreviewed TODO in the report) — never auto-classify a genuinely new
  * difference, only recognize ones a person already looked at.
  */
-function isLineOneEmpty(e) {
-  return e.path.endsWith("}LineOne[0]") && e.value === "";
+function isEmptyAddressTextField(e) {
+  // LineOne (street, BT-35/50/64-ish) and CityName (BT-37/52 or the tax
+  // representative's city, which einvoice-model doesn't model at all,
+  // T-093) — same root cause, same PEPPOL-EN16931-R008 failure, confirmed
+  // for both independently (see LINE_ONE_BUG below). PostalZone/postalCode
+  // behaves differently: an empty string there is dropped by the library
+  // entirely rather than rendered as an empty element, so it never shows
+  // up as a diff — not something this needs to recognize.
+  return (e.path.endsWith("}LineOne[0]") || e.path.endsWith("}CityName[0]")) && e.value === "";
 }
 function isDeliveryDateSynthesis(e) {
   return (
@@ -62,16 +69,19 @@ function isOurEmptyDeliveryContainer(e) {
 const LINE_ONE_BUG =
   "**Real, verified bug in `@stackforge-eu/factur-x` — confirmed by an actual KoSIT run, not by reading a " +
   "spec — triggered here by a real, pre-existing gap in `einvoice-model` (not new).** `einvoice-model` has no " +
-  'street-address field at all (BT-35/50); the mapper cannot invent one, so it passes `address.line1: ""` ' +
-  "(see map-to-facturx-input.mjs). With `validate: false`, `toXRechnung()` renders that as a literal empty " +
-  "`<ram:LineOne></ram:LineOne>` for every party address — and that failure mode is invisible to the " +
-  "library's own default validation too: calling `toXRechnung()` with `validate: true` (its default) on this " +
-  "exact input does NOT flag the empty street line as an error. Isolated and confirmed with a real KoSIT run: " +
-  'the *same* generated document, with only `line1` changed from `""` to a real placeholder street and ' +
-  "nothing else touched, passes KoSIT with zero errors; with the empty string, KoSIT rejects it with " +
-  '`PEPPOL-EN16931-R008` ("Document MUST not contain empty elements") — one error per empty address. Not a ' +
-  "flaw in our own CII output: our serializer never emits `LineOne` at all when the field is absent, which is " +
-  "schema-legal (the element is optional).";
+  "street-address field at all (BT-35/50), and no city/postcode for the tax representative party either " +
+  "(T-093 only modeled name/VAT-ID/country there) — the mapper cannot invent either, so it passes empty " +
+  'strings (`address.line1: ""`, and for the tax representative also `city: ""`, see ' +
+  "map-to-facturx-input.mjs). With `validate: false`, `toXRechnung()` renders those as literal empty " +
+  "`<ram:LineOne></ram:LineOne>` / `<ram:CityName></ram:CityName>` elements — and that failure mode is " +
+  "invisible to the library's own default validation too: calling `toXRechnung()` with `validate: true` (its " +
+  "default) on this exact input does NOT flag either empty field as an error. Isolated and confirmed with a " +
+  'real KoSIT run: the *same* generated document, with only `line1` changed from `""` to a real placeholder ' +
+  "street and nothing else touched, passes KoSIT with zero errors; with the empty string(s), KoSIT rejects it " +
+  'with `PEPPOL-EN16931-R008` ("Document MUST not contain empty elements") — one error per empty element ' +
+  "(confirmed at both 2 and 5 occurrences across different fixtures, matching the diff's own count each time). " +
+  "Not a flaw in our own CII output: our serializer never emits `LineOne`/`CityName` at all when the " +
+  "underlying field is absent, which is schema-legal (both elements are optional).";
 
 const DELIVERY_DATE_VARIATION =
   "**Permissible variation, not a bug on either side — isolated and confirmed with a real KoSIT run, not " +
@@ -97,19 +107,20 @@ const DELIVERY_DATE_VARIATION =
 function classifyKnownDiff(diff) {
   if (diff.differing.length > 0) return null;
   const theirsExplained = diff.onlyInTheirs.every(
-    (e) => isLineOneEmpty(e) || isDeliveryDateSynthesis(e),
+    (e) => isEmptyAddressTextField(e) || isDeliveryDateSynthesis(e),
   );
   const oursExplained =
     diff.onlyInOurs.length === 0 ||
     (diff.onlyInOurs.length === 1 && isOurEmptyDeliveryContainer(diff.onlyInOurs[0]));
-  const hasLineOne = diff.onlyInTheirs.some(isLineOneEmpty);
+  const hasEmptyAddressField = diff.onlyInTheirs.some(isEmptyAddressTextField);
   const hasDeliverySynth = diff.onlyInTheirs.some(isDeliveryDateSynthesis);
   // The empty container on our side and the synthesized delivery date on
   // theirs are the same underlying case ("no delivery given at all") —
   // require them to appear together, not independently, so this doesn't
   // over-match a differently-shaped diff.
   const deliveryCaseConsistent = (diff.onlyInOurs.length === 1) === hasDeliverySynth;
-  if (!theirsExplained || !oursExplained || !deliveryCaseConsistent || !hasLineOne) return null;
+  if (!theirsExplained || !oursExplained || !deliveryCaseConsistent || !hasEmptyAddressField)
+    return null;
 
   return hasDeliverySynth ? `${LINE_ONE_BUG}\n\n${DELIVERY_DATE_VARIATION}` : LINE_ONE_BUG;
 }

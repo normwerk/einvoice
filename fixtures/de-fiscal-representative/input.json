@@ -1,0 +1,78 @@
+{
+  "number": "RE-2026-0017",
+  "issueDate": "2026-09-14",
+  "typeCode": "380",
+  "currencyCode": "EUR",
+  "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "businessProcessType": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
+  "buyerReference": "Buchhaltung-2026-09",
+  "seller": {
+    "name": "Muster Handels AG",
+    "legalRegistrationIdentifier": "CHE-123.456.789",
+    "countryCode": "CH",
+    "city": "Zürich",
+    "postCode": "8001",
+    "electronicAddress": "rechnung@muster-handels.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+41442345678",
+      "email": "rechnung@muster-handels.example"
+    }
+  },
+  "sellerTaxRepresentative": {
+    "name": "Fiskalvertretung Schmidt & Partner GmbH",
+    "vatIdentifier": "DE234567890",
+    "countryCode": "DE"
+  },
+  "buyer": {
+    "name": "Exemple Client SARL",
+    "vatIdentifier": "FR12345678901",
+    "countryCode": "FR",
+    "city": "Paris",
+    "postCode": "75008",
+    "electronicAddress": "ap@de-fiscal-representative.example",
+    "electronicAddressScheme": "EM"
+  },
+  "delivery": {
+    "actualDeliveryDate": "2026-09-11",
+    "deliverToCountryCode": "FR",
+    "deliverToCity": "Paris",
+    "deliverToPostCode": "75001"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "20",
+      "unitCode": "C62",
+      "netAmount": "3000.00",
+      "netPrice": "150.00",
+      "itemName": "Machine parts, imported via Germany and dispatched to France",
+      "vat": {
+        "categoryCode": "K",
+        "rate": "0"
+      }
+    }
+  ],
+  "vatBreakdown": [
+    {
+      "taxableAmount": "3000.00",
+      "taxAmount": "0.00",
+      "categoryCode": "K",
+      "rate": "0",
+      "exemptionReasonCode": "VATEX-EU-IC",
+      "exemptionReasonText": "Innergemeinschaftliche Lieferung durch Fiskalvertreter (§22a-e UStG, §4 Nr. 1b, §6a UStG) / Intra-Community supply via fiscal representative"
+    }
+  ],
+  "paymentInstructions": {
+    "meansTypeCode": "58",
+    "accountIdentifier": "DE89370400440532013000"
+  },
+  "totals": {
+    "sumOfLineNetAmounts": "3000.00",
+    "totalAmountWithoutVat": "3000.00",
+    "totalVatAmount": "0.00",
+    "totalAmountWithVat": "3000.00",
+    "amountDueForPayment": "3000.00"
+  }
+}

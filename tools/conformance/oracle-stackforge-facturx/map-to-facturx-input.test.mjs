@@ -95,15 +95,21 @@ test("refuses to map line-level allowances/charges (BG-27/28, no equivalent fiel
   assert.throws(() => mapInvoiceToFacturXInput(invoice), /line-level allowances\/charges/);
 });
 
-test("refuses to map an invoice with sellerTaxRepresentative (BT-62 name not modeled, T-093)", () => {
+test("maps sellerTaxRepresentative (T-093), with empty (not undefined) address fields we don't model", () => {
   const invoice = {
     ...BASE,
-    sellerTaxRepresentative: { vatIdentifier: "DE111111111", countryCode: "DE" },
+    sellerTaxRepresentative: { name: "Rep GmbH", vatIdentifier: "DE111111111", countryCode: "DE" },
   };
-  assert.throws(
-    () => mapInvoiceToFacturXInput(invoice),
-    /sellerTaxRepresentative is not supported/,
-  );
+  const input = mapInvoiceToFacturXInput(invoice);
+  assert.equal(input.sellerTaxRepresentative.name, "Rep GmbH");
+  assert.equal(input.sellerTaxRepresentative.address.country, "DE");
+  // "" not undefined: the library's address builder throws a TypeError on
+  // undefined (confirmed empirically) — see the comment in
+  // map-to-facturx-input.mjs's mapTaxRepresentative().
+  assert.equal(input.sellerTaxRepresentative.address.city, "");
+  assert.deepEqual(input.sellerTaxRepresentative.taxRegistrations, [
+    { id: "DE111111111", schemeId: "VA" },
+  ]);
 });
 
 test("preceding invoice reference maps to a 'preceding' typed reference", () => {

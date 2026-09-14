@@ -80,6 +80,27 @@ function classifyKnownDiff(diff) {
       "(`pnpm conformance:fixtures`)."
     );
   }
+
+  const onlyMissingTaxRepresentative =
+    diff.onlyInTheirs.length === 0 &&
+    diff.differing.length === 0 &&
+    diff.onlyInOurs.length > 0 &&
+    diff.onlyInOurs.every((e) => e.path.includes("}SellerTaxRepresentativeTradeParty["));
+  if (onlyMissingTaxRepresentative) {
+    return (
+      "**Real bug in `@e-invoice-eu/core`, verified by running the real KoSIT validator on its own output, " +
+      "not just by diffing.** T-093's mapper builds a correctly-shaped `cac:TaxRepresentativeParty` (confirmed: " +
+      "asking the same library for `format: 'UBL'` on this exact input renders it correctly, with all three " +
+      "fields) — but asking for `format: 'CII'` drops the whole `SellerTaxRepresentativeTradeParty` element, " +
+      "not just a field within it. Their CII converter appears not to implement BG-11 at all, even though " +
+      "their UBL converter does. Confirmed with a real KoSIT run on their raw CII output for " +
+      "`de-fiscal-representative`: it fails with `BR-IC-02` and `BR-DE-16`, both because the Seller tax " +
+      "representative VAT identifier (BT-63) — the invoice's only path to satisfying those rules, since this " +
+      "fixture's seller deliberately has no direct VAT-ID (T-093's scenario) — is missing from their output. " +
+      "Our own output for the same fixture passes real KoSIT cleanly (`pnpm conformance:fixtures`)."
+    );
+  }
+
   return null;
 }
 

@@ -93,18 +93,23 @@ test("document-level allowances and charges are merged with the correct ChargeIn
   assert.equal(ac[1]["cbc:ChargeIndicator"], "true");
 });
 
-test("refuses to map an invoice with sellerTaxRepresentative (BT-62 name not modeled)", () => {
+test("maps sellerTaxRepresentative to TaxRepresentativeParty (T-093)", () => {
   const invoice = {
     ...BASE,
-    sellerTaxRepresentative: { vatIdentifier: "DE111111111", countryCode: "DE" },
+    sellerTaxRepresentative: { name: "Rep GmbH", vatIdentifier: "DE111111111", countryCode: "DE" },
   };
-  assert.throws(() => mapInvoiceToUbl(invoice), /sellerTaxRepresentative is not supported/);
+  const ubl = mapInvoiceToUbl(invoice)["ubl:Invoice"];
+  const rep = ubl["cac:TaxRepresentativeParty"];
+  assert.equal(rep["cac:PartyName"]["cbc:Name"], "Rep GmbH");
+  assert.equal(rep["cac:PostalAddress"]["cac:Country"]["cbc:IdentificationCode"], "DE");
+  assert.equal(rep["cac:PartyTaxScheme"]["cbc:CompanyID"], "DE111111111");
 });
 
 test("optional header fields are omitted, not emitted as empty/undefined", () => {
   const ubl = mapInvoiceToUbl(BASE)["ubl:Invoice"];
   assert.ok(!("cbc:BuyerReference" in ubl));
   assert.ok(!("cac:Delivery" in ubl));
+  assert.ok(!("cac:TaxRepresentativeParty" in ubl));
   assert.ok(!("cac:PaymentMeans" in ubl));
   assert.ok(!("cac:AllowanceCharge" in ubl));
 });

@@ -289,6 +289,24 @@ export const terms = [
     source: "text near BG-11",
   },
   {
+    // T-093: found missing by the L4 differential oracle (T-041,
+    // tools/conformance/oracle-e-invoice-eu.mjs) — @e-invoice-eu/core's UBL
+    // binding requires a party name for the tax representative and our
+    // model had none, so the oracle mapper had to refuse rather than emit
+    // an incomplete party. BR-18 (artifacts/cii-d16b/schematron/
+    // EN16931-CII-validation-preprocessed.sch) is the real source, quoted
+    // verbatim below — not recalled from memory.
+    id: "BT-62",
+    name: "Seller tax representative name",
+    kind: "BT",
+    tsType: "string",
+    required: true,
+    repeats: false,
+    group: "TaxRepresentativeParty",
+    verified: "extraction",
+    source: "BR-18",
+  },
+  {
     id: "BT-63",
     name: "Seller tax representative VAT identifier",
     kind: "BT",

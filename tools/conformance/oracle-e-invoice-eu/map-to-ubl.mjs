@@ -88,6 +88,20 @@ function mapLineAllowanceCharge(item, chargeIndicator, currencyCode) {
   return node;
 }
 
+function mapTaxRepresentative(rep) {
+  // SELLERTAXREPRESENTATIVEPARTY: PartyName (BT-62) and PostalAddress.Country
+  // (BT-69) are required, PartyTaxScheme.CompanyID (BT-63) too — our model
+  // has exactly these three fields and nothing else for this party (T-093).
+  return {
+    "cac:PartyName": { "cbc:Name": rep.name },
+    "cac:PostalAddress": { "cac:Country": { "cbc:IdentificationCode": rep.countryCode } },
+    "cac:PartyTaxScheme": {
+      "cbc:CompanyID": rep.vatIdentifier,
+      "cac:TaxScheme": { "cbc:ID": "VAT" },
+    },
+  };
+}
+
 function mapLine(line, currencyCode) {
   const item = {
     "cbc:Name": line.itemName,
@@ -138,17 +152,6 @@ function mapLine(line, currencyCode) {
  * @returns {object} `@e-invoice-eu/core`'s `Invoice` UBL-JSON input shape.
  */
 export function mapInvoiceToUbl(invoice) {
-  if (invoice.sellerTaxRepresentative) {
-    // BT-62 (tax representative *name*) has no field in our model at all —
-    // UBL's SELLERTAXREPRESENTATIVEPARTY.PartyName is required, so we cannot
-    // emit a spec-conformant party for this case. None of the 13 fixtures use
-    // this field (T-050/T-022); refuse loudly instead of emitting bad data.
-    throw new Error(
-      "mapInvoiceToUbl: sellerTaxRepresentative is not supported yet " +
-        "(einvoice-model has no field for BT-62, the tax representative name)",
-    );
-  }
-
   const cur = invoice.currencyCode;
 
   const taxSubtotals = invoice.vatBreakdown.map((row) => {
@@ -206,6 +209,11 @@ export function mapInvoiceToUbl(invoice) {
   if (invoice.buyerReference) ublInvoice["cbc:BuyerReference"] = invoice.buyerReference;
   if (invoice.taxCurrencyCode) ublInvoice["cbc:TaxCurrencyCode"] = invoice.taxCurrencyCode;
   if (invoice.taxPointDate) ublInvoice["cbc:TaxPointDate"] = invoice.taxPointDate;
+  if (invoice.sellerTaxRepresentative) {
+    ublInvoice["cac:TaxRepresentativeParty"] = mapTaxRepresentative(
+      invoice.sellerTaxRepresentative,
+    );
+  }
 
   if (invoice.invoicingPeriod) {
     ublInvoice["cac:InvoicePeriod"] = {
