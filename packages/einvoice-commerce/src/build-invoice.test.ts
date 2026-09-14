@@ -271,6 +271,44 @@ describe("buildInvoice — input validation", () => {
   });
 });
 
+describe("buildInvoice — BT-158/BT-159 (T-060 continuation, D-19)", () => {
+  it("maps lines[].hsCode/originCountry per line, leaving lines without them untouched", () => {
+    const input = domesticInput({
+      lines: [
+        {
+          quantity: "1",
+          unitCode: "C62",
+          netPrice: "50.00",
+          itemName: "Installation service",
+          taxRateKind: "standard",
+        },
+        {
+          quantity: "2",
+          unitCode: "C62",
+          netPrice: "450.00",
+          itemName: "Portable data-processing machine",
+          taxRateKind: "standard",
+          hsCode: "847130",
+          originCountry: "CN",
+        },
+      ],
+    });
+    const result = buildInvoice(input);
+    expect(result.invoice.lines[0]?.hsCode).toBeUndefined();
+    expect(result.invoice.lines[0]?.originCountry).toBeUndefined();
+    expect(result.invoice.lines[1]?.hsCode).toBe("847130");
+    expect(result.invoice.lines[1]?.originCountry).toBe("CN");
+  });
+
+  it("input.customs (incoterm/EORI/IOSS) still warns unmapped, distinct from the now-mapped BT-158/159", () => {
+    const input = domesticInput({ customs: { incoterm: "DAP" } });
+    const result = buildInvoice(input);
+    const warning = result.warnings.find((w) => w.code === "customs-not-mapped");
+    expect(warning?.message).toContain("incoterm/sellerEori/buyerEori/iossNumber");
+    expect(warning?.message).not.toContain("BT-158/159 and related");
+  });
+});
+
 describe("buildInvoice — defends against a malformed non-TypeScript caller (ADR-003, T-060)", () => {
   it("a currency code outside ISO 4217 is now caught by the structural gate, not deep in assembly", () => {
     // A currency code outside the real ISO 4217 CurrencyCode enum (confirmed absent, not guessed — "XXX" is

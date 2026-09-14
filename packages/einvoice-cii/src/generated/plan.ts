@@ -26,10 +26,12 @@
  * COVERAGE: exactly the `Invoice` fields the 6 base fixtures
  * (fixtures/, T-050) use, now including the XRechnung-profile fields
  * added in T-021 (business process, seller contact, seller/buyer
- * electronic address, city/postcode). Item attributes (BG-32) and
- * additional supporting documents (BG-24) are modeled in einvoice-model
- * but not yet in this plan — none of the 6 fixtures need them. Follow-up:
- * extend as new fixtures need them.
+ * electronic address, city/postcode), plus BT-158/BT-159 (item
+ * classification identifier / country of origin, T-060 continuation,
+ * D-19) added for the commerce `customs` scenario. Item attributes
+ * (BG-32) and additional supporting documents (BG-24) are modeled in
+ * einvoice-model but not yet in this plan — no fixture needs them yet.
+ * Follow-up: extend as new fixtures need them.
  */
 import type { PlanNode, QName } from "../plan-types.js";
 
@@ -150,9 +152,38 @@ const invoiceLineNode: PlanNode = {
       children: [{ kind: "value", name: ram("LineID"), from: "identifier", bt: "BT-126" }],
     },
     {
+      // TradeProductType sequence (artifacts/cii-d16b/schema/..._ReusableAggregateBusinessInformationEntity_100pD16B.xsd):
+      // Name, ..., DesignatedProductClassification, ..., OriginTradeCountry, ... — Name is BT-153, the
+      // other two are BT-158/BT-159 (T-060 continuation, D-19).
       kind: "element",
       name: ram("SpecifiedTradeProduct"),
-      children: [{ kind: "value", name: ram("Name"), from: "itemName", bt: "BT-153" }],
+      children: [
+        { kind: "value", name: ram("Name"), from: "itemName", bt: "BT-153" },
+        {
+          kind: "element",
+          name: ram("DesignatedProductClassification"),
+          from: "hsCode",
+          children: [
+            {
+              kind: "value",
+              name: ram("ClassCode"),
+              from: "",
+              // Scheme identifier is a fixed "HS" (Harmonized System) — the only scheme this repo's v0.1
+              // scope supports (D-19), not a caller-supplied field. "HS" confirmed a member of UNTDID 7143
+              // (BR-CL-13's own codelist, artifacts/cii-d16b/schematron/EN16931-CII-codes.sch) and — cross-
+              // checked independently — the exact code docs.peppol.eu itself recommends for this purpose.
+              attributes: [{ name: "listID", literal: "HS" }],
+              bt: "BT-158",
+            },
+          ],
+        },
+        {
+          kind: "element",
+          name: ram("OriginTradeCountry"),
+          from: "originCountry",
+          children: [{ kind: "value", name: ram("ID"), from: "", bt: "BT-159" }],
+        },
+      ],
     },
     {
       kind: "element",

@@ -94,3 +94,23 @@ profile, T-032). `packages/einvoice-commerce/src/leitweg-id.ts`'s check-digit al
 MOD 97-10) is read directly from this document's §2.4, reproducing its own worked example byte-for-byte, and
 separately cross-checked against a real third-party Leitweg-ID validator for a case involving letters — not
 just self-consistency between this repo's own generator and validator.
+
+A further naming source, for BT-159 specifically (T-060 continuation, D-19 — the customs/BT-158/BT-159
+addendum): [`@e-invoice-eu/core`](https://github.com/gflohr/e-invoice-eu) (**WTFPL**, `package.json`'s own
+`license` field), an npm package already a pinned root devDependency (`^3.3.0`) and already used as a
+differential oracle elsewhere in this repo (T-041, `tools/conformance/oracle-e-invoice-eu.mjs`, D-21). BT-159
+("Item country of origin") has no business rule anywhere in the vendored ConnectingEurope Schematron —
+confirmed absent by grepping both `.sch` files for "BT-159" before reaching for another source, not a first
+resort — so `tools/codegen/model/terms.mjs`'s usual "extraction" cross-check (against that Schematron) can't
+apply to it at all. Its name is instead read from the `title` of the matching field in this package's own
+embedded EN 16931 JSON Schema (`dist/e-invoice-eu.esm.js`, already installed under `node_modules/`, grepped
+directly rather than assumed), cross-checked against a second, independent source before trusting it:
+[docs.peppol.eu](https://docs.peppol.eu/poacc/billing/3.0/syntax/ubl-invoice/cac-InvoiceLine/cac-Item/cac-OriginCountry/cbc-IdentificationCode/)'s
+own per-element page carries the identical description sentence, word for word, not just a similar
+paraphrase. BT-158 ("Item classification identifier") needed no such fallback — it already has a real
+business rule (`BR-65`) that quotes its name directly in the vendored Schematron, the usual "extraction" tier.
+The scheme identifier value `"HS"` (`ram:ClassCode/@listID`) is likewise double-checked: present in the
+vendored Schematron's own `BR-CL-13` UNTDID 7143 codelist, and independently the exact code
+[docs.peppol.eu's own BIS Billing 3.0 documentation](https://docs.peppol.eu/poacc/billing/3.0/bis/) recommends
+for this purpose ("It is recommended to use the Item classification identifier (BT-158) for this purpose,
+with the code \"HS\" as list identifier.").

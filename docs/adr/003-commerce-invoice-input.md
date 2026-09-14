@@ -104,7 +104,7 @@ reading `types.ts`'s `CommerceInvoiceInput` (and everything it references — `C
 `@normwerk/einvoice-model`) directly from the TypeScript AST, run by `tools/codegen/commerce/generate-json-schema.mjs`
 (`pnpm codegen:commerce`). Deliberately different from `codegen:model`'s generator: that one traces
 generated code back to an external spec artifact (the vendored Schematron) because the model layer's source
-of truth *is* that artifact; `CommerceInvoiceInput`'s source of truth is this ADR's own decision, already
+of truth _is_ that artifact; `CommerceInvoiceInput`'s source of truth is this ADR's own decision, already
 expressed as a TypeScript type — deriving the schema from the type via a real AST-reading tool means it can
 never silently drift from `types.ts`, without hand-duplicating the shape a second time the way a
 hand-written JSON Schema would.
@@ -124,6 +124,34 @@ this ADR's own stated reason a runtime version field exists at all: "someone bui
 this, such a caller's malformed payload (e.g. a currency code outside ISO 4217, confirmed via a test using
 `"ZZZ"`) reached `InvalidAssembledInvoiceError` deep inside tax logic, or a raw `TypeError`, rather than a
 named, listable error at the door.
+
+## Addendum (2026-09-14, T-060 continuation — BT-158/BT-159)
+
+D-19's own addendum to T-060 named a second, still-open acceptance item beyond the JSON Schema above:
+`lines[].hsCode`/`originCountry` mapped into the assembled `Invoice` (BT-158/BT-159), with a fixture proving
+it through real KoSIT L1+L2. Closed now.
+
+`hsCode`/`originCountry` were already on `CommerceLine` since the W9 implementation — only the mapping was
+missing (`buildInvoice` warned `customs-not-mapped` and dropped them). New `einvoice-model` terms (BT-158
+"Item classification identifier", BT-159 "Item country of origin" — the latter's real name traced to
+`@e-invoice-eu/core`'s own embedded EN 16931 JSON Schema and independently cross-checked against
+docs.peppol.eu, since it has no business rule anywhere in the vendored ConnectingEurope Schematron at all;
+see `docs/sources.md`), a new `einvoice-cii` serialization plan node
+(`ram:SpecifiedTradeProduct/ram:DesignatedProductClassification/ram:ClassCode[@listID='HS']` and
+`ram:SpecifiedTradeProduct/ram:OriginTradeCountry/ram:ID`, sequence order and attribute name read directly
+from the vendored CII D16B XSD's `TradeProductType`/`ProductClassificationType`/`CodeType`, not recalled),
+and a one-line change to `buildInvoice`'s `lines:` assembly. The scheme identifier is a fixed literal `"HS"`
+— this repo's v0.1 scope is HS only (D-19's own wording), not a caller-supplied scheme, so there is no new
+field to get wrong.
+
+`input.customs` (the document-level `incoterm`/`sellerEori`/`buyerEori`/`iossNumber` block) remains
+genuinely unmapped — a distinct, still-open D-19 item; `customs-not-mapped`'s warning text was corrected to
+say so precisely, instead of the now-stale "BT-158/159 and related."
+
+New fixture `packages/einvoice-commerce/fixtures/commerce-customs-hs-origin` (one line with
+`hsCode`/`originCountry`, one without) passes real KoSIT L1+L2 — D-19's own acceptance wording, verified for
+real, not asserted from the plan node alone: the generated XML was inspected directly and shows
+`DesignatedProductClassification`/`OriginTradeCountry` present only on the line that set them.
 
 ## Alternatives considered
 

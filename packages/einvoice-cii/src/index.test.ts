@@ -168,4 +168,31 @@ describe("serializeCii", () => {
       "<ram:PostalTradeAddress><ram:PostcodeCode>10115</ram:PostcodeCode><ram:CityName>Berlin</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>",
     );
   });
+
+  it("emits BT-158/BT-159 (item classification identifier with @listID='HS', country of origin) when set (T-060 continuation, D-19)", () => {
+    const base = loadFixture("de-b2b-standard");
+    const [firstLine] = base.lines;
+    if (firstLine === undefined) throw new Error("fixture de-b2b-standard has no lines");
+    const invoice: Invoice = {
+      ...base,
+      lines: [{ ...firstLine, hsCode: "847130", originCountry: "CN" }],
+    };
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    expect(xml).toContain(
+      '<ram:DesignatedProductClassification><ram:ClassCode listID="HS">847130</ram:ClassCode></ram:DesignatedProductClassification>',
+    );
+    expect(xml).toContain("<ram:OriginTradeCountry><ram:ID>CN</ram:ID></ram:OriginTradeCountry>");
+    // DesignatedProductClassification must come before OriginTradeCountry — TradeProductType's own XSD
+    // sequence order (artifacts/cii-d16b/schema/..._ReusableAggregateBusinessInformationEntity_100pD16B.xsd).
+    expect(xml.indexOf("DesignatedProductClassification")).toBeLessThan(
+      xml.indexOf("OriginTradeCountry"),
+    );
+  });
+
+  it("omits DesignatedProductClassification/OriginTradeCountry entirely when hsCode/originCountry are unset", () => {
+    const invoice = loadFixture("de-b2b-standard"); // no hsCode/originCountry on its one line
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    expect(xml).not.toContain("DesignatedProductClassification");
+    expect(xml).not.toContain("OriginTradeCountry");
+  });
 });

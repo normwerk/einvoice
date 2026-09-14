@@ -204,10 +204,14 @@ export function buildInvoice(
     });
   }
   if (input.customs !== undefined) {
+    // BT-158 (lines[].hsCode) and BT-159 (lines[].originCountry) ARE mapped as of T-060 continuation
+    // (D-19) — see the `lines:` assembly below. `input.customs` itself (incoterm/sellerEori/buyerEori/
+    // iossNumber) is a *different*, still-unmapped block: none of those four have an equivalent field in
+    // the current Invoice model (no dedicated BT in this package's v0.1 scope maps them).
     warnings.push({
       code: "customs-not-mapped",
       message:
-        "input.customs (BT-158/159 and related) has no equivalent field in the current Invoice model yet (D-19 — a dedicated model-codegen task) — dropped.",
+        "input.customs (incoterm/sellerEori/buyerEori/iossNumber) has no equivalent field in the current Invoice model — dropped. (BT-158/BT-159, lines[].hsCode/originCountry, ARE mapped — see per-line output.)",
     });
   }
 
@@ -374,6 +378,11 @@ export function buildInvoice(
       netPrice: lc.line.netPrice,
       itemName: lc.line.itemName,
       vat: { categoryCode: regimeDecision.categoryCode, rate: lc.rate },
+      // BT-158/BT-159 (T-060 continuation, D-19) — undefined passes through untouched, same as every
+      // other optional field here; @normwerk/einvoice-cii's plan skips the whole DesignatedProductClassification
+      // / OriginTradeCountry element when its source field is undefined (plan.ts's own `from` semantics).
+      hsCode: lc.line.hsCode,
+      originCountry: lc.line.originCountry,
     })),
   };
 

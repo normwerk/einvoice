@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "document": {
+    "kind": "invoice",
+    "number": "RE-2026-1005",
+    "issueDate": "2026-09-14",
+    "currency": "EUR"
+  },
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "countryCode": "DE",
+    "city": "Berlin",
+    "postCode": "10115",
+    "vatIdentifier": "DE123456789",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
+  },
+  "buyer": {
+    "name": "Beispielkunde GmbH",
+    "countryCode": "DE",
+    "city": "Hamburg",
+    "postCode": "20095",
+    "electronicAddress": "ap@commerce-customs-hs-origin.example",
+    "electronicAddressScheme": "EM"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netPrice": "50.00",
+      "itemName": "Installation service",
+      "taxRateKind": "standard"
+    },
+    {
+      "identifier": "2",
+      "quantity": "2",
+      "unitCode": "C62",
+      "netPrice": "450.00",
+      "itemName": "Portable data-processing machine",
+      "taxRateKind": "standard",
+      "hsCode": "847130",
+      "originCountry": "CN"
+    }
+  ],
+  "payment": { "means": "58", "iban": "DE89370400440532013000" },
+  "references": { "buyerReference": "Buchhaltung-2026-09" },
+  "taxContext": {
+    "sellerCountry": "DE",
+    "sellerVatId": "DE123456789",
+    "buyerCountry": "DE",
+    "buyerIsBusiness": true,
+    "ossRegistered": false,
+    "supplyType": "goods"
+  }
+}

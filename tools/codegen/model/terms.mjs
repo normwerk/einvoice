@@ -43,6 +43,22 @@
  *    EN 16931 rules) requires beyond the base ConnectingEurope ruleset —
  *    found by running our own serializer output through the real KoSIT
  *    Docker validator (T-021) and reading the rejection.
+ *  - "e-invoice-eu-schema": name is asserted, quoted verbatim in `source`,
+ *    as the `title` of that BT's field in `@e-invoice-eu/core`'s own
+ *    embedded EN 16931 JSON Schema (WTFPL, already a pinned root
+ *    devDependency used elsewhere in this repo as a differential oracle,
+ *    T-041/D-21 — `node_modules/@e-invoice-eu/core/dist/e-invoice-eu.esm.js`,
+ *    grep for the BT id). Used only for a BT that genuinely has no
+ *    business rule anywhere in the vendored ConnectingEurope Schematron
+ *    (confirmed absent by grepping both `.sch` files for the BT id before
+ *    reaching for this — not a first resort), so "extraction" cannot apply
+ *    at all. Cross-checked against a second, independent source before
+ *    trusting it: docs.peppol.eu's own per-element documentation page for
+ *    the same BT carries the identical description sentence, word for
+ *    word — not just a similar paraphrase — which is why this tier exists
+ *    as a distinct, narrower claim than "well-known" (that tier is *not*
+ *    independently phrase-checked at all; this one is, just against an
+ *    artifact other than our own vendored Schematron).
  */
 
 /**
@@ -54,7 +70,7 @@
  * @property {boolean} required
  * @property {boolean} repeats - true if this is an array (BG only, mostly)
  * @property {string} group - which generated interface this field belongs to
- * @property {"extraction" | "well-known"} verified
+ * @property {"extraction" | "well-known" | "kosit-xrechnung" | "e-invoice-eu-schema"} verified
  * @property {string} source - rule id (e.g. "BR-27") or a short note
  */
 
@@ -997,6 +1013,44 @@ export const terms = [
     group: "InvoiceLine",
     verified: "extraction",
     source: "text near BT-153",
+  },
+  // T-060 continuation (D-19/BT-158/BT-159): the customs addendum to T-060.
+  // No `bg`/scheme-identifier field — this repo's v0.1 scope is HS only
+  // (D-19's own wording), so the scheme identifier is a literal "HS" in
+  // the CII serialization plan, not a separate model field a caller could
+  // get wrong or leave unset.
+  {
+    id: "BT-158",
+    name: "Item classification identifier",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "InvoiceLine",
+    verified: "extraction",
+    // BR-65's own assert message quotes this name verbatim: "The Item
+    // classification identifier (BT-158) shall have a Scheme identifier."
+    source: "BR-65",
+  },
+  {
+    id: "BT-159",
+    name: "Item country of origin",
+    kind: "BT",
+    tsType: "CountryCode",
+    required: false,
+    repeats: false,
+    group: "InvoiceLine",
+    // Absent from both vendored Schematron files (confirmed: grepped
+    // EN16931-CII-validation-preprocessed.sch and EN16931-CII-codes.sch
+    // for "BT-159" before reaching for a different source — this BT has no
+    // dedicated business rule at all, base EN 16931 CII or DE XRechnung,
+    // which is *why* it's absent, not a gap in our extraction).
+    verified: "e-invoice-eu-schema",
+    source:
+      '@e-invoice-eu/core@3.3.0 dist/e-invoice-eu.esm.js: title:"Item country of origin" on the ' +
+      'cbc:IdentificationCode schema node whose description ends "Business terms: BT-159" — the same ' +
+      'description text ("The code identifying the country from which the item originates.") also appears ' +
+      "verbatim on docs.peppol.eu's own cac:OriginCountry/cbc:IdentificationCode page, independently.",
   },
 
   // --- BG-26 Invoice line period ---

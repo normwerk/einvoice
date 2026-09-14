@@ -182,6 +182,10 @@ export interface InvoiceLine {
   readonly netPrice: Amount;
   /** BT-153 Item name */
   readonly itemName: string;
+  /** BT-158 Item classification identifier */
+  readonly hsCode?: string;
+  /** BT-159 Item country of origin (name not independently quoted in our extraction — see terms.mjs) */
+  readonly originCountry?: CountryCode;
   /** BG-26 Invoice line period */
   readonly invoicingPeriod?: InvoiceLinePeriod;
   /** BG-27 Invoice line allowance */

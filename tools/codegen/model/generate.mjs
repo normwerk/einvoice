@@ -153,6 +153,8 @@ const FIELD_NAME_OVERRIDES = {
   "BT-131": "netAmount",
   "BT-146": "netPrice",
   "BT-153": "itemName",
+  "BT-158": "hsCode",
+  "BT-159": "originCountry",
   "BG-26": "invoicingPeriod",
   "BT-134": "startDate",
   "BT-135": "endDate",
