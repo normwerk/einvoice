@@ -13,16 +13,25 @@ const fixtureIds = readdirSync(FIXTURES_DIR).filter((name) =>
   statSync(resolve(FIXTURES_DIR, name)).isDirectory(),
 );
 
-describe("T-050 base fixtures validate against the generated JSON Schema", () => {
-  it("found the expected 6 base fixtures", () => {
+describe("T-050/T-022 fixtures validate against the generated JSON Schema", () => {
+  it("found the expected 6 base + 7 extended fixtures", () => {
     expect(fixtureIds.sort()).toEqual(
       [
+        // T-050 base set
         "de-b2b-standard",
         "de-b2b-reverse-charge",
         "de-eu-intracommunity",
         "de-export",
         "de-exempt",
         "de-credit-note",
+        // T-022/W7 extended set (plan-v0.1 §7)
+        "de-mixed-rates",
+        "de-line-discount",
+        "de-document-discount",
+        "de-shipping-charge",
+        "de-special-chars",
+        "de-many-lines",
+        "de-b2g-leitweg-id",
       ].sort(),
     );
   });

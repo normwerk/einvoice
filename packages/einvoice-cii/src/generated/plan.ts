@@ -89,6 +89,33 @@ function allowanceChargeNode(isCharge: boolean): PlanNode {
   };
 }
 
+/**
+ * BG-27/BG-28 Invoice line allowance/charge — same `TradeAllowanceChargeType`
+ * shape as the document-level version (`allowanceChargeNode`), but without
+ * `CategoryTradeTax`: `InvoiceLineAllowance`/`InvoiceLineCharge` (einvoice-model)
+ * carry no VAT category of their own — the line's own BG-30 already covers
+ * that, unlike a document-level allowance/charge which needs to state which
+ * VAT category its amount reduces/adds to.
+ */
+function lineAllowanceChargeNode(isCharge: boolean): PlanNode {
+  return {
+    kind: "repeat",
+    name: ram("SpecifiedTradeAllowanceCharge"),
+    from: isCharge ? "charges" : "allowances",
+    children: [
+      {
+        kind: "element",
+        name: ram("ChargeIndicator"),
+        children: [{ kind: "value", name: udt("Indicator"), literal: isCharge ? "true" : "false" }],
+      },
+      { kind: "value", name: ram("BasisAmount"), from: "baseAmount", format: "amount", bt: isCharge ? "BT-142" : "BT-137" },
+      { kind: "value", name: ram("ActualAmount"), from: "amount", format: "amount", bt: isCharge ? "BT-141" : "BT-136" },
+      { kind: "value", name: ram("ReasonCode"), from: "reasonCode", bt: isCharge ? "BT-145" : "BT-140" },
+      { kind: "value", name: ram("Reason"), from: "reason", bt: isCharge ? "BT-144" : "BT-139" },
+    ],
+  };
+}
+
 const invoiceLineNode: PlanNode = {
   kind: "repeat",
   name: ram("IncludedSupplyChainTradeLineItem"),
@@ -130,10 +157,14 @@ const invoiceLineNode: PlanNode = {
       ],
     },
     {
+      // LineTradeSettlementType sequence: ..., ApplicableTradeTax, ...,
+      // SpecifiedTradeAllowanceCharge, ..., SpecifiedTradeSettlementLineMonetarySummation.
       kind: "element",
       name: ram("SpecifiedLineTradeSettlement"),
       children: [
         { ...lineVatNode, from: "vat" } as PlanNode,
+        lineAllowanceChargeNode(false),
+        lineAllowanceChargeNode(true),
         {
           kind: "element",
           name: ram("SpecifiedTradeSettlementLineMonetarySummation"),

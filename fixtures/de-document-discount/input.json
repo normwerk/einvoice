@@ -1,0 +1,74 @@
+{
+  "number": "RE-2026-0012",
+  "issueDate": "2026-09-14",
+  "typeCode": "380",
+  "currencyCode": "EUR",
+  "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "businessProcessType": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
+  "buyerReference": "Buchhaltung-2026-09",
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "vatIdentifier": "DE123456789",
+    "countryCode": "DE",
+    "city": "Berlin",
+    "postCode": "10115",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
+  },
+  "buyer": {
+    "name": "Beispielkunde GmbH",
+    "countryCode": "DE",
+    "city": "Hamburg",
+    "postCode": "20095",
+    "electronicAddress": "ap@de-document-discount.example",
+    "electronicAddressScheme": "EM"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "1000.00",
+      "netPrice": "1000.00",
+      "itemName": "Project consulting",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    }
+  ],
+  "vatBreakdown": [
+    {
+      "taxableAmount": "950.00",
+      "taxAmount": "180.50",
+      "categoryCode": "S",
+      "rate": "19"
+    }
+  ],
+  "documentLevelAllowances": [
+    {
+      "amount": "50.00",
+      "vatCategoryCode": "S",
+      "vatRate": "19",
+      "reason": "Treuerabatt / Loyalty discount",
+      "reasonCode": "95"
+    }
+  ],
+  "paymentInstructions": {
+    "meansTypeCode": "58",
+    "accountIdentifier": "DE89370400440532013000"
+  },
+  "totals": {
+    "sumOfLineNetAmounts": "1000.00",
+    "sumOfAllowances": "50.00",
+    "totalAmountWithoutVat": "950.00",
+    "totalVatAmount": "180.50",
+    "totalAmountWithVat": "1130.50",
+    "amountDueForPayment": "1130.50"
+  }
+}

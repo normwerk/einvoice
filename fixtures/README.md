@@ -1,15 +1,19 @@
 # Fixtures
 
-Base scenario fixtures (plan-v0.1 §7, T-050). One directory per scenario:
+Scenario fixtures (plan-v0.1 §7). One directory per scenario:
 
 - `input.json` — the scenario in `Invoice` model form (`@normwerk/einvoice-model`), validated against the
   generated JSON Schema by `packages/einvoice-model/src/fixtures.test.ts`.
 - `scenario.md` — what the scenario is, which BR-\* rules apply, and the norm source. Cross-references the
-  matching row in [`docs/tax-semantics.md`](../docs/tax-semantics.md).
-- `expected/` — golden CII XML and PDF/A metadata, added once `einvoice-cii` (T-020) exists. Empty for now.
+  matching row in [`docs/tax-semantics.md`](../docs/tax-semantics.md) where one exists.
+- `expected/` — golden CII XML and PDF/A metadata. Still empty: all 13 fixtures are verified live against
+  the real KoSIT validator (`pnpm conformance:fixtures`, T-021/T-022) rather than compared to a committed
+  golden file yet — that's an L4/L5 concern (differential oracles, round-trip), not yet done.
 
 All identifiers are synthetic (`AGENTS.md` §5.2) — `Musterfirma GmbH`, `DE 123456789` follows the
 convention KoSIT's own XRechnung test suite uses.
+
+**Base set (T-050):**
 
 | Fixture                 | Category | Scenario                                                 |
 | ----------------------- | -------- | -------------------------------------------------------- |
@@ -20,5 +24,17 @@ convention KoSIT's own XRechnung test suite uses.
 | `de-exempt`             | E        | DE domestic, exempt supply                               |
 | `de-credit-note`        | S, 19%   | Credit note (381) for a full return of `de-b2b-standard` |
 
-Extending this set (mixed rates, line-level discounts, Leitweg-ID, long/special-character text, high
-line-count documents) is plan-v0.1 §7's W7 scope, not this pass.
+**Extended set (T-022/W7, plan-v0.1 §7):**
+
+| Fixture                | Scenario                                                     |
+| ---------------------- | ------------------------------------------------------------ |
+| `de-mixed-rates`       | Standard (19%) and reduced (7%) rates on one invoice         |
+| `de-line-discount`     | Line-level allowance (BG-27)                                 |
+| `de-document-discount` | Document-level allowance (BG-20)                             |
+| `de-shipping-charge`   | Document-level charge (BG-21), shipping cost                 |
+| `de-special-chars`     | XML-escaping stress test (`&`, `<`, `>`, `"`, non-ASCII)     |
+| `de-many-lines`        | 25 invoice lines — cardinality stress test                   |
+| `de-b2g-leitweg-id`    | Public-sector buyer, real Leitweg-ID-shaped `buyerReference` |
+
+All 13 pass the real KoSIT validator (L1 XSD + L2 Schematron, `pnpm conformance:fixtures`) — a full run
+takes well under a minute.

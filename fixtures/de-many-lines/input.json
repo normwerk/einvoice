@@ -1,0 +1,352 @@
+{
+  "number": "RE-2026-0015",
+  "issueDate": "2026-09-14",
+  "typeCode": "380",
+  "currencyCode": "EUR",
+  "specificationIdentifier": "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0",
+  "businessProcessType": "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0",
+  "buyerReference": "Buchhaltung-2026-09",
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "vatIdentifier": "DE123456789",
+    "countryCode": "DE",
+    "city": "Berlin",
+    "postCode": "10115",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
+  },
+  "buyer": {
+    "name": "Beispielkunde GmbH",
+    "countryCode": "DE",
+    "city": "Hamburg",
+    "postCode": "20095",
+    "electronicAddress": "ap@de-many-lines.example",
+    "electronicAddressScheme": "EM"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #1",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "2",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #2",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "3",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #3",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "4",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #4",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "5",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #5",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "6",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #6",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "7",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #7",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "8",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #8",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "9",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #9",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "10",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #10",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "11",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #11",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "12",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #12",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "13",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #13",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "14",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #14",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "15",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #15",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "16",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #16",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "17",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #17",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "18",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #18",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "19",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #19",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "20",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #20",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "21",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #21",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "22",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #22",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "23",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #23",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "24",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #24",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    },
+    {
+      "identifier": "25",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netAmount": "40.00",
+      "netPrice": "40.00",
+      "itemName": "Stock item #25",
+      "vat": {
+        "categoryCode": "S",
+        "rate": "19"
+      }
+    }
+  ],
+  "vatBreakdown": [
+    {
+      "taxableAmount": "1000.00",
+      "taxAmount": "190.00",
+      "categoryCode": "S",
+      "rate": "19"
+    }
+  ],
+  "paymentInstructions": {
+    "meansTypeCode": "58",
+    "accountIdentifier": "DE89370400440532013000"
+  },
+  "totals": {
+    "sumOfLineNetAmounts": "1000.00",
+    "totalAmountWithoutVat": "1000.00",
+    "totalVatAmount": "190.00",
+    "totalAmountWithVat": "1190.00",
+    "amountDueForPayment": "1190.00"
+  }
+}

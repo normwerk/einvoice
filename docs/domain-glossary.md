@@ -52,3 +52,9 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
 - **`BR-AE-02` (reverse charge) needs identification on _both_ parties**, not just the seller: the seller's
   VAT-ID or tax registration **and** the buyer's VAT-ID or legal registration identifier. Easy to miss
   because `BR-S-02`-style rules for other categories only ever check the seller.
+- **An allowance/charge's base amount can't be set without a percentage.** `PEPPOL-EN16931-R042`:
+  "Allowance/charge percentage MUST be provided when allowance/charge base amount is provided" — CII's
+  `TradeAllowanceChargeType` puts `CalculationPercent` right before `BasisAmount` in its sequence, and
+  supplying one without the other is rejected. `einvoice-model` doesn't model the percentage yet
+  (BT-94/101/138/143), so fixtures with a discount/charge (T-022) simply omit `baseAmount` rather than
+  half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
