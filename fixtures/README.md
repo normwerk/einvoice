@@ -9,8 +9,11 @@ Scenario fixtures (plan-v0.1 §7). One directory per scenario:
 - `expected/` — golden CII XML and PDF/A metadata. Still empty: all 13 fixtures are verified live against
   the real KoSIT validator (`pnpm conformance:fixtures`, T-021/T-022) rather than compared to a committed
   golden file — L4/L5 verification instead runs live against independent implementations: Mustang for L5
-  round-trip (`pnpm conformance:roundtrip`, T-043) and `@e-invoice-eu/core` for the L4 differential oracle
-  (`pnpm conformance:oracle-eu`, T-041 — see [`docs/l4-oracle-eu-report.md`](../docs/l4-oracle-eu-report.md)).
+  round-trip (`pnpm conformance:roundtrip`, T-043) and two independent generators for the L4 differential
+  oracles — `@e-invoice-eu/core` (`pnpm conformance:oracle-eu`, T-041 —
+  [`docs/l4-oracle-eu-report.md`](../docs/l4-oracle-eu-report.md)) and `@stackforge-eu/factur-x`
+  (`pnpm conformance:oracle-facturx`, T-042 —
+  [`docs/l4-oracle-facturx-report.md`](../docs/l4-oracle-facturx-report.md)).
 
 All identifiers are synthetic (`AGENTS.md` §5.2) — `Musterfirma GmbH`, `DE 123456789` follows the
 convention KoSIT's own XRechnung test suite uses.
@@ -40,7 +43,11 @@ convention KoSIT's own XRechnung test suite uses.
 
 All 13 pass the real KoSIT validator (L1 XSD + L2 Schematron, `pnpm conformance:fixtures`) and the real
 Mustang validator's arithmetic recalculation (L5, `pnpm conformance:roundtrip`) — a full run of either
-takes well under a minute. 11/13 also produce CII that's byte-for-byte-equivalent (after canonicalization)
-to an independent generator's output once a known, verified difference in that generator is accounted for;
-the other 2 (`de-eu-intracommunity`, `de-export`) are exactly equivalent with no difference at all — see
-[`docs/l4-oracle-eu-report.md`](../docs/l4-oracle-eu-report.md) (L4, `pnpm conformance:oracle-eu`, T-041).
+takes well under a minute. Against `@e-invoice-eu/core` (L4, T-041), 11/13 produce CII that's
+byte-for-byte-equivalent (after canonicalization) once a known, verified difference in that generator is
+accounted for, and the other 2 (`de-eu-intracommunity`, `de-export`) are exactly equivalent with no
+difference at all — see [`docs/l4-oracle-eu-report.md`](../docs/l4-oracle-eu-report.md). Against
+`@stackforge-eu/factur-x` (L4, T-042), 12/13 differ in two verified, explained ways (a real empty-element
+bug in that library, and a permissible difference in how each side defaults an unset delivery date) and 1
+(`de-line-discount`) can't be compared at all — its input type has no field for line-level allowances — see
+[`docs/l4-oracle-facturx-report.md`](../docs/l4-oracle-facturx-report.md).

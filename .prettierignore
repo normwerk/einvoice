@@ -9,3 +9,5 @@ packages/*/src/generated/**
 # (T-041) on every run, with long single-line classification paragraphs that
 # prettier's markdown formatter would rewrap — not worth fighting each run.
 docs/l4-oracle-eu-report.md
+# Same reasoning, for the T-042 oracle (tools/conformance/oracle-stackforge-facturx.mjs).
+docs/l4-oracle-facturx-report.md
