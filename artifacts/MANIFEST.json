@@ -185,6 +185,19 @@
       ]
     },
     {
+      "id": "leitweg-id-format-specification",
+      "url": "https://xeinkauf.de/app/uploads/2022/11/Leitweg-ID-Formatspezifikation-v2-0-2-1.pdf",
+      "version": "Leitweg-ID Format-Spezifikation Version 2.0.2 (KoSIT, Fassung vom 28.07.2021)",
+      "sha256": "4ac13d712b4efc04ae58837ee16927441383f7602606929df0fccd9cfe735fbc",
+      "licence": "UNCLEAR — no explicit licence/terms-of-use statement on the document or the xeinkauf.de download page; not vendored, read only",
+      "vendored": false,
+      "vendored_path": null,
+      "fetched_at": "2026-09-14",
+      "used_for": [
+        "T-062: einvoice-commerce/src/leitweg-id.ts — the Leitweg-ID structural grammar (§2.1-2.3) and the ISO/IEC 7064:2003 MOD 97-10 check-digit algorithm (§2.4, including the letter-to-digit mapping A=10..Z=35 and the official worked example '04011000-1234512345' -> '06', reproduced byte-for-byte by this repo's own implementation). Real download URL found via WebSearch and curl-verified before fetching (the memory rule that already caught a 404 for the sRGB ICC profile, D-23/T-032) — read directly with the Read tool, not summarized by WebFetch. Cross-checked against a real third-party validator (consult-sk.com's Leitweg-ID checker) for a letters-containing example, not just self-consistency between this repo's own generator and validator."
+      ]
+    },
+    {
       "id": "mustangproject-pdf-validator",
       "url": "https://raw.githubusercontent.com/ZUGFeRD/mustangproject/ac40375b9f99e1f9f3c625ab6158acecc74562b1/validator/src/main/java/org/mustangproject/validator/PDFValidator.java",
       "version": "commit ac40375b9f99e1f9f3c625ab6158acecc74562b1",

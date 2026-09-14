@@ -14,6 +14,7 @@
 import { validateModel, type Invoice, type VatCategoryCode } from "@normwerk/einvoice-model";
 import { DE_STANDARD_RATE, decideVatCategory, resolveLineRate } from "./tax-rules.js";
 import { multiplyToAmount, percentOfAmount, subtractAmounts, sumAmounts } from "./decimal.js";
+import { looksLikeLeitwegId, validateLeitwegId } from "./leitweg-id.js";
 import type {
   BuildResult,
   BuildWarning,
@@ -68,6 +69,21 @@ export class MissingDeliveryInfoForIntraCommunitySupplyError extends Error {
         "docs/tax-semantics.md's table needs delivery info the same way).",
     );
     this.name = "MissingDeliveryInfoForIntraCommunitySupplyError";
+  }
+}
+
+export class InvalidLeitwegIdError extends Error {
+  constructor(
+    readonly value: string,
+    readonly reason: string,
+  ) {
+    super(
+      `references.buyerReference "${value}" has the shape of a Leitweg-ID but fails validation (${reason}) ` +
+        "— KoSIT's own validator only checks that BT-10 is present (BR-DE-15), not its format, so a " +
+        "mistyped Leitweg-ID would otherwise pass KoSIT and misroute at the receiving public-sector system " +
+        "(T-062).",
+    );
+    this.name = "InvalidLeitwegIdError";
   }
 }
 
@@ -131,6 +147,16 @@ export function buildInvoice(
   }
   if (input.seller.contact === undefined) {
     throw new MissingSellerContactError();
+  }
+  const buyerReference = input.references?.buyerReference;
+  if (buyerReference !== undefined && looksLikeLeitwegId(buyerReference)) {
+    // Only validated when it has the shape at all (T-062) — an ordinary free-text B2B reference that
+    // doesn't look like a Leitweg-ID is not a malformed one, it's simply not one; BT-10 is valid free text
+    // in general, not exclusively for German public-sector buyers.
+    const leitwegIdResult = validateLeitwegId(buyerReference);
+    if (!leitwegIdResult.valid) {
+      throw new InvalidLeitwegIdError(buyerReference, leitwegIdResult.reason ?? "unknown");
+    }
   }
 
   const warnings: BuildWarning[] = [];

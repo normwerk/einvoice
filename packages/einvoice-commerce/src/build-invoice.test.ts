@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateModel } from "@normwerk/einvoice-model";
 import {
   InvalidAssembledInvoiceError,
+  InvalidLeitwegIdError,
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,
@@ -215,6 +216,25 @@ describe("buildInvoice — credit note (row 10, T-064)", () => {
     expect(result.invoice.precedingInvoiceReferences).toEqual([
       { invoiceNumber: "RE-2026-0001", issueDate: "2026-09-14" },
     ]);
+  });
+});
+
+describe("buildInvoice — Leitweg-ID validation (T-062)", () => {
+  it("accepts a valid Leitweg-ID buyerReference", () => {
+    const input = domesticInput({ references: { buyerReference: "991-ABC-29" } });
+    const result = buildInvoice(input);
+    expect(result.invoice.buyerReference).toBe("991-ABC-29");
+  });
+
+  it("rejects a Leitweg-ID-shaped buyerReference with a wrong check digit", () => {
+    const input = domesticInput({ references: { buyerReference: "991-ABD-29" } });
+    expect(() => buildInvoice(input)).toThrow(InvalidLeitwegIdError);
+  });
+
+  it("does not touch an ordinary free-text buyerReference that doesn't look like a Leitweg-ID", () => {
+    const input = domesticInput({ references: { buyerReference: "Buchhaltung-2026-09" } });
+    const result = buildInvoice(input);
+    expect(result.invoice.buyerReference).toBe("Buchhaltung-2026-09");
   });
 });
 

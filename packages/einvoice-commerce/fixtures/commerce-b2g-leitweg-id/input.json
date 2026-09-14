@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "document": {
+    "kind": "invoice",
+    "number": "RE-2026-1004",
+    "issueDate": "2026-09-14",
+    "currency": "EUR"
+  },
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "countryCode": "DE",
+    "city": "Berlin",
+    "postCode": "10115",
+    "vatIdentifier": "DE123456789",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
+  },
+  "buyer": {
+    "name": "Musterbehörde",
+    "countryCode": "DE",
+    "city": "Bonn",
+    "postCode": "53113",
+    "electronicAddress": "ap@commerce-b2g-leitweg-id.example",
+    "electronicAddressScheme": "EM"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netPrice": "300.00",
+      "itemName": "IT support services",
+      "taxRateKind": "standard"
+    }
+  ],
+  "payment": { "means": "58", "iban": "DE89370400440532013000" },
+  "references": { "buyerReference": "04011000-1234512345-06" },
+  "taxContext": {
+    "sellerCountry": "DE",
+    "sellerVatId": "DE123456789",
+    "buyerCountry": "DE",
+    "buyerIsBusiness": true,
+    "ossRegistered": false,
+    "supplyType": "services"
+  }
+}

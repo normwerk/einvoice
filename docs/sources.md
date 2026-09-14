@@ -85,3 +85,12 @@ not-vendored) ZUGFeRD/Factur-X spec ZIP above.
   (`liberation-fonts-ttf-2.1.5.tar.gz`, sha256 in `artifacts/MANIFEST.json`) — the release page itself has no
   formal GitHub release asset, only a user-uploaded file link in the release body text, verified by
   downloading and inspecting it directly rather than assumed from the release page's rendering.
+
+A further source, for `einvoice-commerce` (T-062, not a PDF/A concern): the real
+[KoSIT "Leitweg-ID Format-Spezifikation Version 2.0.2"](https://xeinkauf.de/app/uploads/2022/11/Leitweg-ID-Formatspezifikation-v2-0-2-1.pdf)
+(licence unclear, not vendored — read only), fetched after finding its real URL via `WebSearch` and
+curl-verifying it before download (the same discipline that already caught a 404'd URL for the sRGB ICC
+profile, T-032). `packages/einvoice-commerce/src/leitweg-id.ts`'s check-digit algorithm (ISO/IEC 7064:2003
+MOD 97-10) is read directly from this document's §2.4, reproducing its own worked example byte-for-byte, and
+separately cross-checked against a real third-party Leitweg-ID validator for a case involving letters — not
+just self-consistency between this repo's own generator and validator.

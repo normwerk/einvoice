@@ -22,6 +22,7 @@ export type {
 export {
   buildInvoice,
   InvalidAssembledInvoiceError,
+  InvalidLeitwegIdError,
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,
@@ -29,6 +30,13 @@ export {
   UnsupportedSchemaVersionError,
   type BuildInvoiceOptions,
 } from "./build-invoice.js";
+
+export {
+  computeLeitwegIdCheckDigits,
+  looksLikeLeitwegId,
+  validateLeitwegId,
+  type LeitwegIdValidationResult,
+} from "./leitweg-id.js";
 
 export {
   DE_REDUCED_RATE,
