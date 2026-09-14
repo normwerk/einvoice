@@ -67,7 +67,16 @@ export async function embedInvoiceInPdfA3(
   options: EmbedInvoiceOptions,
 ): Promise<EmbedInvoiceResult> {
   const profile = ZUGFERD_PROFILES[options.profile];
-  const pdfDoc = await PDFDocument.load(basePdfBytes);
+  // updateMetadata: false — PDFDocument.load()'s own default (true) silently
+  // stamps the Info dict's ModDate (and, if the base PDF has none yet,
+  // CreationDate too) with the real `new Date()` at load time. Found by
+  // actually diffing two calls a second apart, not by reading the source
+  // alone: the "embedding twice gives byte-identical output" unit test
+  // below only passed by accident of running faster than one second.
+  // Without this, this function's own doc comment above ("does not touch
+  // the document's Info dictionary... matches this repo's determinism
+  // discipline") would be false.
+  const pdfDoc = await PDFDocument.load(basePdfBytes, { updateMetadata: false });
 
   addSrgbOutputIntent(pdfDoc);
 

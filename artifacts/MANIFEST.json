@@ -172,6 +172,19 @@
       "fetched_at": "2026-09-14"
     },
     {
+      "id": "pdfa-liberation-sans-font",
+      "url": "https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz",
+      "version": "Liberation Fonts 2.1.5 (TTF release tarball)",
+      "sha256": "7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0",
+      "licence": "SIL Open Font License 1.1 (freely embeddable/redistributable; LICENSE file inside the tarball, vendored verbatim at artifacts/LICENSES/OFL-LiberationSans.txt)",
+      "vendored": true,
+      "vendored_path": "artifacts/fonts/LiberationSans-{Regular,Bold}.ttf",
+      "fetched_at": "2026-09-14",
+      "used_for": [
+        "T-030 continuation: real embedded/subset font for the visual invoice layout (einvoice-pdfa/src/render-invoice.ts) — replaces the blank, font-free base PDF used until now, closing the 'non-embedded standard font' PDF/A gap Spike B (D-20) diagnosed. Only Regular+Bold are vendored (the layout's only two weights); Italic/BoldItalic from the same release are not used and intentionally not vendored (AGENTS.md §5.1). Per-file sha256: LiberationSans-Regular.ttf 76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8; LiberationSans-Bold.ttf 788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173."
+      ]
+    },
+    {
       "id": "mustangproject-pdf-validator",
       "url": "https://raw.githubusercontent.com/ZUGFeRD/mustangproject/ac40375b9f99e1f9f3c625ab6158acecc74562b1/validator/src/main/java/org/mustangproject/validator/PDFValidator.java",
       "version": "commit ac40375b9f99e1f9f3c625ab6158acecc74562b1",

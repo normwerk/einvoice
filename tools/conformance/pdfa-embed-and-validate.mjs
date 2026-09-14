@@ -9,20 +9,23 @@
  * PDF/A+ZUGFeRD document without error, not just that the PDF/A shell is
  * valid on its own).
  *
- * The base PDF (what the invoice XML gets embedded into) is a minimal blank
- * page — no text, no fonts — deliberately sidestepping the "non-embedded
- * standard font" PDF/A pitfall (Spike B, HOW-WE-GOT-HERE.md D-20) rather
- * than solving it here; a real visual invoice layout with embedded fonts is
- * a separate, later concern (T-030 continuation), not what this checks.
+ * The base PDF (what the invoice XML gets embedded into) is a real,
+ * per-fixture visual invoice layout (`renderInvoicePdf`, render-invoice.ts)
+ * with a real embedded, subset font (Liberation Sans, SIL OFL 1.1) — not a
+ * blank page. That's what actually exercises the "non-embedded standard
+ * font" PDF/A pitfall Spike B found (HOW-WE-GOT-HERE.md D-20): a blank page
+ * sidesteps it by having no text at all, so it doesn't prove
+ * `embedInvoiceInPdfA3`'s output is PDF/A-3b-valid for a real document
+ * someone would actually read.
  *
- * Requires: `pnpm --filter @normwerk/einvoice-cii build`,
+ * Requires: `pnpm --filter @normwerk/einvoice-model build`,
+ * `pnpm --filter @normwerk/einvoice-cii build`,
  * `pnpm --filter @normwerk/einvoice-pdfa build`, and the veraPDF + Mustang
  * Docker images built (`docker compose -f docker/compose.conformance.yml
  * build verapdf mustang`).
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -108,16 +111,9 @@ async function main() {
   const { serializeCii } = await import(resolve(REPO_ROOT, "packages/einvoice-cii/dist/index.js"));
   const pdfaIndexPath = resolve(REPO_ROOT, "packages/einvoice-pdfa/dist/index.js");
   const { embedInvoiceInPdfA3 } = await import(pdfaIndexPath);
-  // pdf-lib is a dependency of einvoice-pdfa, not of this root-level script —
-  // resolve it the way that package itself would, rather than hoisting it
-  // to a place it doesn't otherwise need to be.
-  const { PDFDocument } = createRequire(pdfaIndexPath)("pdf-lib");
-
-  const blankBase = await (async () => {
-    const doc = await PDFDocument.create();
-    doc.addPage([595.28, 841.89]); // A4
-    return doc.save();
-  })();
+  const { renderInvoicePdf } = await import(
+    resolve(REPO_ROOT, "packages/einvoice-pdfa/dist/render-invoice.js")
+  );
 
   const ids = readdirSync(FIXTURES_DIR)
     .filter((name) => {
@@ -136,9 +132,10 @@ async function main() {
   for (const id of ids) {
     const invoice = JSON.parse(readFileSync(resolve(FIXTURES_DIR, id, "input.json"), "utf-8"));
     const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    const visualBase = await renderInvoicePdf(invoice);
     // All 14 fixtures use the XRechnung 3.0 CIUS specificationIdentifier —
     // XRECHNUNG is the matching ZUGFeRD profile (profiles.ts).
-    const { pdfBytes, attachmentFilename } = await embedInvoiceInPdfA3(blankBase, xml, {
+    const { pdfBytes, attachmentFilename } = await embedInvoiceInPdfA3(visualBase, xml, {
       profile: "XRECHNUNG",
       title: invoice.number,
     });

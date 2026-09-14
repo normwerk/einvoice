@@ -51,23 +51,54 @@ Two non-obvious things this caught that guessing would have gotten wrong:
 would be `"1.0"` even for that profile) — chosen to match the real XRechnung 3.0.2 CIUS this repo
 implements; both values are in Mustang's own accepted list (`PDFValidator.java`).
 
+## The base PDF: a real visual layout, not a blank page
+
+`render-invoice.ts`'s `renderInvoicePdf(invoice)` lays out an `Invoice` (`@normwerk/einvoice-model`) as a
+real A4 page — seller/buyer blocks, a line-items table (paginating onto further pages once it overflows
+one), a VAT breakdown, and totals — using a real embedded, **subset** TrueType font: Liberation Sans
+(`artifacts/fonts/`, SIL Open Font License 1.1 — see [`sources.md`](sources.md)), via `pdf-lib` +
+`@pdf-lib/fontkit`. This is what `tools/conformance/pdfa-embed-and-validate.mjs` now feeds into
+`embedInvoiceInPdfA3` for every fixture, replacing an earlier blank-page base PDF that had sidestepped
+rather than exercised the classic PDF/A pitfall Spike B (D-20) diagnosed: a PDF using a non-embedded
+standard font (e.g. `pdf-lib`'s `StandardFonts.Helvetica`) fails PDF/A regardless of anything
+`embedInvoiceInPdfA3` does. A real, non-blank, real-font-embedded page is what actually proves this
+package's output is PDF/A-3b-valid for a document someone would read, not just for an empty one.
+
+Deliberately simple — one visual style, no template system, no text-wrapping engine beyond what the
+fixtures need (plan-v0.1 §7 doesn't ask for a general-purpose invoice designer); renders every top-level
+BT/BG group a human reading the PDF would expect (parties, lines, VAT breakdown, totals).
+
+While implementing this, a real, previously-undetected determinism bug turned up in `embedInvoiceInPdfA3`
+itself (`index.ts`): `pdf-lib`'s `PDFDocument.load()` defaults to stamping the Info dictionary's `ModDate`
+(and `CreationDate`, once the base PDF has none) with the real `new Date()` at load time — silently
+contradicting that function's own doc comment about never touching the Info dictionary. The existing "embed
+twice, byte-identical" unit test had only passed by running faster than one wall-clock second. Found by
+actually diffing two calls a second apart, not by re-reading the source; fixed with `{ updateMetadata:
+false }` on both `PDFDocument.create()` (`render-invoice.ts`) and `PDFDocument.load()` (`index.ts`) —
+confirmed deterministic across a real 1.5s gap, not by timing luck.
+
 ## What's verified, and how
 
-- **Unit tests** (`packages/einvoice-pdfa/src/index.test.ts`) — XMP structure/values, a real embed +
-  Flate-decode round-trip of the attached XML, determinism (embedding twice gives byte-identical output,
-  matching this repo's `Date.now()`-free discipline), and that the base PDF's Info dictionary is untouched.
+- **Unit tests** (`packages/einvoice-pdfa/src/index.test.ts`, `render-invoice.test.ts`) — XMP
+  structure/values, a real embed + Flate-decode round-trip of the attached XML, determinism (rendering/
+  embedding twice, with a real >1s gap in between, gives byte-identical output — matching this repo's
+  `Date.now()`-free discipline), that neither the base PDF's nor the final Info dictionary carries a
+  timestamp, that a real subset TrueType font (not a standard font) is embedded with its program data
+  (`FontFile2`), that non-ASCII text round-trips through it, and that the line-items table actually
+  paginates onto further pages once it overflows one.
 - **Real conformance** (`tools/conformance/pdfa-embed-and-validate.mjs`, `pnpm conformance:pdfa`, CI job
-  `conformance-pdfa`) — embeds every fixture's real CII XML into a minimal base PDF and runs the actual
-  Docker veraPDF (L3, PDF/A-3b, `--flavour 3b`) and Mustang validators against it: veraPDF must report the
-  file PDF/A-3b compliant, Mustang's own `--action validate` must exit clean (its XMP property checks
-  included — this is what "recognizes the profile" means in practice), and `--action extract` must recover
-  the embedded XML byte-for-byte. **14/14 fixtures pass all three, for real** — not simulated (AGENTS.md §8).
+  `conformance-pdfa`) — renders every fixture as a real visual invoice, embeds its real CII XML, and runs
+  the actual Docker veraPDF (L3, PDF/A-3b, `--flavour 3b`) and Mustang validators against it: veraPDF must
+  report the file PDF/A-3b compliant, Mustang's own `--action validate` must exit clean (its XMP property
+  checks included — this is what "recognizes the profile" means in practice), and `--action extract` must
+  recover the embedded XML byte-for-byte. **14/14 fixtures pass all three, for real** — not simulated
+  (AGENTS.md §8), and now against a real, font-embedded, multi-paragraph page rather than a blank one.
 
 ## What this does _not_ solve yet
 
-The base PDF used both in tests and in `pnpm conformance:pdfa` is a blank page — no text, no fonts —
-deliberately sidestepping the classic PDF/A pitfall Spike B (D-20) diagnosed precisely: a PDF using a
-non-embedded standard font (e.g. `pdf-lib`'s `StandardFonts.Helvetica`) fails PDF/A regardless of anything
-`einvoice-pdfa` does. Fixing _that_ — the "Path 2" Ghostscript re-embedding fallback D-20 already validated
-works — is a `einvoice-pdfa` continuation, not implemented here: this package assumes its input PDF is
-already PDF/A-eligible in that sense, and only adds the OutputIntent/XMP/attachment machinery.
+Fixing an _arbitrary caller-supplied_ PDF whose fonts aren't embedded — the "Path 2" Ghostscript
+re-embedding fallback D-20 already validated works, for a PDF this package didn't itself generate — is a
+further `einvoice-pdfa` continuation, not implemented here. `embedInvoiceInPdfA3` still assumes its input
+PDF is already PDF/A-eligible in that sense; `renderInvoicePdf` closes that gap only for the PDF this
+package renders itself, not for a foreign PDF handed to it (e.g. from a PDF-generation plugin elsewhere in
+a host platform, T-073's "standalone mode").

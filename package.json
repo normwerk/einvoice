@@ -20,7 +20,7 @@
     "conformance:pdfa": "node tools/conformance/pdfa-embed-and-validate.mjs",
     "codegen:model": "node tools/codegen/model/generate.mjs",
     "codegen:cii-mapping": "pnpm --filter @normwerk/einvoice-cii build && node tools/codegen/cii/generate-mapping-reference.mjs",
-    "codegen:pdfa": "node tools/codegen/pdfa/generate-icc-profile.mjs",
+    "codegen:pdfa": "node tools/codegen/pdfa/generate-icc-profile.mjs && node tools/codegen/pdfa/generate-fonts.mjs",
     "codegen": "pnpm codegen:model && pnpm codegen:cii-mapping && pnpm codegen:pdfa",
     "lint": "eslint .",
     "format": "prettier --check .",

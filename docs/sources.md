@@ -76,3 +76,12 @@ already used as a Docker conformance validator, T-040), read directly to get the
 namespace URNs, the required `pdfaExtension:schemas` RDF structure (ISO 19005-3 Annex E), and the exact
 accepted XMP property values — rather than guessed or reconstructed from the (licence-unclear,
 not-vendored) ZUGFeRD/Factur-X spec ZIP above.
+
+- `artifacts/fonts/LiberationSans-{Regular,Bold}.ttf` — real font, embedded (subset) into the visual invoice
+  layout `einvoice-pdfa` renders (T-030 continuation, `render-invoice.ts`), closing the "non-embedded
+  standard font" PDF/A gap spike B (D-20) diagnosed for a blank test page. SIL Open Font License 1.1
+  (`artifacts/LICENSES/OFL-LiberationSans.txt`, the exact license text from inside the vendored tarball) —
+  explicitly permits embedding/redistribution. Real, curl-downloaded tarball
+  (`liberation-fonts-ttf-2.1.5.tar.gz`, sha256 in `artifacts/MANIFEST.json`) — the release page itself has no
+  formal GitHub release asset, only a user-uploaded file link in the release body text, verified by
+  downloading and inspecting it directly rather than assumed from the release page's rendering.
