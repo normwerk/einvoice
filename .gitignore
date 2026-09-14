@@ -1,6 +1,8 @@
 node_modules/
 dist/
 coverage/
+# Medusa plugin build output (packages/einvoice-medusa) — medusa plugin:build's own equivalent of dist/.
+.medusa/
 *.tsbuildinfo
 *.log
 .DS_Store

@@ -7,7 +7,6 @@
     { "path": "packages/einvoice-ubl" },
     { "path": "packages/einvoice-pdfa" },
     { "path": "packages/einvoice-commerce" },
-    { "path": "packages/einvoice-conformance" },
-    { "path": "packages/einvoice-medusa" }
+    { "path": "packages/einvoice-conformance" }
   ]
 }

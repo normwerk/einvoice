@@ -58,3 +58,67 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   supplying one without the other is rejected. `einvoice-model` doesn't model the percentage yet
   (BT-94/101/138/143), so fixtures with a discount/charge (T-022) simply omit `baseAmount` rather than
   half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
+
+## Medusa v2 (`einvoice-medusa`, T-070, W10)
+
+Per plan-v0.1 §4.6's own warning, none of the following is taken from documentation by memory — every item
+was read directly from a real, freshly-created `create-medusa-app@latest --plugin`/full app (v2.19.0/2.21.0
+at the time) or a real installed `@medusajs/*` package's compiled source.
+
+- **The real fulfillment-created event is `order.fulfillment_created`** (`OrderWorkflowEvents.FULFILLMENT_CREATED`,
+  `@medusajs/utils/dist/core-flows/events.js`), payload `{ order_id, fulfillment_id, no_notification }`.
+  Matches plan-v0.1's own expectation exactly. There is no separate "shipment created" event at the order
+  level for this purpose (that name, `FulfillmentWorkflowEvents.SHIPMENT_CREATED` = `"shipment.created"`, is
+  a different, lower-level fulfillment-module event, not what a subscriber wanting "an order got a
+  fulfillment" should use).
+- **There is no `order.refund_created` event.** A refund is a payment-module concept in Medusa v2:
+  `PaymentEvents.REFUNDED` = `"payment.refunded"`, payload **only** `{ id }` — the _payment's_ id, not the
+  order's. A subscriber must resolve the order from the payment id itself (e.g. via a remote query
+  following the payment↔order module link) before it can build a `CommerceInvoiceInput` for a credit note
+  — T-071's own design has to account for this, it cannot assume an `order_id` arrives with the event the
+  way `order.fulfillment_created` provides one.
+- **A custom Medusa module's service constructor receives `(container, options)`**, `options` being
+  exactly what `medusa-config.ts`'s `plugins: [{ resolve, options }]` declared for that plugin. Verified
+  against a real compiled module provider (`@medusajs/notification-local@2.19.0`'s
+  `LocalNotificationService`, `constructor({ logger }, options)`), not the (accurate but non-concrete)
+  prose in the plugin scaffold's own `src/modules/README.md`.
+- **A real, currently-published Medusa v2 plugin matching plan-v0.1's own named integration target**
+  exists and was inspected directly: `@webbers/invoices-medusa@1.0.6` (npm, MIT). It defines its own
+  `invoice` module (`INVOICE_MODULE = "invoice"`) with a data model carrying `display_id` (autoincrement —
+  the human-readable invoice number plan-v0.1 wants T-072 to read), `resource_id`, `type`
+  (`"debit" | "credit" | "void"`), `pdf_url` (nullable), `parent_invoice` (self-referential, links a credit
+  invoice to what it corrects). It links its own `invoice` module to `order` via a `defineLink` (isList,
+  table `invoice_order`) — one order can have many invoices (original + corrections). Its own
+  `fulfillment-created-invoice` subscriber listens to the same `order.fulfillment_created` event and
+  guards idempotency by querying that link for an existing invoice before creating one.
+- **`@webbers/invoices-medusa`'s own `createInvoiceWorkflow` defines no `createHook()`** — Medusa v2
+  workflows can expose named extension points for other plugins to hook into, but this one doesn't, so
+  there is no clean "Webbers finished creating its invoice" signal to subscribe to instead of the raw
+  platform event. **Open question for T-072, not resolved here**: whether a second subscriber on the same
+  `order.fulfillment_created` event (querying Webbers' own `invoice_order` link, retrying briefly if not
+  yet present) is safe against subscriber-ordering/timing, or whether some other mechanism is needed —
+  genuinely unverified, flagged rather than guessed.
+- **`create-medusa-app@latest` (current, v2.21.0) scaffolds a Turborepo-style monorepo by default**
+  (`apps/backend/`, a root `turbo.json`/`pnpm-workspace.yaml`), not the single-root layout older
+  tutorials/screenshots show — `medusa-config.ts` lives at `apps/backend/medusa-config.ts`, not the repo
+  root. Matters for T-075's quickstart doc: a "put this in `medusa-config.ts`" instruction needs that path
+  spelled out or a new developer will look in the wrong place.
+- **A Medusa v2 plugin package needs its own, self-contained `tsconfig.json`**, not extending a shared base
+  the way every other package in this monorepo does: `target: "ES2021"`, `module`/`moduleResolution:
+"Node16"`, `emitDecoratorMetadata`/`experimentalDecorators: true`, no `"type": "module"` in
+  `package.json` (both the official scaffold and `@webbers/invoices-medusa` agree on this — plugins are
+  CommonJS at the TS-compile level). A type-only import from one of this repo's own ESM packages
+  (`@normwerk/einvoice-commerce`) into the plugin therefore needs an explicit
+  `with { "resolution-mode": "import" }` (TS 5.3+) — a real, load-bearing consequence of the CJS/ESM
+  boundary between this package and the rest of the monorepo, not a style choice.
+- **`medusa plugin:build` actually type-checks** (not merely transpiles via SWC) — confirmed by
+  deliberately introducing a type error and observing a real `TS2322` failure with exit code 1, not a
+  silent pass. Its own build succeeding is real evidence, not merely "no crash."
+- **Installing a private, unpublished `@normwerk/*` package chain into another Medusa app for local
+  development needs every package in the chain yalc-published**, not just the plugin itself — a plugin's
+  own compiled `package.json` (from `medusa plugin:build`) cannot carry pnpm's `workspace:*` protocol
+  (`yalc publish` silently falls back to `"*"` for it), so a consuming app's package manager will try to
+  fetch that dependency from the real npm registry and 404. This is not just a yalc quirk: it means
+  `@normwerk/einvoice-model` and `@normwerk/einvoice-commerce` must themselves be published to npm before
+  `@normwerk/einvoice-medusa` can be a normally-installable plugin for anyone outside this repo — relevant
+  to T-076 ("Публикация в npm"), not previously an explicit finding.
