@@ -55,6 +55,14 @@ jobs:
       - name: L4 factur-x oracle report is up to date
         run: git diff --exit-code -- docs/l4-oracle-facturx-report.md
 
+      # T-032/T-030/W8: the vendored ICC profile's generated TS module is
+      # committed, not built on the fly — catches a hand-edit or a
+      # re-vendor whose regeneration step was forgotten.
+      - name: einvoice-pdfa ICC profile codegen is up to date
+        run: |
+          pnpm codegen:pdfa
+          git diff --exit-code -- packages/einvoice-pdfa/src/generated
+
   # Spike C (T-044, plan-v0.1 §3.2): proves the Docker validator images
   # build and run the same way in CI as locally, with a machine-readable
   # report. This is a smoke test against a vendored, Apache-2.0 KoSIT test
@@ -116,5 +124,34 @@ jobs:
       # L5 round-trip (T-043): an independent implementation (Mustang, not
       # KoSIT) re-derives totals from the line items and agrees.
       - run: pnpm conformance:roundtrip
+
+  # T-030/W8 acceptance (plan-v0.1): every fixture, embedded into a PDF/A-3b
+  # ZUGFeRD/Factur-X document (einvoice-pdfa), must be veraPDF-green (L3),
+  # Mustang-extractable byte-for-byte, and pass Mustang's own validate
+  # (which also checks the XMP ConformanceLevel/DocumentType/
+  # DocumentFileName/Version properties, not just the PDF/A shell).
+  conformance-pdfa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @normwerk/einvoice-model build
+      - run: pnpm --filter @normwerk/einvoice-cii build
+      - run: pnpm --filter @normwerk/einvoice-pdfa build
+
+      - name: Build validator images
+        run: docker compose -f docker/compose.conformance.yml build verapdf mustang
+
+      - run: pnpm conformance:pdfa
 
   # License-scan (T-003) lands once that task is done (plan-v0.1 §3.6).

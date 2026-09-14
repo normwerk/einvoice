@@ -62,3 +62,17 @@ Currently vendored (copied into `artifacts/` with a matching `sha256`):
 The XRechnung validator configuration and Schematron bundles (Apache-2.0) are recorded but not vendored —
 they are consumed by the Docker-based conformance tooling (spike C, T-044 / T-040), not by the codegen
 pipeline.
+
+- `artifacts/pdfa/sRGB2014.icc` — sRGB ICC v2 profile for the PDF/A-3b `OutputIntent` (`einvoice-pdfa`,
+  T-030/T-032). Copyright International Color Consortium; licensed for unrestricted copying, distribution,
+  and embedding (see `artifacts/LICENSES/ICC-sRGB2014.txt` for the verbatim terms and real, curl-verified
+  download URL — an earlier WebFetch-reported URL for this file 404'd, caught before committing it; see
+  memory: verify-urls-before-committing). Replaces the unlicensed macOS system sRGB profile spike B (D-20)
+  used for local experimentation only.
+
+Two further sources for T-030 are recorded in the manifest but not vendored: real, Apache-2.0-licensed
+source files from [ZUGFeRD/mustangproject](https://github.com/ZUGFeRD/mustangproject) (the same tool
+already used as a Docker conformance validator, T-040), read directly to get the exact ZUGFeRD/Factur-X XMP
+namespace URNs, the required `pdfaExtension:schemas` RDF structure (ISO 19005-3 Annex E), and the exact
+accepted XMP property values — rather than guessed or reconstructed from the (licence-unclear,
+not-vendored) ZUGFeRD/Factur-X spec ZIP above.

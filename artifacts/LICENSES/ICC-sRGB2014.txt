@@ -1,0 +1,24 @@
+License for artifacts/pdfa/sRGB2014.icc (T-032)
+
+Source: https://registry.color.org/rgb-registry/srgbprofiles (profile listing page)
+Direct download: https://registry.color.org/rgb-registry/profiles/sRGB2014.icc
+License terms page: https://registry.color.org/profile-library/#license
+Fetched: 2026-09-14
+SHA-256: 384b832de3412066743b52a75ee906b6fb9fb8d9e09e936fc2c43223815c6e0a
+
+Verbatim license text (registry.color.org/profile-library/#license, "Licensing" section —
+applies because the ICC is the copyright owner, confirmed by the profile's own embedded
+Copyright tag: "Copyright International Color Consortium, 2015"):
+
+  "This profile is made available by the International Color Consortium, and may be
+  copied, distributed, embedded, made, used, and sold without restriction. Altered
+  versions of this profile shall have the original identification and copyright
+  information removed and shall not be misrepresented as the original profile."
+
+This is the file macOS's own bundled sRGB profile stood in for during Spike B (T-031,
+HOW-WE-GOT-HERE.md D-20) — that system profile was fine for local experimentation but not
+licensed for vendoring into a public repository. sRGB2014.icc is: freely redistributable
+(see above), the ICC's own current recommended sRGB profile, and ICC v2 format (matches
+what PDF/A OutputIntent commonly expects; the v4 "preference" profiles on the same page
+were not used for that reason, not because they're unlicensed — same license terms apply
+to those too).

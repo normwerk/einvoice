@@ -1,8 +1,99 @@
 /**
- * Scaffold placeholder for `@normwerk/einvoice-pdfa`.
+ * T-030: `@normwerk/einvoice-pdfa` — embeds an EN 16931 CII invoice XML
+ * (produced by `@normwerk/einvoice-cii`) into an existing PDF, turning it
+ * into a PDF/A-3b ZUGFeRD/Factur-X document.
  *
- * Shape depends on the outcome of spike B (plan-v0.1 §3.2, T-031):
- * whether a reproducible pdf-lib(+Ghostscript) pipeline reaches a
- * veraPDF-green PDF/A-3b. Nothing is implemented yet.
+ * Approach validated by Spike B (T-031, HOW-WE-GOT-HERE.md D-20): pure
+ * pdf-lib, no Ghostscript — this function does not attempt to fix a PDF
+ * that isn't already PDF/A-eligible (e.g. one using non-embedded standard
+ * fonts); that repair step (D-20's "Path 2") is a documented follow-up
+ * (T-030 continuation), not implemented here. The input PDF is assumed to
+ * be under the caller's control in that sense — "not under our control"
+ * (per plan-v0.1) means its *content*, not its font-embedding correctness.
+ *
+ * Deliberately does not touch the document's Info dictionary (Creator/
+ * Producer/CreationDate/ModDate) — matches this repo's determinism
+ * discipline (ADR-004: no `Date.now()`, no incidental non-determinism):
+ * `pdf-lib`'s own `save()` doesn't touch it either, only `PDFDocument.create()`
+ * does, which this function never calls.
  */
-export const PACKAGE_NAME = "@normwerk/einvoice-pdfa";
+import { AFRelationship, PDFDocument, PDFHexString, PDFName } from "pdf-lib";
+import { createHash } from "node:crypto";
+import { addSrgbOutputIntent } from "./output-intent.js";
+import { buildXmpPacket } from "./xmp.js";
+import { ZUGFERD_PROFILES, type ZugferdProfileName } from "./profiles.js";
+
+export type { ZugferdProfileName, ZugferdProfile } from "./profiles.js";
+
+export interface EmbedInvoiceOptions {
+  /** Which ZUGFeRD/Factur-X profile's XMP metadata and attachment filename to use. */
+  readonly profile: ZugferdProfileName;
+  /** dc:title in the XMP metadata (e.g. the invoice number, BT-1). Optional. */
+  readonly title?: string;
+}
+
+export interface EmbedInvoiceResult {
+  readonly pdfBytes: Uint8Array;
+  readonly attachmentFilename: string;
+}
+
+/**
+ * Deterministic trailer /ID (ADR-004: content-derived, not random/time-based).
+ * PDF/A requires a file identifier; a fresh document conventionally uses the
+ * same value for both halves of the pair.
+ */
+function deterministicIdHex(
+  basePdfBytes: Uint8Array,
+  invoiceXml: string,
+  profile: ZugferdProfileName,
+): string {
+  const hash = createHash("sha256");
+  hash.update(basePdfBytes);
+  hash.update(invoiceXml, "utf-8");
+  hash.update(profile, "utf-8");
+  return hash.digest("hex").slice(0, 32); // 16 bytes, the conventional /ID length
+}
+
+/**
+ * Embeds `invoiceXml` into `basePdfBytes` and adds the PDF/A-3b machinery
+ * (sRGB OutputIntent, XMP metadata with the ZUGFeRD/Factur-X extension
+ * schema). Does not itself verify the result is PDF/A-3b-valid — run the
+ * real veraPDF/Mustang validators (tools/conformance/pdfa-embed-and-validate.mjs)
+ * for that, per this repo's "never simulate conformance" rule (AGENTS.md §8).
+ */
+export async function embedInvoiceInPdfA3(
+  basePdfBytes: Uint8Array,
+  invoiceXml: string,
+  options: EmbedInvoiceOptions,
+): Promise<EmbedInvoiceResult> {
+  const profile = ZUGFERD_PROFILES[options.profile];
+  const pdfDoc = await PDFDocument.load(basePdfBytes);
+
+  addSrgbOutputIntent(pdfDoc);
+
+  const xmpPacket = buildXmpPacket({ profile, title: options.title });
+  const metadataStream = pdfDoc.context.stream(xmpPacket, {
+    Type: "Metadata",
+    Subtype: "XML",
+  });
+  const metadataRef = pdfDoc.context.register(metadataStream);
+  pdfDoc.catalog.set(PDFName.of("Metadata"), metadataRef);
+
+  // AFRelationship.Alternative: per Factur-X §6.2.2, "identical content in
+  // two forms" — and the mandatory choice for Germany specifically (the
+  // XRechnung/German legal context this repo targets).
+  await pdfDoc.attach(new TextEncoder().encode(invoiceXml), profile.attachmentFilename, {
+    mimeType: "application/xml",
+    afRelationship: AFRelationship.Alternative,
+    description: `${profile.name} invoice XML (EN 16931 / ${profile.name === "XRECHNUNG" ? "XRechnung 3.0" : "Factur-X"})`,
+  });
+
+  const idHex = deterministicIdHex(basePdfBytes, invoiceXml, options.profile);
+  pdfDoc.context.trailerInfo.ID = pdfDoc.context.obj([
+    PDFHexString.of(idHex),
+    PDFHexString.of(idHex),
+  ]);
+
+  const pdfBytes = await pdfDoc.save();
+  return { pdfBytes, attachmentFilename: profile.attachmentFilename };
+}

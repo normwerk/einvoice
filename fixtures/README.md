@@ -59,3 +59,7 @@ causes (a real empty-element bug in that library, and a permissible difference i
 unset delivery date), and 1 (`de-line-discount`) can't be compared at all — its input type has no field for
 line-level allowances — see
 [`docs/l4-oracle-facturx-report.md`](../docs/l4-oracle-facturx-report.md).
+
+All 14, embedded into a PDF/A-3b ZUGFeRD/Factur-X document (`@normwerk/einvoice-pdfa`, T-030), pass the
+real veraPDF PDF/A-3b validator and Mustang's own validate + byte-for-byte extract
+(`pnpm conformance:pdfa`) — see [`docs/pdfa.md`](../docs/pdfa.md).

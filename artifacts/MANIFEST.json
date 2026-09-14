@@ -144,6 +144,45 @@
       "vendored_path": null,
       "fetched_at": "2026-09-12",
       "used_for": "not planned to be used directly — plan-v0.1 §4.3 generates CII XML ourselves and embeds it in a PDF/A-3b; FeRD's own schema ZIP is not needed for that. Spike B (T-031) confirms the embedding approach."
+    },
+    {
+      "id": "pdfa-srgb-icc",
+      "url": "https://registry.color.org/rgb-registry/profiles/sRGB2014.icc",
+      "version": "sRGB2014 (ICC v2, revised Feb 2015)",
+      "sha256": "384b832de3412066743b52a75ee906b6fb9fb8d9e09e936fc2c43223815c6e0a",
+      "licence": "ICC profile license (registry.color.org/profile-library/#license) — copy/distribute/embed/use/sell without restriction",
+      "vendored": true,
+      "vendored_path": "artifacts/pdfa/sRGB2014.icc",
+      "fetched_at": "2026-09-14",
+      "used_for": [
+        "T-032/T-030: sRGB ICC profile for the PDF/A-3b OutputIntent (einvoice-pdfa) — replaces the unlicensed macOS system profile used during Spike B (D-20)"
+      ]
+    },
+    {
+      "id": "mustangproject-zugferd-xmp-writer",
+      "url": "https://github.com/ZUGFeRD/mustangproject/tree/ac40375b9f99e1f9f3c625ab6158acecc74562b1/library/src/main/java/org/mustangproject/ZUGFeRD",
+      "version": "commit ac40375b9f99e1f9f3c625ab6158acecc74562b1",
+      "sha256": null,
+      "licence": "Apache-2.0",
+      "vendored": false,
+      "vendored_path": null,
+      "used_for": [
+        "T-030: not vendored (we author our own XMP builder, ADR-004 style) — read directly to get real, non-guessed values: the fx:/zf: XMP namespace URNs per profile (XMPSchemaZugferd.java), the exact PDFAExtensionSchema RDF structure required for a custom XMP schema (XMPSchemaPDFAExtensions.java, — this is the ISO 19005-3 Annex E mechanism D-20 flagged as a veraPDF pitfall), and the profile name/URN table confirming our XRechnung 3.0 specificationIdentifier already matches Mustang's own XRECHNUNG profile URN (Profiles.java, Profile.java). File hashes at the pinned commit: XMPSchemaZugferd.java f927d427a632da4dbdac3693f7c10ce45cf05aa228f4e06c80e0ad7911a0214f; XMPSchemaPDFAExtensions.java c8560653422a6e079c10956df68f2f97fc5e3a6503caaba5a60d1bf9ca1c2479; Profiles.java a90a234f5c7d6e7f4ca87279d74f5bab52b4ddb50460a2810c48daa55af609d0; Profile.java 28d8692aa3f4ca77ddf60ed81005be090c8b39ac7a53793056f6a05736868d32."
+      ],
+      "fetched_at": "2026-09-14"
+    },
+    {
+      "id": "mustangproject-pdf-validator",
+      "url": "https://raw.githubusercontent.com/ZUGFeRD/mustangproject/ac40375b9f99e1f9f3c625ab6158acecc74562b1/validator/src/main/java/org/mustangproject/validator/PDFValidator.java",
+      "version": "commit ac40375b9f99e1f9f3c625ab6158acecc74562b1",
+      "sha256": "e455d20002d0b7dc288408294548e4b4ee437e6e5d75844437f1ae65e83c79ce",
+      "licence": "Apache-2.0",
+      "vendored": false,
+      "vendored_path": null,
+      "used_for": [
+        "T-030: not vendored — read to confirm the exact accepted XMP property values (ConformanceLevel/DocumentType/DocumentFileName/Version enumerations) the real Mustang validator (already used in our own Docker conformance suite, T-040) checks for, so our own XMP is built to satisfy the same tool we validate against, not guessed"
+      ],
+      "fetched_at": "2026-09-14"
     }
   ]
 }
