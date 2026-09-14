@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "document": {
+    "kind": "invoice",
+    "number": "RE-2026-1002",
+    "issueDate": "2026-09-14",
+    "currency": "EUR"
+  },
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "countryCode": "DE",
+    "city": "Berlin",
+    "postCode": "10115",
+    "vatIdentifier": "DE123456789",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
+  },
+  "buyer": {
+    "name": "Exemple Client SARL",
+    "countryCode": "FR",
+    "city": "Paris",
+    "postCode": "75008",
+    "vatIdentifier": "FR12345678901",
+    "electronicAddress": "ap@commerce-intra-eu.example",
+    "electronicAddressScheme": "EM"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "10",
+      "unitCode": "C62",
+      "netPrice": "200.00",
+      "itemName": "Machine parts, dispatched to France"
+    }
+  ],
+  "delivery": {
+    "actualDeliveryDate": "2026-09-10",
+    "deliverToCountryCode": "FR",
+    "deliverToCity": "Paris",
+    "deliverToPostCode": "75001"
+  },
+  "payment": { "means": "58", "iban": "DE89370400440532013000" },
+  "references": { "buyerReference": "Buchhaltung-2026-09" },
+  "taxContext": {
+    "sellerCountry": "DE",
+    "sellerVatId": "DE123456789",
+    "buyerCountry": "FR",
+    "buyerVatId": "FR12345678901",
+    "buyerIsBusiness": true,
+    "ossRegistered": false,
+    "supplyType": "goods"
+  }
+}

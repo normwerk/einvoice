@@ -125,6 +125,37 @@ jobs:
       # KoSIT) re-derives totals from the line items and agrees.
       - run: pnpm conformance:roundtrip
 
+  # T-060/T-061/T-064/W9 acceptance (plan-v0.1 §9): CommerceInvoiceInput ->
+  # buildInvoice -> serializeCii must pass the real KoSIT validator too —
+  # not just buildInvoice's own unit tests (AGENTS.md §8: never simulate
+  # conformance). Separate job/fixture set from conformance-fixtures above
+  # (packages/einvoice-commerce/fixtures/, not the root fixtures/, which is
+  # strictly Invoice-model-shaped).
+  conformance-commerce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @normwerk/einvoice-model build
+      - run: pnpm --filter @normwerk/einvoice-cii build
+      - run: pnpm --filter @normwerk/einvoice-commerce build
+      - run: pnpm --filter @normwerk/einvoice-conformance build
+
+      - name: Build validator images
+        run: docker compose -f docker/compose.conformance.yml build kosit
+
+      - run: pnpm conformance:commerce
+
   # T-030/W8 acceptance (plan-v0.1): every fixture, embedded into a PDF/A-3b
   # ZUGFeRD/Factur-X document (einvoice-pdfa), must be veraPDF-green (L3),
   # Mustang-extractable byte-for-byte, and pass Mustang's own validate

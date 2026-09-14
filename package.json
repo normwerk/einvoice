@@ -18,6 +18,7 @@
     "conformance:oracle-eu": "node tools/conformance/oracle-e-invoice-eu.mjs",
     "conformance:oracle-facturx": "node tools/conformance/oracle-stackforge-facturx.mjs",
     "conformance:pdfa": "node tools/conformance/pdfa-embed-and-validate.mjs",
+    "conformance:commerce": "node tools/conformance/build-commerce-fixtures.mjs",
     "codegen:model": "node tools/codegen/model/generate.mjs",
     "codegen:cii-mapping": "pnpm --filter @normwerk/einvoice-cii build && node tools/codegen/cii/generate-mapping-reference.mjs",
     "codegen:pdfa": "node tools/codegen/pdfa/generate-icc-profile.mjs && node tools/codegen/pdfa/generate-fonts.mjs",

@@ -81,6 +81,18 @@ change and does not need a bump.
   supports both versions for a deprecation window or only the latest — that decision is deferred to
   whenever it's actually needed, not pre-answered here.
 
+## Addendum (2026-09-14, T-060/W9 implementation)
+
+Implementation added one field this ADR's original shape did not anticipate: an optional `delivery` block
+(`actualDeliveryDate`, `deliverToCountryCode`, `deliverToCity`, `deliverToPostCode` — BG-13). Found by
+actually running a KoSIT-validated commerce fixture for an intra-EU supply (category K, `docs/tax-semantics.md`
+row 3) and getting real `BR-IC-11`/`BR-IC-12` rejections — no other category in the rule table needs
+delivery info the same way (verified against the vendored Schematron, not assumed from the K case alone).
+`buildInvoice` requires `actualDeliveryDate` and `deliverToCountryCode` specifically when the resolved
+category is K; every other regime leaves `delivery` optional, consistent with this ADR's "mandatory only if
+`buildInvoice` cannot produce a valid document without it" rule — this is that rule actually firing, not an
+exception to it.
+
 ## Alternatives considered
 
 - **npm semver only, no runtime field** — rejected: invisible to a hand-built or non-TypeScript payload,

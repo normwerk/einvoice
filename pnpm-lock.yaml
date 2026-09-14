@@ -54,7 +54,11 @@ importers:
         specifier: workspace:*
         version: link:../einvoice-model
 
-  packages/einvoice-commerce: {}
+  packages/einvoice-commerce:
+    dependencies:
+      '@normwerk/einvoice-model':
+        specifier: workspace:*
+        version: link:../einvoice-model
 
   packages/einvoice-conformance: {}
 

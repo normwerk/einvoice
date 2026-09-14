@@ -16,6 +16,9 @@
   "files": [
     "dist"
   ],
+  "dependencies": {
+    "@normwerk/einvoice-model": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

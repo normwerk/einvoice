@@ -3,6 +3,12 @@
 > **⚠️ Not reviewed by a tax advisor.** This is a draft (plan-v0.1 §3.5, task T-054, Sprint 0). It is the
 > input for expert review (M-006); until that review closes, treat every row as "our best reading of the
 > rules, not tax advice." Finalized alongside `einvoice-commerce` in T-052 (week 9).
+>
+> **Implementation (W9, T-061):** every row below is now executable code —
+> [`packages/einvoice-commerce/src/tax-rules.ts`](../packages/einvoice-commerce/src/tax-rules.ts)'s
+> `decideVatCategory()`, one branch per row, one test per row
+> ([`tax-rules.test.ts`](../packages/einvoice-commerce/src/tax-rules.test.ts)). Row-by-row status is
+> unchanged by that — encoding a draft doesn't review it; the ⚠️ above still stands.
 
 ## Why this document exists
 
