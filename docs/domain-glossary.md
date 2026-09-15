@@ -59,7 +59,7 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   (BT-94/101/138/143), so fixtures with a discount/charge (T-022) simply omit `baseAmount` rather than
   half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
 
-## Medusa v2 (`einvoice-medusa`, T-070/T-071, W10)
+## Medusa v2 (`einvoice-medusa`, T-070/T-071/T-072, W10)
 
 Per plan-v0.1 §4.6's own warning, none of the following is taken from documentation by memory — every item
 was read directly from a real, freshly-created `create-medusa-app@latest --plugin`/full app (v2.19.0/2.21.0
@@ -233,3 +233,75 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
     this task's e2e proof (not anticipated from reading `build-invoice.ts` or the base Schematron alone) —
     each fix was verified by re-running the same validator until it returned `ACCEPTABLE`, not just by making
     the error message go away.
+
+### T-072 (`@webbers/invoices-medusa` integration, W10)
+
+- **`@webbers/invoices-medusa@1.0.6`'s own `package.json` declares two more broken export subpaths**, the
+  same class of gap T-072's own research first found for `"./links"` (that file simply doesn't exist in the
+  published tarball): `"./workflows"` (`.medusa/server/src/workflows/index.js`) is ALSO missing — only the
+  individual workflow files (`create-invoice.js`, `create-credit-invoice.js`, …) exist, no barrel. The
+  wildcard `"./*"` subpath still resolves a direct file path (`@webbers/invoices-medusa/workflows/create-invoice`,
+  `@webbers/invoices-medusa/links/invoice-order`) — confirmed by actually hitting `Cannot find module
+'.../workflows/index.js'` on a real running instance when importing the documented `"./workflows"` path,
+  not assumed from reading the export map alone.
+- **Dynamically `import()`-ing another CommonJS package (not an ESM one) from this plugin double-wraps the
+  default export** — a genuinely different case from this plugin's own established "dynamic-import an
+  ESM-only package from CJS" pattern (T-070/T-071, needed because the _target_ is ESM-only). Here, both
+  this plugin and `@webbers/invoices-medusa` are CommonJS; going through Node's ESM `import()` loader to
+  reach a CJS module still triggers CJS/ESM interop, which sets the synthetic namespace's `.default` to the
+  _whole_ `module.exports` object (`{ __esModule: true, default: <real value> }`), not to
+  `module.exports.default` directly — so the real value ends up at `mod.default.default`, not `mod.default`.
+  Confirmed empirically with a temporary debug route logging the actual awaited value during this task's
+  own e2e run (it printed `{ default: { entryPoint: "invoice_order", ... } }`), not assumed from Node's
+  interop documentation. Real, load-bearing consequence: `waitForWebbersInvoice`'s own link-loading code
+  unwraps one extra level, defensively falling back to the un-nested shape too (`integrations/webbers.ts`).
+- **Medusa's local event bus really does start every subscriber of the same event without waiting for any
+  of them** (T-070/T-071 flagged this as the reason no ordering guarantee exists between this plugin's own
+  subscriber and `@webbers/invoices-medusa`'s; T-072 is where it was actually exercised for real) —
+  confirmed by observing both subscribers' log lines interleave (`Processing order.fulfillment_created
+which has 2 subscribers`) and by the poll/wait mechanism (`waitForWebbersInvoice`) genuinely being
+  necessary rather than decorative: a plain, un-delayed read of their `invoice_order` link immediately after
+  the event fires reliably finds nothing yet.
+- **`@webbers/invoices-medusa@1.0.6`'s own `createInvoiceWorkflow` has a real, reproducible bug**: PDF
+  generation (`core/classes/pdf-generator/templates/invoice-content.ts`) threw `Cannot read properties of
+undefined (reading 'toString')` on every real order this task's e2e harness threw at it (a plain
+  `create-medusa-app` default-seeded product, DE billing/shipping address, no discounts) — their own
+  workflow's compensation logic then marks the invoice `type: "void"` (a real, documented behavior: "Voided
+  invoices … preserve their sequence number to avoid gaps", their own README) and soft-deletes the
+  `invoice_order` link row. Root-caused (not merely observed) by invoking their `createInvoiceWorkflow`
+  directly from a debug route and reading the full stack trace their own subscriber's `catch` block
+  discards (it only logs `error.message`): the throw site is `invoice.display_id.toString()`, where
+  `invoice = order.invoices.find(i => i.type === "debit")` from _their own_ `query.graph` call using a
+  `"invoices.*"` wildcard field — the same class of wildcard-field gap this repo's own T-071 entry above
+  independently found (a `"*relation"`-style field silently failing to hydrate outside certain calling
+  contexts). This is an external, confirmed defect in their published package, not caused by anything in
+  this plugin — `waitForWebbersInvoice`'s own timeout-and-throw behavior (`WebbersInvoiceNotFoundError`) is
+  the _correct_, honest reaction to it (refuse to allocate a number of this plugin's own rather than assume
+  their workflow succeeded). Proven for real regardless: a debit/credit invoice row and `invoice_order` link
+  were inserted directly (matching their exact real, migrated schema) with a real PDF uploaded through the
+  real File Module, and this plugin's own subscriber picked both up correctly within its poll window, reused
+  the real `display_id` as its own document number, and embedded its XML into the real downloaded PDF — the
+  part of the acceptance criterion actually owned by this plugin, proven against their real schema and File
+  Module semantics, with their own workflow's bug clearly separated out as an external, reported limitation
+  rather than something this task's own code either caused or silently worked around.
+- **`pdf_url` on their `Invoice` model is a File Module file id, not a URL** (confirmed directly from their
+  compiled `upload-invoice-pdf-step.js`: `invoiceModule.updateInvoices({ id, pdf_url: file.id })`) —
+  `fileModuleService.retrieveFile(id)` returns `{ id, url }`, where `url` is itself a presigned download URL
+  that still needs a real `fetch()` to get bytes (`fetchWebbersPdfBytes`, `integrations/webbers.ts`).
+- **A PDF produced by `pdfmake` with only the built-in standard fonts (their own `pdf-generator/index.js`:
+  `pdfmake.addFonts({ Helvetica: { normal: "Helvetica", … } })`, never a real embedded font file) is not
+  PDF/A-3-eligible** — real veraPDF output on a PDF embedded via `embedInvoiceInPdfA3` (T-030) using exactly
+  this kind of base PDF: `"The font program is not embedded" … "compliant": false` (ISO 19005-3:2012
+  §6.2.11.4.1). This is not a new gap T-072 introduces — `embedInvoiceInPdfA3`'s own doc comment already
+  scopes this out ("does not attempt to fix a PDF that isn't already PDF/A-eligible … that repair step
+  (Ghostscript, D-20's "Path 2") is a documented follow-up, not implemented here") — but it means, concretely,
+  that `@webbers/invoices-medusa`'s own _default_ configuration (no custom embedded font supplied via its
+  `header`/`footer`/`addressInfo` options) produces PDFs this plugin's Webbers-integration mode cannot turn
+  into a genuinely valid PDF/A-3 hybrid without that still-unimplemented repair step — real, useful context
+  for T-076 (documenting this integration mode's actual limits) rather than a silent assumption that "if
+  their PDF exists, embedding it always yields a compliant PDF/A-3."
+- **`@webbers/invoices-medusa`'s own module requires configuration** (`addressInfo.companyName/address/
+cocNumber/vatNumber/iban/email`, all mandatory per its own README) — registering it as a bare string
+  plugin entry (`plugins: ["@webbers/invoices-medusa"]`, no `options`) fails module loading outright
+  (`Invalid options: {"addressInfo":["Invalid input: expected object, received undefined"]}`), confirmed by
+  hitting this for real before supplying the options their README documents.

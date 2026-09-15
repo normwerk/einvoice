@@ -20,17 +20,35 @@
  * `docs/domain-glossary.md`'s own T-070 entry) — this nested-object shape is what actually resolves a
  * cross-module link filter; the flat dotted-string form does not, at least not two hops deep.
  *
+ * T-072: one credit note per *refund*, not per payment. The original version of this file treated the
+ * whole payment as the idempotency unit (`idempotency_key: data.id`) — wrong for a payment with more than
+ * one partial refund, which would only ever get a single credit note total. Fixed by reading
+ * `payment.refunds` and iterating: each refund not yet credited gets its own document, keyed by the
+ * refund's own id — the same per-refund granularity `@webbers/invoices-medusa`'s own
+ * `payment-refunded-invoice` subscriber uses (`resource_id: refund.id`, read directly from their published
+ * source, not invented independently).
+ *
  * The credit note re-states the *whole* original order as a correction (`document.kind: "credit-note"`,
  * `document.correctedInvoice` pointing at the invoice this plugin itself generated for the same order),
  * matching this repo's own `de-credit-note` fixture's shape (a full reversal, not a partial-refund-amount
- * line item) — T-071's scope is wiring the event to a real correction document, not modeling partial
- * refunds against specific order lines (a real, separate design question, not silently assumed answered).
+ * line item) — modeling a credit note against specific order lines/amounts is a real, separate design
+ * question this task doesn't attempt (`@webbers/invoices-medusa` doesn't decompose order lines for this
+ * either — its own credit invoices are full documents referencing a parent, the same shape used here).
+ *
+ * `einvoiceService.options.integration?.kind === "webbers"` reuses their own credit invoice's `display_id`
+ * per refund instead of allocating one here — see `invoice-on-fulfillment-created.ts`'s identical comment
+ * and `integrations/webbers.ts` for why this needs a poll/wait rather than a plain read.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
+import type { MedusaContainer, SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
+import {
+  fetchWebbersPdfBytes,
+  waitForWebbersInvoice,
+  WebbersInvoiceNotFoundError,
+} from "../integrations/webbers.js";
 import {
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
@@ -58,26 +76,29 @@ export default async function creditNoteOnPaymentRefunded({
   container,
 }: SubscriberArgs<PaymentRefundedEventData>): Promise<void> {
   const einvoiceService = container.resolve<EinvoiceModuleService>(EINVOICE_MODULE);
-
-  const existing = await einvoiceService.listEinvoiceDocuments({
-    type: "credit_note",
-    idempotency_key: data.id,
-  });
-  if (existing.length > 0) {
-    return;
-  }
-
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
 
   const { data: payments } = await query.graph({
     entity: "payment",
     filters: { id: data.id },
-    fields: ["id", "payment_collection_id"],
+    fields: ["id", "payment_collection_id", "refunds.id"],
   });
-  const payment = payments[0] as { readonly payment_collection_id?: string | null } | undefined;
+  const payment = payments[0] as
+    | {
+        readonly payment_collection_id?: string | null;
+        readonly refunds?: readonly { readonly id: string }[];
+      }
+    | undefined;
   if (payment?.payment_collection_id === undefined || payment.payment_collection_id === null) {
     // The payment itself is already gone, or was never attached to a payment collection at all (shouldn't
     // happen for a real PaymentEvents.REFUNDED, but this subscriber doesn't assume it) — nothing to credit.
+    return;
+  }
+
+  const refunds = payment.refunds ?? [];
+  if (refunds.length === 0) {
+    // A payment.refunded event with no refunds recorded yet (a real, if narrow, timing case) — nothing to
+    // credit this delivery; a later delivery (or a manual replay) will find the refund once it's committed.
     return;
   }
 
@@ -100,6 +121,40 @@ export default async function creditNoteOnPaymentRefunded({
   const originalInvoice = originalInvoices[0];
   if (originalInvoice === undefined) {
     throw new MissingOriginalInvoiceError(order.id);
+  }
+
+  for (const refund of refunds) {
+    await creditOneRefund({
+      einvoiceService,
+      container,
+      order,
+      originalInvoice,
+      refundId: refund.id,
+    });
+  }
+}
+
+interface CreditOneRefundInput {
+  readonly einvoiceService: EinvoiceModuleService;
+  readonly container: MedusaContainer;
+  readonly order: MedusaOrderForInvoice;
+  readonly originalInvoice: { readonly document_number: string; readonly xml: string };
+  readonly refundId: string;
+}
+
+async function creditOneRefund({
+  einvoiceService,
+  container,
+  order,
+  originalInvoice,
+  refundId,
+}: CreditOneRefundInput): Promise<void> {
+  const existing = await einvoiceService.listEinvoiceDocuments({
+    type: "credit_note",
+    idempotency_key: refundId,
+  });
+  if (existing.length > 0) {
+    return;
   }
 
   const commerce = await import("@normwerk/einvoice-commerce");
@@ -131,8 +186,28 @@ export default async function creditNoteOnPaymentRefunded({
     preferredProfile: einvoiceService.options.defaultProfile,
   });
 
-  const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
-  const documentNumber = await numberer.next({ kind: "credit-note", issueDate });
+  const integration = einvoiceService.options.integration;
+  let documentNumber: string;
+  let webbersPdfBytes: Uint8Array | undefined;
+
+  if (integration?.kind === "webbers") {
+    const webbersInvoice = await waitForWebbersInvoice(container, order.id, {
+      resourceId: refundId,
+      type: "credit",
+      timeoutMs: integration.waitForInvoiceMs,
+      pollIntervalMs: integration.pollIntervalMs,
+    });
+    if (webbersInvoice === undefined) {
+      throw new WebbersInvoiceNotFoundError(order.id, refundId, "credit");
+    }
+    documentNumber = String(webbersInvoice.invoice.display_id);
+    if (webbersInvoice.invoice.pdf_url !== null) {
+      webbersPdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
+    }
+  } else {
+    const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
+    documentNumber = await numberer.next({ kind: "credit-note", issueDate });
+  }
 
   const buildResult = commerce.buildInvoice({
     ...input,
@@ -142,12 +217,23 @@ export default async function creditNoteOnPaymentRefunded({
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });
 
+  let pdfBase64: string | null = null;
+  if (webbersPdfBytes !== undefined) {
+    const pdfa = await import("@normwerk/einvoice-pdfa");
+    const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(webbersPdfBytes, xml, {
+      profile,
+      title: documentNumber,
+    });
+    pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+  }
+
   await einvoiceService.recordDocumentIfAbsent({
     type: "credit_note",
     orderId: order.id,
-    idempotencyKey: data.id,
+    idempotencyKey: refundId,
     documentNumber,
     xml,
+    pdf: pdfBase64,
   });
 }
 

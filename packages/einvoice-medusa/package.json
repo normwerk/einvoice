@@ -42,7 +42,8 @@
   "dependencies": {
     "@normwerk/einvoice-cii": "workspace:*",
     "@normwerk/einvoice-commerce": "workspace:*",
-    "@normwerk/einvoice-model": "workspace:*"
+    "@normwerk/einvoice-model": "workspace:*",
+    "@normwerk/einvoice-pdfa": "workspace:*"
   },
   "devDependencies": {
     "@medusajs/admin-sdk": "2.19.0",
@@ -70,7 +71,13 @@
     "@medusajs/icons": ">=2.4.0",
     "@medusajs/medusa": ">=2.4.0",
     "@medusajs/test-utils": ">=2.4.0",
-    "@medusajs/ui": ">=4.0.0"
+    "@medusajs/ui": ">=4.0.0",
+    "@webbers/invoices-medusa": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@webbers/invoices-medusa": {
+      "optional": true
+    }
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

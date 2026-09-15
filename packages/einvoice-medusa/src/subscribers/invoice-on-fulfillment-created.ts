@@ -4,12 +4,13 @@
  * `docs/domain-glossary.md`) — `{ order_id, fulfillment_id, no_notification }`, matching plan-v0.1's own
  * expectation.
  *
- * `@normwerk/einvoice-commerce`/`@normwerk/einvoice-cii` are loaded with a dynamic `import()`, not a
- * static one — both are ESM-only packages and this plugin compiles to CommonJS (T-070's verified finding);
- * a static value import here would compile to a `require()` that throws `ERR_REQUIRE_ESM` at runtime. This
- * is the real, necessary fix for a CJS module needing an ESM-only package's actual functions at runtime,
- * not the type-only `resolution-mode` import attribute T-070 used (that only ever affects how TypeScript
- * resolves *types*, never how Node resolves a value at runtime).
+ * `@normwerk/einvoice-commerce`/`@normwerk/einvoice-cii`/`@normwerk/einvoice-pdfa` are loaded with a
+ * dynamic `import()`, not a static one — all three are ESM-only packages and this plugin compiles to
+ * CommonJS (T-070's verified finding); a static value import here would compile to a `require()` that
+ * throws `ERR_REQUIRE_ESM` at runtime. This is the real, necessary fix for a CJS module needing an
+ * ESM-only package's actual functions at runtime, not the type-only `resolution-mode` import attribute
+ * T-070 used (that only ever affects how TypeScript resolves *types*, never how Node resolves a value at
+ * runtime).
  *
  * Idempotency: checked *before* any work — `einvoiceService.listEinvoiceDocuments` for this
  * `(type, idempotency_key)` short-circuits a redelivered event without allocating a fresh document number,
@@ -20,12 +21,25 @@
  * for the narrower case this check alone can't cover: two literally concurrent deliveries of the same
  * event both passing this check before either has inserted — a real edge case worth naming rather than
  * silently assuming away, not one this plugin's local event bus can actually produce today.
+ *
+ * T-072: `einvoiceService.options.integration?.kind === "webbers"` reuses `@webbers/invoices-medusa`'s own
+ * invoice `display_id` instead of allocating a number here at all ("не дублировать нумерацию",
+ * plan-v0.1 §4.6) — see `integrations/webbers.ts` for the real, structural reason this needs a poll/wait
+ * rather than a plain read (their workflow defines no `createHook()`, and Medusa's local event bus starts
+ * every subscriber of the same event without waiting for any of them to finish). When their own PDF is
+ * available, this plugin's XML is embedded into it as PDF/A-3 (`embedInvoiceInPdfA3`, `@normwerk/einvoice-pdfa`,
+ * T-030) instead of shipping bare XML.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
+import {
+  fetchWebbersPdfBytes,
+  waitForWebbersInvoice,
+  WebbersInvoiceNotFoundError,
+} from "../integrations/webbers.js";
 import {
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
@@ -88,8 +102,28 @@ export default async function invoiceOnFulfillmentCreated({
     preferredProfile: einvoiceService.options.defaultProfile,
   });
 
-  const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
-  const documentNumber = await numberer.next({ kind: "invoice", issueDate });
+  const integration = einvoiceService.options.integration;
+  let documentNumber: string;
+  let webbersPdfBytes: Uint8Array | undefined;
+
+  if (integration?.kind === "webbers") {
+    const webbersInvoice = await waitForWebbersInvoice(container, order.id, {
+      resourceId: order.id,
+      type: "debit",
+      timeoutMs: integration.waitForInvoiceMs,
+      pollIntervalMs: integration.pollIntervalMs,
+    });
+    if (webbersInvoice === undefined) {
+      throw new WebbersInvoiceNotFoundError(order.id, order.id, "debit");
+    }
+    documentNumber = String(webbersInvoice.invoice.display_id);
+    if (webbersInvoice.invoice.pdf_url !== null) {
+      webbersPdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
+    }
+  } else {
+    const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
+    documentNumber = await numberer.next({ kind: "invoice", issueDate });
+  }
 
   const buildResult = commerce.buildInvoice({
     ...input,
@@ -99,12 +133,23 @@ export default async function invoiceOnFulfillmentCreated({
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });
 
+  let pdfBase64: string | null = null;
+  if (webbersPdfBytes !== undefined) {
+    const pdfa = await import("@normwerk/einvoice-pdfa");
+    const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(webbersPdfBytes, xml, {
+      profile,
+      title: documentNumber,
+    });
+    pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+  }
+
   await einvoiceService.recordDocumentIfAbsent({
     type: "invoice",
     orderId: order.id,
     idempotencyKey: data.fulfillment_id,
     documentNumber,
     xml,
+    pdf: pdfBase64,
   });
 }
 

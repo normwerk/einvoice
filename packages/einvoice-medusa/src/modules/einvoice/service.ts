@@ -67,6 +67,23 @@ export interface EinvoiceModuleOptions {
     readonly iban?: string;
     readonly terms?: string;
   };
+  /**
+   * T-072: opt into "on top of a PDF plugin" mode (plan-v0.1 §4.6) instead of this plugin's own standalone
+   * numbering. `"webbers"` is the one plan-v0.1 names by product (`@webbers/invoices-medusa`) — when set,
+   * subscribers reuse *their* invoice's own `display_id` as this plugin's own document number instead of
+   * allocating one via `NumberingStore`/`EinvoiceCounter` ("не дублировать нумерацию"), and embed this
+   * plugin's XML into their PDF as PDF/A-3 when one is available (`integrations/webbers.ts`). Omitted
+   * (the default) keeps T-071's standalone behavior unchanged — this plugin still works with no PDF
+   * plugin installed at all, matching plan-v0.1's own "Standalone" mode.
+   */
+  readonly integration?: {
+    readonly kind: "webbers";
+    /** How long a subscriber waits for their invoice to appear before giving up, ms — real, necessary
+     * because their own workflow defines no `createHook()` (`integrations/webbers.ts`'s own doc comment).
+     * Defaults to `waitForWebbersInvoice`'s own default (10s) when omitted. */
+    readonly waitForInvoiceMs?: number;
+    readonly pollIntervalMs?: number;
+  };
 
   // Storage config (T-074, "хранилище" in the task description) is deliberately not modeled here yet
   // — T-074 is the task that actually implements File Module storage and decides what, if anything,
@@ -138,6 +155,12 @@ export interface EinvoiceDocumentRecord {
   readonly idempotency_key: string;
   readonly document_number: string;
   readonly xml: string;
+  /** Base64-encoded PDF/A-3 bytes (T-072's Webbers integration only — `embedInvoiceInPdfA3`'s output, when
+   * their own PDF was available to embed into); `null` for a pure-XML document (standalone mode, or
+   * Webbers mode when their PDF wasn't ready yet). Stored as a text column for the same honest reason
+   * `xml` is (`einvoice-document.ts`'s own doc comment): T-074 owns the real File Module storage design,
+   * this only needs to answer "does this document have a PDF" until then. */
+  readonly pdf: string | null;
 }
 
 export interface RecordDocumentInput {
@@ -146,6 +169,7 @@ export interface RecordDocumentInput {
   readonly idempotencyKey: string;
   readonly documentNumber: string;
   readonly xml: string;
+  readonly pdf?: string | null;
 }
 
 export interface RecordDocumentResult {
@@ -244,6 +268,7 @@ export default class EinvoiceModuleService extends MedusaService({
         idempotency_key: input.idempotencyKey,
         document_number: input.documentNumber,
         xml: input.xml,
+        pdf: input.pdf ?? null,
       })) as EinvoiceDocumentRecord;
       return { document: created, created: true };
     } catch (error) {
