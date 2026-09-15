@@ -432,12 +432,17 @@ publish` honor it — confirmed empirically, not assumed from partial/ambiguous 
   dependency) physically removes compiled `*.test.*` output from the build directory before every pack/
   publish, regardless of which tool does the packing — confirmed working for all five packages via `pnpm
 pack`, including the one case the negation pattern alone didn't cover.
-- **The `repository` URL already committed on `@normwerk/einvoice-medusa` since T-070
-  (`https://github.com/normwerk/eInvoice`) is a real, confirmed 404** — the GitHub repo doesn't exist yet.
-  Caught only now because T-076 was the first task to actually fetch it rather than treat it as a plausible
-  placeholder — a concrete instance of the project's own "verify URLs before committing" rule catching a
-  gap from _before_ that rule was consistently applied, not a new mistake introduced here. Left unresolved,
-  flagged to the user rather than guessed at (an unverifiable repo location isn't something to invent).
+- **The `repository` URL committed on `@normwerk/einvoice-medusa` since T-070
+  (`https://github.com/normwerk/eInvoice`, wrong casing, no `directory`) was a real, confirmed 404 at the
+  time** — the GitHub repo didn't exist yet. Caught by T-076 actually fetching it rather than treating it as
+  a plausible placeholder — a concrete instance of the project's own "verify URLs before committing" rule
+  catching a gap from _before_ that rule was consistently applied. **Resolved 2026-09-15 (P-09):** the real
+  repository is `github.com/normwerk/einvoice` (lowercase — GitHub URLs are case-insensitive, but every
+  `package.json`'s own `repository` field is kept matching it exactly so the npm card and the Medusa
+  catalog listing don't disagree in spelling); confirmed reachable via `git ls-remote`, not a public API
+  fetch, since it's currently private (a plain `GET /repos/normwerk/einvoice` still 404s — GitHub's API
+  can't distinguish "private" from "doesn't exist" for an unauthenticated caller). Made public is a
+  deliberate, separate action on release day.
 - **Medusa's own real plugin-catalog listing keywords, confirmed against a live `registry.npmjs.org` search
   for currently-published packages** (not just the docs' own prose): `medusa-v2` and
   `medusa-plugin-integration` are the two required keywords; a third, category-specific one is also real

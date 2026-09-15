@@ -1,10 +1,16 @@
 #!/usr/bin/env sh
-# Standing instruction: AGENTS.md is a private, session-local operating-rules file and must never be
-# committed, tracked, or added to .gitignore. This is the automated guard for that rule — a human (or an
-# agent) could otherwise stage it by accident with `git add -A`.
-if git diff --cached --name-only | grep -qx "AGENTS.md"; then
-  echo "ERROR: AGENTS.md is staged. This file must never be committed."
-  echo "Unstage it and commit again: git restore --staged AGENTS.md"
+# P-09 (decision record: HOW-WE-GOT-HERE.md, private planning doc): AGENTS.md is now public and tracked —
+# the old guard (reject any commit that stages it at all) becomes a narrower one: reject a commit whose
+# staged "## 1. Source of truth" section names a private planning path. Scoped to §1 specifically, not the
+# whole file — sections 3/4/12/14 legitimately keep operational cross-references to `ecom docs/todo.md` and
+# similar (P-09's own instruction: "the rest of the sections are publishable as-is"), and even §1 itself now
+# names identifier *formats* like `plan-v0.1 §N` as an example (docs/conventions.md explains why they're
+# kept) — a whole-file substring ban would reject the file's own intended, legitimate content.
+if git show ":AGENTS.md" 2>/dev/null | awk '/^## 1\. /{f=1} /^## 2\./{f=0} f' \
+  | grep -qE "ecom docs|STRATEGY\.md|HOW-WE-GOT-HERE|my-tasks|roadmap\.md"; then
+  echo "ERROR: staged AGENTS.md's section 1 names a private planning path (ecom docs / STRATEGY.md /"
+  echo "HOW-WE-GOT-HERE / my-tasks / roadmap.md). Section 1 describes the source-of-truth *relationship*,"
+  echo "never the private workspace's own path or file names — see docs/conventions.md."
   exit 1
 fi
 

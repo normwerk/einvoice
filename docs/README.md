@@ -55,6 +55,8 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
 ## Structure
 
 - [`docs/sources.md`](sources.md) — official artifacts used for code generation: URL, version, hash, licence, vendoring decision (populated by spike A, T-013).
+- [`docs/conventions.md`](conventions.md) — what internal identifiers like `T-013`/`M-006`/`D-20` mean and
+  why they're kept even though they don't resolve to anything public.
 - [`docs/domain-glossary.md`](domain-glossary.md) — EN 16931 domain conventions and pitfalls (AGENTS.md §2).
 - [`docs/mapping-reference.md`](mapping-reference.md) — model → CII XPath mapping, generated from
   `packages/einvoice-cii/src/generated/plan.ts` (T-020).

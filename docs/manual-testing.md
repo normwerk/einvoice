@@ -69,10 +69,14 @@ Two real, external, point-in-time facts that no test suite owns:
   `https://registry.npmjs.org/-/v1/search?text=%40normwerk` returning zero results. Does not by itself
   prove the _organization_ isn't already registered (an npm org can exist with zero published packages);
   only that nothing would collide on first publish.
-- **The GitHub repository named in every package's own `repository` field
-  (`github.com/normwerk/eInvoice`) does not exist** — a real `404`, checked directly, not assumed from the
-  URL "looking right." Flagged, not silently fixed (there is no way to know the _intended_ real location
-  without asking) — see the private planning log's own T-076 entry for the open question this raised.
+- **The GitHub repository now exists, at `github.com/normwerk/einvoice`** (lowercase — `docs/conventions.md`
+  explains why `repository` fields don't need to match the casing exactly, but every package's own field is
+  kept consistent with it anyway). Re-checked 2026-09-15: `git ls-remote --heads origin` resolves and
+  matches local `main`, confirming the remote is real and reachable — a plain unauthenticated
+  `GET /repos/normwerk/einvoice` against the GitHub API still 404s, because the repository is currently
+  **private** (GitHub's API returns the same 404 for "private" as for "doesn't exist" to an unauthenticated
+  caller, so this alone cannot distinguish the two — `git ls-remote` succeeding is what actually settles it).
+  Making it public is a deliberate, separate action the maintainer takes on release day, not before.
 
 Re-check both again immediately before the real publish (T-115's own release-checklist item: "Публичная
 перепроверка имени… появившихся с сентября" — a fact that can change between when this file was last

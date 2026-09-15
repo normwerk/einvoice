@@ -1,10 +1,12 @@
 #!/usr/bin/env sh
-# Belt-and-suspenders re-check of the same AGENTS.md rule pre-commit already guards — catches the case
-# where a commit predates this hook, or was made with --no-verify. Checks what's actually tracked, not a
-# staged diff (there is none at push time).
-if git ls-files --error-unmatch AGENTS.md > /dev/null 2>&1; then
-  echo "ERROR: AGENTS.md is tracked by git. This file must never be committed."
-  echo "Remove it from tracking (the file itself stays on disk): git rm --cached AGENTS.md"
+# Belt-and-suspenders re-check of the same AGENTS.md rule pre-commit already guards (P-09: AGENTS.md is
+# public now) — catches a commit that predates this hook or was made with --no-verify. Checks the tracked
+# HEAD content directly (not a staged diff — there is none at push time). Scoped to §1 only — see
+# pre-commit's identical comment for why a whole-file ban would reject the file's own legitimate content.
+if git show "HEAD:AGENTS.md" 2>/dev/null | awk '/^## 1\. /{f=1} /^## 2\./{f=0} f' \
+  | grep -qE "ecom docs|STRATEGY\.md|HOW-WE-GOT-HERE|my-tasks|roadmap\.md"; then
+  echo "ERROR: the tracked AGENTS.md's section 1 names a private planning path (ecom docs / STRATEGY.md /"
+  echo "HOW-WE-GOT-HERE / my-tasks / roadmap.md). Fix it and amend before pushing."
   exit 1
 fi
 
