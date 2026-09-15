@@ -27,9 +27,11 @@ export interface StoreEinvoiceFilesInput {
    * not an opaque id. */
   readonly filenamePrefix: string;
   readonly xml: string;
-  /** Omitted entirely (not `undefined` vs a key with `undefined`) for a pure-XML document — mirrors
-   * `basePdfBytes`'s own optionality in both subscribers (T-072/T-073), not a new convention. */
-  readonly pdfBytes?: Uint8Array;
+  /** Absent, or present with `undefined`, either way — `storeEinvoiceFiles` only ever checks
+   * `=== undefined` (equally true of a missing key or a key holding `undefined`, unlike e.g. `"pdfBytes"
+   * in input`), so callers pass `basePdfBytes` straight through (T-072/T-073's own `Uint8Array | undefined`
+   * local) without needing a conditional-spread to satisfy `exactOptionalPropertyTypes`. */
+  readonly pdfBytes?: Uint8Array | undefined;
 }
 
 /**

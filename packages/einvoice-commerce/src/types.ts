@@ -30,31 +30,36 @@ export interface CommerceInvoiceInput {
   readonly document: {
     readonly kind: "invoice" | "credit-note";
     /** Omit if numbering is delegated to `InvoiceNumberer` (T-063) or an external plugin. */
-    readonly number?: string;
+    readonly number?: string | undefined;
     readonly issueDate: IsoDate;
     readonly currency: CurrencyCode;
     /** BT-25/26. Required by `buildInvoice` when `kind === 'credit-note'` (T-064) — the base EN 16931
      * Schematron does not force this (BR-55 only fires if a preceding-invoice-reference group is present
      * at all, docs/tax-semantics.md row 10), so this package enforces it itself rather than relying on the
      * validator to catch a credit note that forgot what it corrects. */
-    readonly correctedInvoice?: { readonly number: string; readonly issueDate: IsoDate };
+    readonly correctedInvoice?:
+      { readonly number: string; readonly issueDate: IsoDate } | undefined;
   };
   readonly seller: CommerceParty;
   readonly buyer: CommerceParty;
   readonly lines: readonly CommerceLine[];
-  readonly shipping?: CommerceCharge;
-  readonly discounts?: readonly CommerceCharge[];
-  readonly payment?: {
-    readonly means?: PaymentMeansCode;
-    readonly terms?: string;
-    readonly iban?: string;
-  };
-  readonly references?: {
-    /** BT-10. Also carries a Leitweg-ID for a German public-sector buyer (B2G) — T-062. */
-    readonly buyerReference?: string;
-    readonly orderReference?: string; // BT-13
-    readonly contractReference?: string; // BT-12
-  };
+  readonly shipping?: CommerceCharge | undefined;
+  readonly discounts?: readonly CommerceCharge[] | undefined;
+  readonly payment?:
+    | {
+        readonly means?: PaymentMeansCode | undefined;
+        readonly terms?: string | undefined;
+        readonly iban?: string | undefined;
+      }
+    | undefined;
+  readonly references?:
+    | {
+        /** BT-10. Also carries a Leitweg-ID for a German public-sector buyer (B2G) — T-062. */
+        readonly buyerReference?: string | undefined;
+        readonly orderReference?: string | undefined; // BT-13
+        readonly contractReference?: string | undefined; // BT-12
+      }
+    | undefined;
   /**
    * BG-13. Optional in general, but `buildInvoice` requires `actualDeliveryDate` and
    * `deliverToCountryCode` when the resolved VAT category is K (intra-EU supply) — found by actually
@@ -63,23 +68,27 @@ export interface CommerceInvoiceInput {
    * category in `docs/tax-semantics.md`'s table has an equivalent delivery-info rule — verified against
    * the vendored Schematron, not assumed from the K case alone).
    */
-  readonly delivery?: {
-    readonly actualDeliveryDate?: IsoDate;
-    readonly deliverToCountryCode?: CountryCode;
-    readonly deliverToCity?: string;
-    readonly deliverToPostCode?: string;
-  };
+  readonly delivery?:
+    | {
+        readonly actualDeliveryDate?: IsoDate | undefined;
+        readonly deliverToCountryCode?: CountryCode | undefined;
+        readonly deliverToCity?: string | undefined;
+        readonly deliverToPostCode?: string | undefined;
+      }
+    | undefined;
   readonly taxContext: TaxContext;
   /** D-19: optional customs block — coincidental byproduct of Probe 1, predicate for Probe 2. Not yet
    * mapped to BT-158/159 by `buildInvoice` (the model doesn't carry those fields yet — a separate,
    * dedicated model-codegen task, not this one); carried on the input type now so adapters can start
    * populating it without a breaking schemaVersion bump later. */
-  readonly customs?: {
-    readonly incoterm?: string;
-    readonly sellerEori?: string;
-    readonly buyerEori?: string;
-    readonly iossNumber?: string;
-  };
+  readonly customs?:
+    | {
+        readonly incoterm?: string | undefined;
+        readonly sellerEori?: string | undefined;
+        readonly buyerEori?: string | undefined;
+        readonly iossNumber?: string | undefined;
+      }
+    | undefined;
 }
 
 export interface CommerceParty {
@@ -89,22 +98,24 @@ export interface CommerceParty {
    * (`@normwerk/einvoice-model`) require it structurally; there is no v0.1 scenario without it. */
   readonly city: string;
   readonly postCode: string;
-  readonly vatIdentifier?: string;
-  readonly legalRegistrationIdentifier?: string;
-  readonly electronicAddress?: string;
-  readonly electronicAddressScheme?: EasCode;
+  readonly vatIdentifier?: string | undefined;
+  readonly legalRegistrationIdentifier?: string | undefined;
+  readonly electronicAddress?: string | undefined;
+  readonly electronicAddressScheme?: EasCode | undefined;
   /** BG-6. `buildInvoice` requires this on the seller when the resolved e-invoice profile is XRECHNUNG
    * (BR-DE-2 — Germany's own CIUS makes seller contact mandatory; the base EN 16931 Schematron does not). */
-  readonly contact?: {
-    readonly name: string;
-    readonly telephone: string;
-    readonly email: string;
-  };
+  readonly contact?:
+    | {
+        readonly name: string;
+        readonly telephone: string;
+        readonly email: string;
+      }
+    | undefined;
 }
 
 export interface CommerceLine {
   /** Omit to default to a 1-based position (`String(index + 1)`). */
-  readonly identifier?: string;
+  readonly identifier?: string | undefined;
   readonly quantity: Amount;
   readonly unitCode: string;
   readonly netPrice: Amount;
@@ -116,11 +127,11 @@ export interface CommerceLine {
    * in this v0.1 rule table (`docs/tax-semantics.md`). Required whenever it's consulted; `buildInvoice`
    * throws rather than guessing a rate for a line that needs one and doesn't have it.
    */
-  readonly taxRateKind?: "standard" | "reduced";
+  readonly taxRateKind?: "standard" | "reduced" | undefined;
   /** D-19/BT-158. Not yet mapped — see `CommerceInvoiceInput.customs`. */
-  readonly hsCode?: string;
+  readonly hsCode?: string | undefined;
   /** D-19/BT-159. Not yet mapped — see `CommerceInvoiceInput.customs`. */
-  readonly originCountry?: CountryCode;
+  readonly originCountry?: CountryCode | undefined;
 }
 
 /** Document-level shipping cost or discount (BG-20/BG-21) — no line-level allowance/charge in this input
@@ -128,14 +139,14 @@ export interface CommerceLine {
  * its own BT-138/143 calculation-percent handling, T-027 — deferred, not needed by any W9 scenario). */
 export interface CommerceCharge {
   readonly amount: Amount;
-  readonly reason?: string;
+  readonly reason?: string | undefined;
 }
 
 export interface TaxContext {
   readonly sellerCountry: CountryCode;
   readonly sellerVatId: string;
   readonly buyerCountry: CountryCode;
-  readonly buyerVatId?: string;
+  readonly buyerVatId?: string | undefined;
   readonly buyerIsBusiness: boolean;
   readonly ossRegistered: boolean;
   readonly supplyType: "goods" | "services" | "mixed";
@@ -147,7 +158,7 @@ export interface TaxContext {
    * country's rate to charge the customer correctly at checkout) supplies it; `decideVatCategory` refuses
    * to select the OSS regime without it rather than silently using Germany's rate.
    */
-  readonly ossRateOverride?: Amount;
+  readonly ossRateOverride?: Amount | undefined;
   /**
    * Explicit signal for the three regimes `TaxContext`'s other fields cannot derive on their own —
    * `docs/tax-semantics.md` rows 5, 6, 8. Each is a legal/factual judgment about the *nature* of the
@@ -155,21 +166,21 @@ export interface TaxContext {
    * case) that no combination of country codes and VAT-ID presence can infer; `decideVatCategory` refuses
    * to select AE/E/Z without one (matches plan-v0.1's D-19 "не выбираются без ... явного override").
    */
-  readonly regimeOverride?: RegimeOverride;
+  readonly regimeOverride?: RegimeOverride | undefined;
 }
 
 export type RegimeOverride =
   | {
       readonly kind: "reverse-charge";
       /** Defaults to the bilingual text this repo's own `de-b2b-reverse-charge` fixture uses. */
-      readonly reasonText?: string;
+      readonly reasonText?: string | undefined;
     }
   | {
       readonly kind: "exempt";
       /** Mandatory (BR-E-10) — `docs/tax-semantics.md` row 6: no single universal VATEX code covers every
        * UStG §4 exemption, so unlike reverse-charge/intra-EU/export this has no fallback text. */
       readonly reasonText: string;
-      readonly reasonCode?: VatexCode;
+      readonly reasonCode?: VatexCode | undefined;
     }
   | {
       /** No reason text/code field — BR-Z-10 forbids a BT-120/121 exemption text on a Z line at all
@@ -197,7 +208,7 @@ export interface VatIdEvidence {
   readonly status: "valid" | "invalid" | "unavailable";
   readonly checkedAt: IsoDate;
   /** VIES's own proof-of-check reference, when the check succeeded (valid or invalid, not unavailable). */
-  readonly consultationNumber?: string;
+  readonly consultationNumber?: string | undefined;
 }
 
 export interface TaxDecision {
@@ -205,8 +216,8 @@ export interface TaxDecision {
    * whole mechanism exists for (plan-v0.1 §4.4: "decisions — не украшение"). */
   readonly ruleId: string;
   readonly categoryCode: VatCategoryCode;
-  readonly exemptionReasonCode?: VatexCode;
-  readonly exemptionReasonText?: string;
+  readonly exemptionReasonCode?: VatexCode | undefined;
+  readonly exemptionReasonText?: string | undefined;
   readonly reasoning: string;
 }
 
@@ -219,5 +230,5 @@ export interface BuildResult {
   readonly invoice: import("@normwerk/einvoice-model").Invoice;
   readonly decisions: readonly TaxDecision[];
   readonly warnings: readonly BuildWarning[];
-  readonly vatIdEvidence?: VatIdEvidence;
+  readonly vatIdEvidence?: VatIdEvidence | undefined;
 }

@@ -108,8 +108,8 @@ export interface WaitForInvoiceOptions {
   /** Total time to keep polling before giving up, ms. Default 10s — generous relative to their own
    * workflow's real work (a DB write plus PDF rendering plus a File Module upload), not tuned to any
    * specific measured duration (none is documented by them). */
-  readonly timeoutMs?: number;
-  readonly pollIntervalMs?: number;
+  readonly timeoutMs?: number | undefined;
+  readonly pollIntervalMs?: number | undefined;
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000;

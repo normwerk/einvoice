@@ -231,10 +231,13 @@ export default class EinvoiceModuleService extends MedusaService({
 }) {
   readonly options: EinvoiceModuleOptions;
 
-  constructor(container: InjectedDependencies, options: EinvoiceModuleOptions) {
-    // `super(...arguments)` is the real, documented pattern every MedusaService-based module service uses
-    // (e.g. @medusajs/api-key's own ApiKeyModuleService) — the generated base class reads more off the
-    // full container than this constructor's own declared parameter type describes.
+  constructor(_container: InjectedDependencies, options: EinvoiceModuleOptions) {
+    // `_container` (unused directly, `noUnusedParameters`' own underscore-prefix exemption) is still a real,
+    // required part of this signature, not dead code to remove — `super(...arguments)` is the documented
+    // pattern every MedusaService-based module service uses (e.g. @medusajs/api-key's own
+    // ApiKeyModuleService); the generated base class reads more off the full container than this
+    // constructor's own declared parameter type describes, which is exactly why `arguments` is used here
+    // instead of a named reference to this parameter.
     // eslint-disable-next-line prefer-rest-params
     super(...arguments);
     assertValidOptions(options);

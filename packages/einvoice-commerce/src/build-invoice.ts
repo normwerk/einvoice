@@ -142,7 +142,7 @@ interface ChargeLine {
   readonly amount: string;
   readonly vatCategoryCode: VatCategoryCode;
   readonly vatRate: string;
-  readonly reason?: string;
+  readonly reason?: string | undefined;
 }
 
 export function buildInvoice(

@@ -45,7 +45,7 @@ describe("validateCommerceInvoiceInput", () => {
 
   it("rejects a payload missing a required field (no lines at all)", () => {
     const withoutLines: Record<string, unknown> = { ...validInput };
-    delete withoutLines.lines;
+    delete withoutLines["lines"];
     const result = validateCommerceInvoiceInput(withoutLines);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.includes("lines"))).toBe(true);

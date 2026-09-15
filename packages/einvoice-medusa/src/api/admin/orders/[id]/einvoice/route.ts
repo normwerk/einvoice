@@ -9,7 +9,7 @@ import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
 import { listEinvoiceDocumentSummaries } from "../../../../einvoice-http.js";
 
 export async function GET(req: MedusaRequest, res: MedusaResponse): Promise<void> {
-  const orderId = req.params.id as string;
+  const orderId = req.params["id"] as string;
   const documents = await listEinvoiceDocumentSummaries(req, orderId, `/admin/orders/${orderId}`);
   res.status(200).json({ documents });
 }

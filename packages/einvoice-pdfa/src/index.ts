@@ -86,7 +86,10 @@ export async function embedInvoiceInPdfA3(
 
   addSrgbOutputIntent(pdfDoc);
 
-  const xmpPacket = buildXmpPacket({ profile, title: options.title });
+  const xmpPacket = buildXmpPacket({
+    profile,
+    ...(options.title !== undefined ? { title: options.title } : {}),
+  });
   const metadataStream = pdfDoc.context.stream(xmpPacket, {
     Type: "Metadata",
     Subtype: "XML",

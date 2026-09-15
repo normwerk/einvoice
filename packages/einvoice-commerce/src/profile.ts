@@ -33,9 +33,9 @@ export interface SelectProfileOptions {
   readonly buyerCountry: CountryCode;
   /** Presence signals a German public-sector buyer (B2G) — XRechnung's pure-XML delivery is mandatory
    * there; a plain ZUGFeRD/Factur-X hybrid PDF is not an accepted substitute (unlike ordinary B2B). */
-  readonly buyerReference?: string;
+  readonly buyerReference?: string | undefined;
   /** Caller's own preference, when neither B2G-mandatory-XRechnung nor the plain default applies. */
-  readonly preferredProfile?: EInvoiceProfileName;
+  readonly preferredProfile?: EInvoiceProfileName | undefined;
 }
 
 export function selectProfile(options: SelectProfileOptions): EInvoiceProfileName {

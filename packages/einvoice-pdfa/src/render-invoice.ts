@@ -184,8 +184,8 @@ function drawTotalRow(
 ): void {
   const labelX = MARGIN + 300;
   const amountX = MARGIN + 445;
-  text(cursor, fonts, label, labelX, { bold: opts.bold });
-  text(cursor, fonts, amount, amountX, { bold: opts.bold });
+  text(cursor, fonts, label, labelX, { bold: Boolean(opts.bold) });
+  text(cursor, fonts, amount, amountX, { bold: Boolean(opts.bold) });
   cursor.y -= LINE_GAP;
 }
 

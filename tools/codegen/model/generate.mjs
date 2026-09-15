@@ -212,7 +212,16 @@ function generateInterfaces() {
     if (!target) throw new Error(`Unknown group "${term.group}" for ${term.id}`);
     const tsType = term.kind === "BG" && term.repeats ? `readonly ${term.tsType}[]` : term.tsType;
     const optional = term.required ? "" : "?";
-    target.members += `  ${tsComment(term)}\n  readonly ${fieldName}${optional}: ${tsType};\n`;
+    // `| undefined` on top of the `?` marker itself (not just "?", which under `exactOptionalPropertyTypes`
+    // only means "the key may be absent", not "the key may be present with value undefined") — callers
+    // throughout this monorepo build these objects from `x | undefined` intermediates (a rate that may or
+    // may not have been captured, a reason that may or may not apply) and assign them straight through
+    // rather than conditionally omitting the key; widening the emitted type to match what every caller
+    // already does is the real fix, not asking every caller to switch to a conditional-spread idiom for a
+    // distinction (present-with-undefined vs. absent) that doesn't affect any of this repo's own
+    // downstream consumers (XML serialization, JSON Schema validation) either way.
+    const finalType = term.required ? tsType : `${tsType} | undefined`;
+    target.members += `  ${tsComment(term)}\n  readonly ${fieldName}${optional}: ${finalType};\n`;
   }
 
   let out = HEADER;

@@ -60,7 +60,7 @@ describe("EinvoiceModuleService", () => {
 
   it("rejects a seller missing vatIdentifier, even though CommerceParty leaves it optional for a buyer", () => {
     const sellerWithoutVatId: Record<string, unknown> = { ...VALID_SELLER };
-    delete sellerWithoutVatId.vatIdentifier;
+    delete sellerWithoutVatId["vatIdentifier"];
     expect(
       () =>
         new EinvoiceModuleService(FAKE_CONTAINER, {
@@ -72,8 +72,8 @@ describe("EinvoiceModuleService", () => {
 
   it("rejects a seller missing electronicAddress/electronicAddressScheme (BR-62, found by a real KoSIT rejection)", () => {
     const sellerWithoutAddress: Record<string, unknown> = { ...VALID_SELLER };
-    delete sellerWithoutAddress.electronicAddress;
-    delete sellerWithoutAddress.electronicAddressScheme;
+    delete sellerWithoutAddress["electronicAddress"];
+    delete sellerWithoutAddress["electronicAddressScheme"];
     expect(
       () =>
         new EinvoiceModuleService(FAKE_CONTAINER, {
