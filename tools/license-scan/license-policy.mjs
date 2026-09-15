@@ -96,14 +96,12 @@ export const DEV_ALLOWED_LICENSES = new Set([
  * - `spawndamnit` (a real transitive devDependency of `@changesets/cli`): `"SEE LICENSE IN LICENSE"`, but
  *   its own `LICENSE` file is a plain, ordinary MIT license text with no additional terms — read directly.
  *
- * Deliberately **not** listed here: `@medusajs/auth-oidc` and `@medusajs/rbac` — both real, transitive
- * devDependencies of `@medusajs/medusa` itself (it lists them as ordinary `dependencies`, unconditionally),
- * and both are, per their own `LICENSE` file, wholly "Medusa Enterprise Edition License … proprietary
- * software. It is not licensed under the MIT License" — not the same MIT-with-an-EE-carve-out shape as the
- * packages above. Left failing the scan on purpose: whether accepting these two into the devDependency tree
- * (unavoidable for anyone testing against `@medusajs/medusa` at all — never redistributed, never activated)
- * is acceptable is a real decision for a human, not something this script should decide silently on a
- * maintainer's behalf.
+ * Not listed here (a different mechanism — see `ACKNOWLEDGED_PROPRIETARY_DEV_DEPENDENCIES` below):
+ * `@medusajs/auth-oidc` and `@medusajs/rbac` — both real, transitive devDependencies of `@medusajs/medusa`
+ * itself (it lists them as ordinary `dependencies`, unconditionally), and both are, per their own `LICENSE`
+ * file, wholly "Medusa Enterprise Edition License … proprietary software. It is not licensed under the MIT
+ * License" — not the same MIT-with-an-EE-carve-out shape as the packages above, so this map (which only
+ * ever corrects a *mislabeled* license) is the wrong place for them.
  */
 /**
  * Package names the scan should let through despite a *genuinely* proprietary/non-allow-listed license —
@@ -112,21 +110,26 @@ export const DEV_ALLOWED_LICENSES = new Set([
  * opposite: an explicit acknowledgment that the real license doesn't clear the allow-list, dev-tier only,
  * added deliberately rather than assumed safe by a script.
  *
- * Empty by default, on purpose: `@medusajs/auth-oidc` and `@medusajs/rbac` (see `KNOWN_DEV_LICENSE_OVERRIDES`'s
- * own doc comment) currently fail the scan for exactly this reason, and stay failing until a human
- * (not this script) decides that's acceptable. The real "Medusa Enterprise Edition License" text (read in
- * full from `@medusajs/rbac`'s own installed `LICENSE` file) says "You may use, reproduce, modify,
- * distribute, or otherwise exploit this software only under a separate, valid commercial agreement …
- * Possession of or access to the source code does not grant a license" — genuinely stricter wording than a
- * typical "look but don't redistribute" notice. In this project's own favor: `@medusajs/medusa` itself
- * (plain MIT, T-003's own confirmed finding) unconditionally lists both as its own ordinary
- * `dependencies`, so *any* Medusa v2 plugin author testing against a real Medusa instance ends up with
- * these on disk — never activated (no enterprise license key configured here), never redistributed (dev
- * tier only, excluded from every published tarball). Whether that structural inevitability is an
- * acceptable acknowledgment (add both names here, each with this same reasoning) or something to avoid a
- * different way is the open decision.
+ * `@medusajs/auth-oidc` and `@medusajs/rbac` — acknowledged 2026-09-15, decision made by the project owner
+ * in chat, not by this script. The real "Medusa Enterprise Edition License" text (read in full from
+ * `@medusajs/rbac`'s own installed `LICENSE` file) says "You may use, reproduce, modify, distribute, or
+ * otherwise exploit this software only under a separate, valid commercial agreement … Possession of or
+ * access to the source code does not grant a license" — genuinely stricter wording than a typical "look but
+ * don't redistribute" notice. In this project's own favor: `@medusajs/medusa` itself (plain MIT, T-003's own
+ * confirmed finding) unconditionally lists both as its own ordinary `dependencies`, so *any* Medusa v2
+ * plugin author testing against a real Medusa instance ends up with these on disk — never activated (no
+ * enterprise license key configured here), never redistributed (dev tier only, excluded from every
+ * published tarball, confirmed by each publishable package's own `files` allow-list). That structural
+ * inevitability — accepting them costs nothing this project doesn't already unavoidably have on disk the
+ * moment it depends on `@medusajs/medusa` at all for testing — is why both are acknowledged rather than
+ * avoided a different way (e.g. vendoring a stripped-down `@medusajs/medusa` fork, which would trade a real,
+ * contained, well-understood risk for a much larger maintenance one). See `HOW-WE-GOT-HERE.md` D-40 (private
+ * planning doc, not in this repository) for the full decision record.
  */
-export const ACKNOWLEDGED_PROPRIETARY_DEV_DEPENDENCIES = new Set([]);
+export const ACKNOWLEDGED_PROPRIETARY_DEV_DEPENDENCIES = new Set([
+  "@medusajs/auth-oidc",
+  "@medusajs/rbac",
+]);
 
 export const KNOWN_DEV_LICENSE_OVERRIDES = new Map([
   ["@medusajs/admin-sdk", "MIT"],
