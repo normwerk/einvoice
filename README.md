@@ -58,7 +58,7 @@ signal that decides what comes next.
 
 ## Development
 
-Requires Node.js 22 LTS and pnpm 9.
+Requires Node.js 22 or newer (`engines.node: >=22`) and pnpm 9.
 
 ```bash
 pnpm install
@@ -82,4 +82,5 @@ MIT — see [`LICENSE`](LICENSE).
 
 ## Commercial support
 
-Contact: `__________` (placeholder — not yet set up).
+Implementation, adaptation to your stack, and support retainers: **hello@normwerk.dev**. We answer within
+three business days. Maintained by Important Dreams.
