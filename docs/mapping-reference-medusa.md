@@ -1,0 +1,70 @@
+# Mapping reference: Medusa v2 → BT/BG
+
+Hand-written (unlike [`docs/mapping-reference.md`](mapping-reference.md), which is generated from
+`packages/einvoice-cii/src/generated/plan.ts` — do not confuse the two, and do not hand-edit that one,
+`AGENTS.md` §9). This file documents the _other_ half of the adapter: which Medusa order/customer field, or
+which `@normwerk/einvoice-medusa` module option, a BT/BG number's value actually comes from. Every row is
+cross-checked against `packages/einvoice-medusa/src/mapping/order-to-commerce-invoice-input.ts`'s real
+source (not memory) and, for the BT number itself, against `docs/mapping-reference.md`'s own generated
+`Model path` column or `packages/einvoice-model/src/generated/types.ts`'s own doc comments.
+
+Re-derive this by hand after changing `order-to-commerce-invoice-input.ts` — there is no generator for this
+table (the field list here comes from real Medusa entities across several modules, not one typed plan
+tree the way the CII mapping does).
+
+## From the order itself (`ORDER_QUERY_FIELDS`)
+
+| BT/BG                                                         | Medusa source                                                                                                   | Note                                                                                                                                                                   |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BT-2 (issue date)                                             | not from the order — `new Date()` at the moment the subscriber runs                                             | Real invoice date, not the order's own creation date.                                                                                                                  |
+| BT-5 (currency code)                                          | `order.currency_code`, uppercased                                                                               |                                                                                                                                                                        |
+| BT-10 (buyer reference)                                       | `order.customer.metadata.buyer_reference`, falling back to `String(order.display_id)`                           | `metadata.buyer_reference` is this plugin's own convention for a real Leitweg-ID (B2G) — no built-in Medusa field carries one. Always populated either way (BR-DE-15). |
+| BT-44 (buyer name)                                            | `order.customer.company_name`, else `first_name + last_name`, else `order.email`/`customer.email`               | First non-empty value wins, in that order.                                                                                                                             |
+| BT-48 (buyer VAT-ID)                                          | `order.customer.metadata.vat_id`                                                                                | This plugin's own convention — no built-in Medusa field carries a buyer VAT-ID either.                                                                                 |
+| BT-49 (buyer electronic address)                              | `order.email`, else `order.customer.email`                                                                      | Scheme fixed to `"EM"` (a plain email address) whenever an address is present at all.                                                                                  |
+| BT-52 (buyer city)                                            | `order.billing_address.city`, else `order.shipping_address.city`                                                | Billing address wins when both are present.                                                                                                                            |
+| BT-53 (buyer post code)                                       | `order.billing_address.postal_code`, else `.shipping_address.postal_code`                                       |                                                                                                                                                                        |
+| BT-55 (buyer country code)                                    | `order.billing_address.country_code`, else `.shipping_address.country_code`, uppercased                         | Throws `MissingBuyerCountryError` if neither address has one — there is no further fallback (BT-55 has no source at all otherwise).                                    |
+| BG-13 buyer-is-business signal (`taxContext.buyerIsBusiness`) | `Boolean(order.customer.company_name)`                                                                          | Not a BT itself — feeds `decideVatCategory` (`einvoice-commerce`), which BT-118 (VAT category code) then reflects.                                                     |
+| BT-126 (line identifier)                                      | 1-based position in `order.items`, not a Medusa field                                                           |                                                                                                                                                                        |
+| BT-129 (invoiced quantity)                                    | `order.items[].detail.quantity`                                                                                 | **Not** `OrderLineItem.quantity` — that field doesn't exist on the line item's own DML model; the real quantity lives on the linked `OrderItem` row (`detail`).        |
+| BT-130 (unit code)                                            | hardcoded `"C62"` (UN/ECE Rec 20, "piece")                                                                      | Medusa doesn't track a per-line unit-of-measure code by default — a real, documented v0.1 gap, not read from anywhere.                                                 |
+| BT-146 (item net price)                                       | `order.items[].unit_price`, backed out of tax when `is_tax_inclusive` is true using `items[].tax_lines[0].rate` |                                                                                                                                                                        |
+| BT-151/152 (line VAT category/rate, indirectly)               | `order.items[].tax_lines[0].rate`, compared against the seller's configured DE standard/reduced rates           | Only ever consulted for category S (domestic) — ignored for K/G/AE/E/Z, which are uniform for the whole document.                                                      |
+| BT-153 (item name)                                            | `order.items[].title`                                                                                           |                                                                                                                                                                        |
+
+## From merchant configuration (`EinvoiceModuleOptions`, `medusa-config.ts`)
+
+Not order data at all — the same value on every document this plugin ever builds, set once in
+`medusa-config.ts`'s `plugins: [{ resolve: "@normwerk/einvoice-medusa", options: {...} }]`.
+
+| BT/BG                                      | Option                                                                                                                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| BT-27 (seller name)                        | `seller.name`                                                                                                                                                                                                                        |
+| BT-29 (seller identifier)                  | not modeled — no `seller.identifier` option                                                                                                                                                                                          |
+| BT-30 (seller legal reg. id)               | `seller.legalRegistrationIdentifier`                                                                                                                                                                                                 |
+| BT-31 (seller VAT-ID)                      | `seller.vatIdentifier` — mandatory (`assertValidOptions`, no fallback)                                                                                                                                                               |
+| BT-34 (seller electronic address)          | `seller.electronicAddress` — mandatory, with `seller.electronicAddressScheme` (BR-62)                                                                                                                                                |
+| BT-37/38/40 (seller city/postcode/country) | `seller.city`/`seller.postCode`/`seller.countryCode`                                                                                                                                                                                 |
+| BT-41/42/43 (seller contact)               | `seller.contact.name`/`.telephone`/`.email` — mandatory once the resolved profile is XRECHNUNG (BR-DE-2), which is every document this plugin's `buildInvoice` call actually targets (`docs/domain-glossary.md`'s own T-071 finding) |
+| BG-16 (payment instructions)               | `payment.means`/`.iban`/`.terms` — mandatory (BR-DE-1)                                                                                                                                                                               |
+
+## Not sourced from Medusa, and not merchant-configurable either (v0.1 fixed defaults)
+
+Worth knowing before assuming a value can be changed without code — none of these read from the order or
+from `EinvoiceModuleOptions`:
+
+- **`taxContext.ossRegistered`** — always `false`. An OSS-registered merchant needs a real extension point
+  this mapping doesn't add yet.
+- **`taxContext.supplyType`** — always `"goods"`. A services-only merchant has the same gap.
+- **BT-130 (unit code)** — always `"C62"` (see table above).
+- **BT-158/BT-159 (HS code / country of origin, `lines[].hsCode`/`.originCountry`)** — never populated by
+  this mapping at all (no source field read for either); `CommerceLine` itself supports both (T-060), this
+  adapter just doesn't wire them from an order yet.
+
+## Not read from Medusa's own field, by design
+
+- **BT-48/BT-10's B2G source (buyer VAT-ID / Leitweg-ID)** both come from `order.customer.metadata`, a
+  free-form JSON bag — not a first-class Medusa field. `docs/domain-glossary.md` documents this convention
+  (`metadata.vat_id`, `metadata.buyer_reference`); a storefront or admin extension that collects these needs
+  to write to that same metadata key for this plugin to ever see them.
