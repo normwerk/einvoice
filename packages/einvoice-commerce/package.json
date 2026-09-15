@@ -2,10 +2,20 @@
   "name": "@normwerk/einvoice-commerce",
   "version": "0.1.0",
   "description": "Order/refund to EN 16931 tax semantics. Platform-agnostic: no Medusa or Vendure types.",
-  "private": true,
   "type": "module",
   "license": "MIT",
   "author": "normwerk",
+  "homepage": "https://github.com/normwerk/einvoice#readme",
+  "bugs": "https://github.com/normwerk/einvoice/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/normwerk/einvoice.git",
+    "directory": "packages/einvoice-commerce"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "keywords": [
     "en16931",
     "e-invoice",

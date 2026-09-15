@@ -2,10 +2,20 @@
   "name": "@normwerk/einvoice-model",
   "version": "0.1.0",
   "description": "Generated EN 16931 types, code lists, and JSON Schema (model layer: no logic, no I/O).",
-  "private": true,
   "type": "module",
   "license": "MIT",
   "author": "normwerk",
+  "homepage": "https://github.com/normwerk/einvoice#readme",
+  "bugs": "https://github.com/normwerk/einvoice/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/normwerk/einvoice.git",
+    "directory": "packages/einvoice-model"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "keywords": [
     "en16931",
     "e-invoice",

@@ -5,6 +5,13 @@ on:
   push:
     branches: [main]
 
+# P-08/T-076 (release checklist §10): explicit least-privilege default for every job in this workflow — none
+# of them pushes anything (the Docker jobs only `build` validator images locally, for that run, never push
+# to GHCR or any registry), so `contents: read` is enough everywhere. A job that does start pushing images
+# gets its own `permissions: { packages: write }` override at that point, not a blanket grant here.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

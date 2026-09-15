@@ -2,12 +2,18 @@
   "name": "@normwerk/einvoice-medusa",
   "version": "0.1.0",
   "description": "Thin Medusa v2 plugin: subscribes to platform events, maps entities to CommerceInvoiceInput, stores the result. No tax logic, no XML (AGENTS.md §6) — those live in @normwerk/einvoice-commerce and @normwerk/einvoice-cii.",
-  "private": true,
   "author": "normwerk",
   "license": "MIT",
+  "homepage": "https://github.com/normwerk/einvoice#readme",
+  "bugs": "https://github.com/normwerk/einvoice/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/normwerk/eInvoice"
+    "url": "git+https://github.com/normwerk/einvoice.git",
+    "directory": "packages/einvoice-medusa"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "files": [
     ".medusa/server",

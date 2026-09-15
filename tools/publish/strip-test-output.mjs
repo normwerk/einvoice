@@ -14,6 +14,11 @@
  * entirely rather than depending on it). Run as each package's own "prepack" script (a standard npm/pnpm
  * lifecycle hook, runs automatically before both `pack` and `publish`), given a single argument: the build
  * output directory to clean, relative to that package's own root.
+ *
+ * Also strips a bare `vitest.config.*` at any depth — `medusa plugin:build` copies it into
+ * `.medusa/server/` verbatim alongside the compiled source (confirmed via a real `pnpm pack` +
+ * `tar -tzf`, T-076); it isn't a compiled `*.test.*` file so the pattern above never caught it, but it's
+ * dev tooling, not something a published package should ship either.
  */
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -38,7 +43,7 @@ function walk(dir) {
     const stats = statSync(fullPath);
     if (stats.isDirectory()) {
       walk(fullPath);
-    } else if (/\.test\.(js|d\.ts)(\.map)?$/.test(entry)) {
+    } else if (/\.test\.(js|d\.ts)(\.map)?$/.test(entry) || /^vitest\.config\./.test(entry)) {
       rmSync(fullPath);
       removed += 1;
     }

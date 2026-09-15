@@ -6,7 +6,7 @@ already PDF/A-eligible (e.g. uses embedded fonts); does not repair a PDF that is
 `renderInvoicePdf`, a minimal, real, font-embedded A4 invoice layout for callers with no PDF renderer of
 their own.
 
-Part of [normwerk/eInvoice](https://github.com/normwerk/eInvoice), a TypeScript e-invoicing toolkit for
+Part of [normwerk/einvoice](https://github.com/normwerk/einvoice), a TypeScript e-invoicing toolkit for
 Germany's XRechnung/ZUGFeRD mandate. See that repository for documentation and the full package list.
 
 ## License

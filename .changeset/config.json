@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@normwerk/einvoice-conformance", "@normwerk/einvoice-ubl"]
+  "ignore": ["@normwerk/einvoice-ubl"]
 }

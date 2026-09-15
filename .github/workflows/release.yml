@@ -1,0 +1,50 @@
+name: Release
+
+# T-076 (release checklist §10): changesets' own standard release flow. On every push to `main` with
+# pending changesets, `changesets/action` opens or updates a "Version Packages" PR (running `changeset
+# version`, which bumps versions and writes CHANGELOGs); merging that PR runs this workflow again, finds no
+# pending changesets, and publishes instead (`pnpm -r publish`, `provenance: true` per each package's own
+# `publishConfig` — needs `id-token: write` for npm to attest it). Nothing here decides *what* gets
+# published — `.changeset/config.json`'s own `ignore` list (`@normwerk/einvoice-ubl`, until it has a real
+# serializer) and each package's own `private`/`publishConfig` fields do that; this workflow only drives the
+# already-decided policy.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Create release PR or publish
+        uses: changesets/action@v1
+        with:
+          publish: pnpm -r publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # `actions/setup-node`'s `registry-url` writes an `.npmrc` that reads the auth token from
+          # `NODE_AUTH_TOKEN` specifically (not `NPM_TOKEN`) — the GitHub secret is still named `NPM_TOKEN`,
+          # just exposed under the env var name npm's own tooling actually looks for.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

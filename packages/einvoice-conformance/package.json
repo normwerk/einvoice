@@ -1,10 +1,32 @@
 {
   "name": "@normwerk/einvoice-conformance",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Dev tooling: runs official validators (KoSIT, Mustang, veraPDF) against fixtures in Docker. Never a runtime dependency of anything shipped.",
-  "private": true,
   "type": "module",
   "license": "MIT",
+  "author": "normwerk",
+  "homepage": "https://github.com/normwerk/einvoice#readme",
+  "bugs": "https://github.com/normwerk/einvoice/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/normwerk/einvoice.git",
+    "directory": "packages/einvoice-conformance"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "keywords": [
+    "en16931",
+    "e-invoice",
+    "einvoicing",
+    "xrechnung",
+    "zugferd",
+    "factur-x",
+    "conformance",
+    "validator",
+    "kosit"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -14,12 +36,17 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.js.map",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.d.ts.map"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "prepack": "node ../../tools/publish/strip-test-output.mjs dist"
   }
 }
