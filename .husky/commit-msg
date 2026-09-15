@@ -1,0 +1,1 @@
+sed -i.bak '/^Co-Authored-By:/Id' "$1" && rm -f "$1.bak"
