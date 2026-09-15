@@ -46,6 +46,7 @@
     "dev": "medusa plugin:develop",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "prepack": "node ../../tools/publish/strip-test-output.mjs .medusa/server"
   },
   "dependencies": {

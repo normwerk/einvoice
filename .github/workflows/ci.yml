@@ -25,6 +25,14 @@ jobs:
       - run: pnpm lint
       - run: pnpm build
       - run: pnpm test
+
+      # Test coverage thresholds (agreed with the user, 2026-09-15): each package's own
+      # `vitest.config.ts`/`.mts` sets `coverage.thresholds` as a real, current floor for the code it
+      # leaves in scope — not an aspirational target — after excluding what's a different, deliberate
+      # testing strategy rather than a gap (pure generated types/data, barrel re-exports, React admin UI,
+      # HTTP route/middleware wiring, DB migrations — see each config's own doc comments for why).
+      - run: pnpm coverage
+
       - run: node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/license-scan/*.test.mjs
 
       # T-003 (plan-v0.1 §3.6, release checklist §10): "запрет copyleft в

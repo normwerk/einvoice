@@ -8,7 +8,7 @@ if git ls-files --error-unmatch AGENTS.md > /dev/null 2>&1; then
   exit 1
 fi
 
-echo "pre-push: running the full local regression (typecheck/lint/format/license-scan/build/test) — this can take a minute..."
+echo "pre-push: running the full local regression (typecheck/lint/format/license-scan/build/test/coverage) — this can take a minute..."
 
 pnpm build || exit 1
 pnpm typecheck || exit 1
@@ -16,6 +16,7 @@ pnpm lint || exit 1
 pnpm format || exit 1
 pnpm license-scan || exit 1
 pnpm test || exit 1
+pnpm coverage || exit 1
 node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/license-scan/*.test.mjs || exit 1
 
 echo "pre-push checks passed."
