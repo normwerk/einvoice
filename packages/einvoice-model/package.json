@@ -1,10 +1,20 @@
 {
   "name": "@normwerk/einvoice-model",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Generated EN 16931 types, code lists, and JSON Schema (model layer: no logic, no I/O).",
   "private": true,
   "type": "module",
   "license": "MIT",
+  "author": "normwerk",
+  "keywords": [
+    "en16931",
+    "e-invoice",
+    "einvoicing",
+    "xrechnung",
+    "zugferd",
+    "factur-x",
+    "xml"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -14,13 +24,18 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.js.map",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.d.ts.map"
   ],
   "scripts": {
     "codegen": "node ../../tools/codegen/model/generate.mjs",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../tools/publish/strip-test-output.mjs dist"
   },
   "dependencies": {
     "ajv": "^8.20.0",

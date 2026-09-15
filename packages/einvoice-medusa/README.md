@@ -1,0 +1,37 @@
+# `@normwerk/einvoice-medusa`
+
+A thin Medusa v2 plugin for German e-invoicing (XRechnung 3.0 / ZUGFeRD, EN 16931): subscribes to
+`order.fulfillment_created` and `payment.refunded`, maps the order to
+[`@normwerk/einvoice-commerce`](https://www.npmjs.com/package/@normwerk/einvoice-commerce)'s invoice model,
+and stores the result — idempotently, with no duplicate documents on event redelivery. No tax logic and no
+XML live in this package; that's `@normwerk/einvoice-commerce`/`@normwerk/einvoice-cii`'s job, kept
+platform-agnostic.
+
+Two PDF modes: reuse an already-installed PDF plugin's own invoice (`@webbers/invoices-medusa`), or
+generate PDF/A-3 standalone from any PDF renderer you supply (including a bundled one,
+[`@normwerk/einvoice-pdfa`](https://www.npmjs.com/package/@normwerk/einvoice-pdfa)'s `renderInvoicePdf`).
+Documents are stored in Medusa's own File Module (private), with an admin "E-Invoices" widget on the order
+page and a Store API endpoint for a customer to fetch their own e-invoice.
+
+## Install
+
+```bash
+npm install @normwerk/einvoice-medusa @normwerk/einvoice-model @normwerk/einvoice-commerce @normwerk/einvoice-cii
+```
+
+Full setup — configuration, migrations, optional PDF modes — is the
+[quickstart](https://github.com/normwerk/eInvoice/blob/main/docs/quickstart-medusa.md): about 30 minutes
+from a fresh `create-medusa-app` project to a KoSIT-validated invoice on your first fulfilled order.
+
+## Documentation
+
+Part of [normwerk/eInvoice](https://github.com/normwerk/eInvoice). See that repository for:
+
+- [Quickstart](https://github.com/normwerk/eInvoice/blob/main/docs/quickstart-medusa.md)
+- [Medusa field → BT/BG mapping reference](https://github.com/normwerk/eInvoice/blob/main/docs/mapping-reference-medusa.md)
+- [Storage, admin widget, Store API design](https://github.com/normwerk/eInvoice/blob/main/docs/features/einvoice-medusa.md)
+- [Domain glossary — every real Medusa v2 gotcha found building this](https://github.com/normwerk/eInvoice/blob/main/docs/domain-glossary.md)
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).

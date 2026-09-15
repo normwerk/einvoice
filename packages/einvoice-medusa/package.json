@@ -1,6 +1,6 @@
 {
   "name": "@normwerk/einvoice-medusa",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Thin Medusa v2 plugin: subscribes to platform events, maps entities to CommerceInvoiceInput, stores the result. No tax logic, no XML (AGENTS.md §6) — those live in @normwerk/einvoice-commerce and @normwerk/einvoice-cii.",
   "private": true,
   "author": "normwerk",
@@ -10,7 +10,11 @@
     "url": "https://github.com/normwerk/eInvoice"
   },
   "files": [
-    ".medusa/server"
+    ".medusa/server",
+    "!.medusa/server/**/*.test.js",
+    "!.medusa/server/**/*.test.js.map",
+    "!.medusa/server/**/*.test.d.ts",
+    "!.medusa/server/**/*.test.d.ts.map"
   ],
   "exports": {
     "./package.json": "./package.json",
@@ -29,15 +33,20 @@
   "keywords": [
     "medusa-v2",
     "medusa-plugin-integration",
+    "medusa-plugin-other",
     "medusa-plugin",
     "e-invoicing",
-    "xrechnung"
+    "xrechnung",
+    "en16931",
+    "zugferd",
+    "factur-x"
   ],
   "scripts": {
     "build": "medusa plugin:build",
     "dev": "medusa plugin:develop",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../tools/publish/strip-test-output.mjs .medusa/server"
   },
   "dependencies": {
     "@normwerk/einvoice-cii": "workspace:*",

@@ -1,10 +1,21 @@
 {
   "name": "@normwerk/einvoice-cii",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "UN/CEFACT CII D16B serializer and profiles (XRechnung 3.0, ZUGFeRD).",
   "private": true,
   "type": "module",
   "license": "MIT",
+  "author": "normwerk",
+  "keywords": [
+    "en16931",
+    "cii",
+    "xrechnung",
+    "zugferd",
+    "factur-x",
+    "e-invoice",
+    "einvoicing",
+    "xml"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -14,7 +25,11 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.js.map",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.d.ts.map"
   ],
   "dependencies": {
     "@normwerk/einvoice-model": "workspace:*"
@@ -22,6 +37,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../tools/publish/strip-test-output.mjs dist"
   }
 }

@@ -408,3 +408,46 @@ access?: "public" | "private" }`, defaulting to `"private"` when `access` is omi
   oversight: `EinvoiceDocument.order_id` (a plain field since T-071) already answers every query this
   plugin needs, and Webbers needs a link only because their own `Invoice` model carries no order-identifying
   field at all (confirmed by reading it directly — no redundant mechanism to choose between, unlike here).
+
+### T-076 (npm publish prep, W11 — partial, publish itself not yet done)
+
+- **`pnpm pack`/`pnpm publish` rewrite a `workspace:*` dependency to the real resolved version; a plain
+  `npm pack`/`npm publish` does not** — confirmed empirically (not assumed from either tool's docs) by
+  actually packing `@normwerk/einvoice-cii` both ways and inspecting the packed `package.json`: `npm pack`
+  left `"@normwerk/einvoice-model": "workspace:*"` completely unresolved (a broken dependency spec for
+  anyone installing the published tarball), while `pnpm pack` correctly wrote the real version. Real,
+  load-bearing consequence: publishing any of these packages for real must go through `pnpm publish`/
+  `pnpm -r publish` (or `changeset publish`, which shells out to the package manager pnpm itself is
+  configured for here), never a bare `npm publish` run from inside a package directory.
+- **An npm `files` array entry can be a negation glob (`"!dist/**/*.test.js"`)**, and `npm pack`/`npm
+publish` honor it — confirmed empirically, not assumed from partial/ambiguous docs. This is what's needed
+  at all: every one of this monorepo's `tsc`-built packages compiles its own `*.test.ts` files into `dist/`
+  right alongside real source (no test/non-test distinction in `tsconfig.json`'s own `include`), so a plain
+  `files: ["dist"]` publishes test code in every tarball unless something excludes it.
+- **The same negation pattern does _not_ work for `pnpm pack` on `einvoice-medusa`'s own `.medusa/server/`
+  output** — a real, confirmed inconsistency between `npm`'s and `pnpm`'s own `files`-array negation
+  handling for that specific nested, dot-prefixed directory shape (root cause not chased further, since a
+  robust workaround existed). Fixed by not depending on `files` negation for this at all: a `prepack`
+  lifecycle script (`tools/publish/strip-test-output.mjs`, a plain recursive walk-and-delete, no new
+  dependency) physically removes compiled `*.test.*` output from the build directory before every pack/
+  publish, regardless of which tool does the packing — confirmed working for all five packages via `pnpm
+pack`, including the one case the negation pattern alone didn't cover.
+- **The `repository` URL already committed on `@normwerk/einvoice-medusa` since T-070
+  (`https://github.com/normwerk/eInvoice`) is a real, confirmed 404** — the GitHub repo doesn't exist yet.
+  Caught only now because T-076 was the first task to actually fetch it rather than treat it as a plausible
+  placeholder — a concrete instance of the project's own "verify URLs before committing" rule catching a
+  gap from _before_ that rule was consistently applied, not a new mistake introduced here. Left unresolved,
+  flagged to the user rather than guessed at (an unverifiable repo location isn't something to invent).
+- **Medusa's own real plugin-catalog listing keywords, confirmed against a live `registry.npmjs.org` search
+  for currently-published packages** (not just the docs' own prose): `medusa-v2` and
+  `medusa-plugin-integration` are the two required keywords; a third, category-specific one is also real
+  and in active use — `medusa-plugin-other` for a third-party integration that doesn't fit their other
+  categories (analytics/auth/cms/notification/payment/search/shipping), confirmed present alongside the
+  other two on several real, currently-listed npm packages (e.g. `@jytextiles/medusa-plugin-etsy-sync`,
+  `@alphabite/medusa-wishlist`). `einvoice-medusa`'s own `keywords` already had the first two (copied from
+  the official plugin scaffold, T-070) but was missing the third until this task added it.
+- **The Medusa integrations page has no known, documented per-package icon field** — `medusajs.com/
+integrations` itself states the list "is curated from npm," and its own visible icons (Stripe, Mailchimp,
+  etc.) are plausibly curated/assigned by Medusa's own team for well-known brands, not something a
+  `package.json` field controls. Real, honest finding: plan-v0.1's own "иконка" (icon) as a T-076 metadata
+  deliverable does not correspond to any confirmed real mechanism — not invented here, flagged instead.
