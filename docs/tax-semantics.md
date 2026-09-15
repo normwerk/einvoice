@@ -106,6 +106,13 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   not count as "green" here even if KoSIT itself would forward it — but until this was found, our own
   `einvoice-conformance` package could not even report the distinction: `parseKositReport()` now exposes it
   as a separate `accepted` field (`kosit-report.ts`) rather than silently equating "valid" with "accepted".
+- **The word "Gutschrift" is ambiguous in German VAT law (P-04, T-034).** UStG §14 Abs. 2 uses _Gutschrift_
+  for a _self-billed invoice_ (UNTDID 1001 code 389, issued by the buyer). A credit note (381) whose
+  human-readable title says "Gutschrift" can be misread as self-billing, with §14c exposure. The XML is
+  unambiguous (type code 381); the PDF title is not. `einvoice-pdfa` therefore titles 381 documents
+  "Rechnungskorrektur", never "Gutschrift" — the exact wording is chosen conservatively (BMF-Schreiben 2013
+  does permit "Gutschrift" in an unambiguous context, but common practice avoids it); confirm the final
+  phrasing with your own tax advisor before relying on it.
 
 This list is a starting point, not exhaustive — it grows as scenarios are added.
 

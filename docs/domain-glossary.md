@@ -58,6 +58,8 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   supplying one without the other is rejected. `einvoice-model` doesn't model the percentage yet
   (BT-94/101/138/143), so fixtures with a discount/charge (T-022) simply omit `baseAmount` rather than
   half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
+- **"Gutschrift" ≠ credit note (P-04, T-034).** In UStG terms it is a self-billed invoice (389). Use
+  "Rechnungskorrektur" for 381 in anything a human reads; keep code 381 in XML.
 
 ## Medusa v2 (`einvoice-medusa`, T-070/T-071/T-072/T-073/T-074, W10)
 
