@@ -38,6 +38,11 @@
  * `einvoiceService.options.integration?.kind === "webbers"` reuses their own credit invoice's `display_id`
  * per refund instead of allocating one here — see `invoice-on-fulfillment-created.ts`'s identical comment
  * and `integrations/webbers.ts` for why this needs a poll/wait rather than a plain read.
+ *
+ * T-073: standalone mode's own equivalent — `einvoiceService.options.standalone?.basePdf`, called per
+ * refund with the built credit-note `Invoice` — see `invoice-on-fulfillment-created.ts`'s identical
+ * comment for the full reasoning (same option, same embedding step, just invoked once per refund here
+ * instead of once per fulfillment).
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer, SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
@@ -188,7 +193,7 @@ async function creditOneRefund({
 
   const integration = einvoiceService.options.integration;
   let documentNumber: string;
-  let webbersPdfBytes: Uint8Array | undefined;
+  let basePdfBytes: Uint8Array | undefined;
 
   if (integration?.kind === "webbers") {
     const webbersInvoice = await waitForWebbersInvoice(container, order.id, {
@@ -202,7 +207,7 @@ async function creditOneRefund({
     }
     documentNumber = String(webbersInvoice.invoice.display_id);
     if (webbersInvoice.invoice.pdf_url !== null) {
-      webbersPdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
+      basePdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
     }
   } else {
     const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
@@ -214,13 +219,18 @@ async function creditOneRefund({
     document: { ...input.document, number: documentNumber },
   });
 
+  // T-073: standalone mode's own PDF source — see invoice-on-fulfillment-created.ts's identical comment.
+  if (integration?.kind !== "webbers") {
+    basePdfBytes = await einvoiceService.options.standalone?.basePdf?.(buildResult.invoice);
+  }
+
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });
 
   let pdfBase64: string | null = null;
-  if (webbersPdfBytes !== undefined) {
+  if (basePdfBytes !== undefined) {
     const pdfa = await import("@normwerk/einvoice-pdfa");
-    const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(webbersPdfBytes, xml, {
+    const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(basePdfBytes, xml, {
       profile,
       title: documentNumber,
     });

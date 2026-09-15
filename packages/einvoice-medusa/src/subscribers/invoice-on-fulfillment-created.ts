@@ -29,6 +29,12 @@
  * every subscriber of the same event without waiting for any of them to finish). When their own PDF is
  * available, this plugin's XML is embedded into it as PDF/A-3 (`embedInvoiceInPdfA3`, `@normwerk/einvoice-pdfa`,
  * T-030) instead of shipping bare XML.
+ *
+ * T-073: standalone mode's (`integration` omitted) own equivalent of that same "XML + PDF/A-3" outcome —
+ * `einvoiceService.options.standalone?.basePdf` is called with the built `Invoice` once numbering has been
+ * resolved, and its return value (or `undefined`, for pure XML) is embedded the same way Webbers' own PDF
+ * would be — `basePdfBytes` below is deliberately the same variable regardless of which of the two sources
+ * it came from, since `embedInvoiceInPdfA3` itself doesn't care.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
@@ -104,7 +110,7 @@ export default async function invoiceOnFulfillmentCreated({
 
   const integration = einvoiceService.options.integration;
   let documentNumber: string;
-  let webbersPdfBytes: Uint8Array | undefined;
+  let basePdfBytes: Uint8Array | undefined;
 
   if (integration?.kind === "webbers") {
     const webbersInvoice = await waitForWebbersInvoice(container, order.id, {
@@ -118,7 +124,7 @@ export default async function invoiceOnFulfillmentCreated({
     }
     documentNumber = String(webbersInvoice.invoice.display_id);
     if (webbersInvoice.invoice.pdf_url !== null) {
-      webbersPdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
+      basePdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
     }
   } else {
     const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
@@ -130,13 +136,19 @@ export default async function invoiceOnFulfillmentCreated({
     document: { ...input.document, number: documentNumber },
   });
 
+  // T-073: standalone mode's own PDF source — see this file's own doc comment. Webbers mode already
+  // resolved `basePdfBytes` (or left it `undefined`) above; this only runs for the other branch.
+  if (integration?.kind !== "webbers") {
+    basePdfBytes = await einvoiceService.options.standalone?.basePdf?.(buildResult.invoice);
+  }
+
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });
 
   let pdfBase64: string | null = null;
-  if (webbersPdfBytes !== undefined) {
+  if (basePdfBytes !== undefined) {
     const pdfa = await import("@normwerk/einvoice-pdfa");
-    const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(webbersPdfBytes, xml, {
+    const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(basePdfBytes, xml, {
       profile,
       title: documentNumber,
     });

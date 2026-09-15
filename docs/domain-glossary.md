@@ -59,7 +59,7 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   (BT-94/101/138/143), so fixtures with a discount/charge (T-022) simply omit `baseAmount` rather than
   half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
 
-## Medusa v2 (`einvoice-medusa`, T-070/T-071/T-072, W10)
+## Medusa v2 (`einvoice-medusa`, T-070/T-071/T-072/T-073, W10)
 
 Per plan-v0.1 §4.6's own warning, none of the following is taken from documentation by memory — every item
 was read directly from a real, freshly-created `create-medusa-app@latest --plugin`/full app (v2.19.0/2.21.0
@@ -305,3 +305,55 @@ cocNumber/vatNumber/iban/email`, all mandatory per its own README) — registeri
   plugin entry (`plugins: ["@webbers/invoices-medusa"]`, no `options`) fails module loading outright
   (`Invalid options: {"addressInfo":["Invalid input: expected object, received undefined"]}`), confirmed by
   hitting this for real before supplying the options their README documents.
+
+### T-073 (standalone mode's own PDF source, W10)
+
+- **`options.standalone.basePdf(invoice)` is called with the already-_built_ `Invoice`
+  (`@normwerk/einvoice-model`), not the raw Medusa order** — a deliberate design choice, not the only
+  possible one: it means a real implementation can render exactly the BT-1 number/BT-22x totals/BG-23 VAT
+  breakdown the XML will actually carry (the same object `serializeCii` itself serializes), rather than
+  re-deriving them from the order independently and risking the PDF and XML disagreeing. The cost is that
+  the hook necessarily runs _after_ numbering is resolved and `buildInvoice` has already run — both
+  subscribers call it in that order, mirrored from Webbers mode's own PDF-after-numbering sequencing
+  (T-072), not a new sequencing invented for this task.
+- **`@normwerk/einvoice-pdfa`'s own `renderInvoicePdf` (T-030 continuation) was test-only until this task**
+  — no `exports` entry beyond `"."`, and `index.ts` never re-exported it, so nothing outside the package's
+  own test suite could reach it. Re-exported here (`index.ts`) because it is the one concrete, real
+  `standalone.basePdf` implementation this plugin's own e2e proof needed, and — genuinely, not just for the
+  test — it is exactly what a merchant with no PDF renderer of their own would reach for: a real,
+  font-embedded, PDF/A-eligible base PDF, for free, instead of nothing.
+- **The standalone e2e proof needed a real `npm install` in the host app after `yalc add`, not `yalc add`
+  alone** — a yalc-linked package's _own_ `dependencies` (here, `@normwerk/einvoice-pdfa`'s real dependency
+  on `pdf-lib`/`@pdf-lib/fontkit`) are not copied into the host app's `node_modules` by `yalc add` itself;
+  the dev server crashed with a real `ERR_MODULE_NOT_FOUND` for `pdf-lib` (imported from inside
+  `@normwerk/einvoice-pdfa/dist/index.js`) until a plain `npm install` in the host app's root resolved the
+  linked package's own dependency tree — the same class of "yalc surfaces a packaging gap a normal npm
+  install wouldn't" finding T-071/T-072 both already logged, this time in the harness itself rather than in
+  a third-party package.
+- **`create-medusa-app@2.19.0` now scaffolds a turborepo-style monorepo** (`apps/backend`, root
+  `package.json` with a `workspaces` field), not a flat single-app directory the way T-070/T-071/T-072's own
+  harnesses were — confirmed by actually running it fresh for this task, not assumed unchanged from
+  before. Functionally inert for this plugin (Node module resolution still finds a yalc-linked package
+  hoisted to the workspace root's `node_modules` from `apps/backend`), but real, since a future e2e run
+  should expect this layout rather than be surprised by it.
+- **The same already-documented `embedInvoiceInPdfA3` limitation (non-embedded-font base PDF isn't
+  PDF/A-eligible, D-20 "Path 2", first hit for real by T-072 against Webbers' own default PDF) reproduces
+  identically for a standalone-supplied PDF** — proven, not assumed, by configuring `standalone.basePdf` to
+  return a plain `pdf-lib` page using `StandardFonts.Helvetica` (no embedded font) and observing a real
+  veraPDF `FAIL … 6.2.11.4.1-1` on the result, the same rule class T-072 hit. This confirms the gap is a
+  property of `embedInvoiceInPdfA3` itself, not something specific to Webbers' PDF generator — relevant for
+  T-076's own documentation of this option's actual limits.
+- **Two partial refunds on the same payment, through the standalone path, produced two distinct credit
+  notes** (`GS-2026-0001`/`GS-2026-0002`, keyed by `ref_...` id) — a direct re-exercise of the per-refund
+  idempotency fix T-072 made to `credit-note-on-payment-refunded.ts` (originally a T-071 bug, found and
+  fixed under T-072 since it was directly related), confirming that fix holds under this task's own
+  restructuring of the same subscriber, not just under Webbers mode.
+- **Full real e2e proof, both document types, both PDF outcomes**: a `create-medusa-app@2.19.0` instance
+  (Docker Postgres) with `@normwerk/einvoice-medusa` configured with no `integration` at all and
+  `standalone.basePdf` set to `renderInvoicePdf` — a real order → fulfillment produced an invoice
+  (`RE-2026-0003`) with a real embedded PDF/A-3, and two partial refunds on its payment each produced their
+  own credit note (`GS-2026-0001`/`GS-2026-0002`) with their own embedded PDF/A-3; **all four documents'
+  XML passed the real KoSIT Validator ("Validation successful!", the same pre-known informational
+  BR-DE-TMP-32 message) and both distinct PDFs (one invoice, one credit note) passed real veraPDF
+  `--flavour 3b`.** Separately, `standalone.basePdf` omitted entirely still produced a pure-XML document
+  (`pdf: NULL` in `einvoice_document`) — T-071's original standalone behavior, unchanged.

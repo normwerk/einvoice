@@ -29,7 +29,7 @@
 import type { CommerceParty, EInvoiceProfileName } from "@normwerk/einvoice-commerce" with {
   "resolution-mode": "import",
 };
-import type { PaymentMeansCode } from "@normwerk/einvoice-model" with {
+import type { Invoice, PaymentMeansCode } from "@normwerk/einvoice-model" with {
   "resolution-mode": "import",
 };
 import { InjectTransactionManager, MedusaContext, MedusaService } from "@medusajs/framework/utils";
@@ -84,10 +84,29 @@ export interface EinvoiceModuleOptions {
     readonly waitForInvoiceMs?: number;
     readonly pollIntervalMs?: number;
   };
-
-  // Storage config (T-074, "хранилище" in the task description) is deliberately not modeled here yet
-  // — T-074 is the task that actually implements File Module storage and decides what, if anything,
-  // needs to be merchant-configurable about it. Adding an undesigned field now would just be a guess.
+  /**
+   * T-073: standalone mode's own way to satisfy plan-v0.1 §4.6's second bullet ("XML + PDF/A-3 из
+   * переданного PDF") when `integration` is omitted entirely — Webbers mode has its own PDF source
+   * (`integrations/webbers.ts`), but standalone mode has no third-party workflow to poll, so the merchant
+   * supplies a base PDF themselves, generated however they already generate invoice PDFs today (their own
+   * template renderer, a different plugin, `@normwerk/einvoice-pdfa`'s own `renderInvoicePdf` when they
+   * have none). Called once per document with the *built* `Invoice` (same object `serializeCii` itself
+   * serializes) rather than the raw Medusa order, so a real implementation can render exactly what BT-1
+   * (`Invoice.number`) etc. the XML will actually carry, not a value it would otherwise have to
+   * re-derive. Returning `undefined` (the default when this whole option is omitted) keeps this plugin's
+   * original standalone behavior — pure XML, no PDF at all.
+   *
+   * Ignored entirely when `integration` is set. Same as Webbers mode (T-072, its own e2e proof), the PDF
+   * this returns is embedded as-is by `embedInvoiceInPdfA3` (T-030) — it does not repair a PDF that isn't
+   * already PDF/A-eligible (e.g. one using non-embedded standard fonts); that is `embedInvoiceInPdfA3`'s
+   * own already-documented limitation (D-20 "Path 2"/`render-invoice.ts`'s own doc comment), not something
+   * this option works around.
+   */
+  readonly standalone?: {
+    readonly basePdf?: (
+      invoice: Invoice,
+    ) => Promise<Uint8Array | undefined> | Uint8Array | undefined;
+  };
 }
 
 export class InvalidEinvoiceModuleOptionsError extends Error {

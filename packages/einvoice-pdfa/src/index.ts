@@ -24,6 +24,12 @@ import { buildXmpPacket } from "./xmp.js";
 import { ZUGFERD_PROFILES, type ZugferdProfileName } from "./profiles.js";
 
 export type { ZugferdProfileName, ZugferdProfile } from "./profiles.js";
+// T-073: re-exported (previously test-only, `render-invoice.test.ts`) so a caller with no PDF of its own
+// (`einvoice-medusa`'s standalone mode, plan-v0.1 §4.6 — "XML + PDF/A-3 из переданного PDF" needs a PDF
+// to pass in the first place) has a real, font-embedded, PDF/A-eligible one to hand to
+// `embedInvoiceInPdfA3` instead of nothing — not a hypothetical convenience, `einvoice-medusa`'s own
+// standalone e2e proof (T-073) uses exactly this as the "merchant's own PDF renderer".
+export { renderInvoicePdf } from "./render-invoice.js";
 
 export interface EmbedInvoiceOptions {
   /** Which ZUGFeRD/Factur-X profile's XMP metadata and attachment filename to use. */

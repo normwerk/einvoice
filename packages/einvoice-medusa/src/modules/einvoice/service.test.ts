@@ -92,4 +92,18 @@ describe("EinvoiceModuleService", () => {
         }),
     ).toThrow(/payment/);
   });
+
+  // T-073: `standalone.basePdf` is a plain merchant-supplied hook, not something this constructor
+  // validates (unlike `seller`/`payment`, there's no KoSIT rule an *absent* hook could ever fail) — this
+  // only confirms accepting it doesn't trip `assertValidOptions` and that it's held unchanged, the same
+  // way the very first test above confirms for the options object as a whole.
+  it("accepts options.standalone.basePdf and holds it unchanged", () => {
+    const basePdf = async () => new Uint8Array([1, 2, 3]);
+    const service = new EinvoiceModuleService(FAKE_CONTAINER, {
+      seller: VALID_SELLER,
+      payment: VALID_PAYMENT,
+      standalone: { basePdf },
+    });
+    expect(service.options.standalone?.basePdf).toBe(basePdf);
+  });
 });
