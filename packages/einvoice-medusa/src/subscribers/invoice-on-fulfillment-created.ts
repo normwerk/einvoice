@@ -35,6 +35,15 @@
  * resolved, and its return value (or `undefined`, for pure XML) is embedded the same way Webbers' own PDF
  * would be — `basePdfBytes` below is deliberately the same variable regardless of which of the two sources
  * it came from, since `embedInvoiceInPdfA3` itself doesn't care.
+ *
+ * T-074: the XML/PDF this subscriber produces are uploaded to the File Module (`storage.ts`,
+ * `access: "private"`) instead of being stored inline — `recordDocumentIfAbsent` now takes file ids, not
+ * content. Files are uploaded *before* the idempotency-guarding insert (there is no other order — the
+ * insert needs the ids), so the true-concurrency edge case this file's own doc comment already names above
+ * (two deliveries both passing the pre-check) now also orphans a just-uploaded file for whichever delivery
+ * loses the insert, not just a wasted document number — `result.created === false` is the signal to clean
+ * those up (`deleteEinvoiceFiles`), a real, small extension of an already-documented edge case rather than
+ * a new one.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
@@ -46,6 +55,7 @@ import {
   waitForWebbersInvoice,
   WebbersInvoiceNotFoundError,
 } from "../integrations/webbers.js";
+import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
 import {
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
@@ -145,24 +155,39 @@ export default async function invoiceOnFulfillmentCreated({
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });
 
-  let pdfBase64: string | null = null;
+  let finalPdfBytes: Uint8Array | undefined;
   if (basePdfBytes !== undefined) {
     const pdfa = await import("@normwerk/einvoice-pdfa");
     const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(basePdfBytes, xml, {
       profile,
       title: documentNumber,
     });
-    pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+    finalPdfBytes = pdfBytes;
   }
 
-  await einvoiceService.recordDocumentIfAbsent({
+  const stored = await storeEinvoiceFiles(container, {
+    filenamePrefix: documentNumber,
+    xml,
+    pdfBytes: finalPdfBytes,
+  });
+
+  const result = await einvoiceService.recordDocumentIfAbsent({
     type: "invoice",
     orderId: order.id,
     idempotencyKey: data.fulfillment_id,
     documentNumber,
-    xml,
-    pdf: pdfBase64,
+    xmlFileId: stored.xmlFileId,
+    pdfFileId: stored.pdfFileId,
   });
+
+  if (!result.created) {
+    // Lost a true-concurrency race against another delivery of this same event — see this file's own doc
+    // comment. The files just uploaded above are for a document nobody will ever read; clean them up.
+    await deleteEinvoiceFiles(
+      container,
+      stored.pdfFileId === null ? [stored.xmlFileId] : [stored.xmlFileId, stored.pdfFileId],
+    );
+  }
 }
 
 export const config: SubscriberConfig = {

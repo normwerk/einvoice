@@ -21,7 +21,8 @@
  * an alternate import path.
  */
 import type { MedusaContainer } from "@medusajs/framework";
-import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
+import { fetchFileBytes } from "../storage.js";
 
 export class WebbersInvoiceNotFoundError extends Error {
   constructor(
@@ -160,19 +161,15 @@ export async function waitForWebbersInvoice(
  * its name, a File Module file id, not a real URL (`workflows/steps/upload-invoice-pdf-step.js`:
  * `invoiceModule.updateInvoices({ id, pdf_url: file.id })`); `fileModuleService.retrieveFile(id)` returns a
  * presigned download URL that still needs fetching, confirmed against the real compiled
- * `@medusajs/file` module service.
+ * `@medusajs/file` module service. T-074 extracted this two-step shape into `storage.ts`'s own
+ * `fetchFileBytes` (this plugin's own files need the exact same read-back once T-074 stores them in the
+ * File Module too) — kept as a thin, named wrapper here rather than inlined at each call site, since
+ * "Webbers' PDF" is a meaningfully different thing to read than "our own document's file" even though the
+ * mechanism is identical.
  */
 export async function fetchWebbersPdfBytes(
   container: MedusaContainer,
   pdfFileId: string,
 ): Promise<Uint8Array> {
-  const fileModuleService = container.resolve(Modules.FILE);
-  const { url } = await fileModuleService.retrieveFile(pdfFileId);
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `fetchWebbersPdfBytes: downloading file ${pdfFileId} failed (HTTP ${response.status}).`,
-    );
-  }
-  return new Uint8Array(await response.arrayBuffer());
+  return fetchFileBytes(container, pdfFileId);
 }

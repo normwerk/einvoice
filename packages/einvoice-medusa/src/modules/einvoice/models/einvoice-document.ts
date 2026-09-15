@@ -16,13 +16,16 @@
  * fulfillment (partial shipments) or more than one refund, and each of those must be able to produce its
  * own document.
  *
- * `xml`/`pdf` are stored inline as Postgres text columns, not in the File Module — T-074 is the task that
- * actually designs and wires file storage (admin "Download e-invoice" widget, Store API endpoint); a text
- * column here answers this task's own two questions ("has this already been generated" and "hand back the
- * bytes when it has") honestly, without guessing at a storage design that belongs to a later task. `pdf`
- * (T-072) is base64-encoded PDF/A-3 bytes, populated only in Webbers integration mode when their own PDF
- * was available to embed this document's XML into (`integrations/webbers.ts`) — `null` for a pure-XML
- * document, which is every document in standalone mode (plan-v0.1 §4.6: "Standalone: только XML").
+ * T-074: `xml_file_id`/`pdf_file_id` replace T-071/T-072's inline text columns (`xml: string`, `pdf: base64
+ * string | null`) — those were an explicitly flagged stopgap ("T-074 is the task that actually designs and
+ * wires file storage"), not a permanent design. Content now lives in the File Module (`storage.ts`,
+ * `access: "private"`); this table only keeps the ids needed to find it again. `pdf_file_id` is `null` for
+ * a pure-XML document — every document in standalone mode with no `basePdf` hook (plan-v0.1 §4.6:
+ * "Standalone: только XML"), or Webbers mode before their own PDF was available.
+ *
+ * No migration path preserves the old `xml`/`pdf` columns' existing content — the same "pre-release, no
+ * real deployment history to preserve" reasoning T-072 already used for its own migration replacement
+ * (`docs/domain-glossary.md`), not a new precedent.
  */
 import { model } from "@medusajs/framework/utils";
 
@@ -33,8 +36,8 @@ const EinvoiceDocument = model
     order_id: model.text(),
     idempotency_key: model.text(),
     document_number: model.text(),
-    xml: model.text(),
-    pdf: model.text().nullable(),
+    xml_file_id: model.text(),
+    pdf_file_id: model.text().nullable(),
   })
   .indexes([{ on: ["type", "idempotency_key"], unique: true }]);
 

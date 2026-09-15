@@ -61,3 +61,5 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
 - `docs/manual-testing.md` — scenarios that cannot be automated.
 - [`docs/adr/`](adr/README.md) — architecture decision records (ADR-001…005, plan-v0.1 §3.3).
 - `docs/features/<feature>.md` — per-feature docs, added as features ship.
+  - [`docs/features/einvoice-medusa.md`](features/einvoice-medusa.md) — File Module storage, the admin
+    "E-Invoices" widget, and the Store API download endpoint (T-074).

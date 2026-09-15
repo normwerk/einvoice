@@ -1,6 +1,6 @@
 import { Migration } from "@medusajs/framework/mikro-orm/migrations";
 
-export class Migration20260915083908 extends Migration {
+export class Migration20260915095829 extends Migration {
   override async up(): Promise<void> {
     this.addSql(
       `alter table if exists "einvoice_document" drop constraint if exists "einvoice_document_type_idempotency_key_unique";`,
@@ -13,7 +13,7 @@ export class Migration20260915083908 extends Migration {
     );
 
     this.addSql(
-      `create table if not exists "einvoice_document" ("id" text not null, "type" text check ("type" in ('invoice', 'credit_note')) not null, "order_id" text not null, "idempotency_key" text not null, "document_number" text not null, "xml" text not null, "pdf" text null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "einvoice_document_pkey" primary key ("id"));`,
+      `create table if not exists "einvoice_document" ("id" text not null, "type" text check ("type" in ('invoice', 'credit_note')) not null, "order_id" text not null, "idempotency_key" text not null, "document_number" text not null, "xml_file_id" text not null, "pdf_file_id" text null, "created_at" timestamptz not null default now(), "updated_at" timestamptz not null default now(), "deleted_at" timestamptz null, constraint "einvoice_document_pkey" primary key ("id"));`,
     );
     this.addSql(
       `CREATE INDEX IF NOT EXISTS "IDX_einvoice_document_deleted_at" ON "einvoice_document" ("deleted_at") WHERE deleted_at IS NULL;`,

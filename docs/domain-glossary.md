@@ -59,7 +59,7 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   (BT-94/101/138/143), so fixtures with a discount/charge (T-022) simply omit `baseAmount` rather than
   half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
 
-## Medusa v2 (`einvoice-medusa`, T-070/T-071/T-072/T-073, W10)
+## Medusa v2 (`einvoice-medusa`, T-070/T-071/T-072/T-073/T-074, W10)
 
 Per plan-v0.1 §4.6's own warning, none of the following is taken from documentation by memory — every item
 was read directly from a real, freshly-created `create-medusa-app@latest --plugin`/full app (v2.19.0/2.21.0
@@ -357,3 +357,54 @@ cocNumber/vatNumber/iban/email`, all mandatory per its own README) — registeri
   BR-DE-TMP-32 message) and both distinct PDFs (one invoice, one credit note) passed real veraPDF
   `--flavour 3b`.** Separately, `standalone.basePdf` omitted entirely still produced a pure-XML document
   (`pdf: NULL` in `einvoice_document`) — T-071's original standalone behavior, unchanged.
+
+### T-074 (File Module storage, admin widget, Store API, W10)
+
+- **`IFileModuleService.createFiles`'s real signature** (`@medusajs/types`, confirmed against the actually
+  installed `2.19.0` type declarations, not guessed): `{ filename, mimeType, content: <base64 string>,
+access?: "public" | "private" }`, defaulting to `"private"` when `access` is omitted — the same default
+  Webbers' own upload step already relied on (T-072's own finding that their PDF was readable via
+  `retrieveFile` despite never setting `access` explicitly). `getAsBuffer`/`getDownloadStream` exist too but
+  only `@since 2.8.0` — this plugin's own peerDependencies claim `>=2.4.0`, so file read-back still goes
+  through the older, always-available `retrieveFile` + `fetch` two-step (already established in T-072's
+  `fetchWebbersPdfBytes`, now shared as `storage.ts`'s own `fetchFileBytes`) rather than the newer method.
+- **`create-medusa-app@2.19.0`'s scaffolded local File Module provider names a file id as
+  `private-<epoch-ms>-<filename>`** and serves it from `apps/backend/static/` — confirmed by generating a
+  real document and finding the exact file on disk with that name, not assumed from the module's own
+  interface (which only promises an opaque `id: string`).
+- **`medusa db:generate <module-name>` (not `plugin:db:generate`) is the real command for regenerating a
+  plugin's own module migration from inside a full host app** that already has the plugin installed —
+  running `plugin:db:generate` directly inside the plugin package's own directory (outside any host app)
+  fails with a real `Cannot find module './service.js'` (the package's own Node16-module-resolution TypeScript
+  source assumes a build/host context this bare invocation doesn't provide). The already-established
+  workflow (T-071/T-072: generate inside a real scratch app, copy the output file back into the plugin's
+  own `src/.../migrations/`) is the one that actually works, not a shortcut run from the package itself.
+- **A second migration for an already-existing table is silently useless, again** — same root cause T-072's
+  own finding #16 already named (a `create table if not exists` migration for a table an earlier migration
+  already created is a real no-op, so new columns never actually land) — T-074 hit the identical class of
+  problem for the same reason (adding `xml_file_id`/`pdf_file_id`, dropping `xml`/`pdf`) and used the same
+  fix: delete the old migration file entirely, commit the freshly generated one as the sole baseline
+  (pre-release, no real deployment history to preserve — T-072's own justification, not a new one).
+- **Medusa's own real, compiled `GET /store/orders/:id` (`@medusajs/medusa@2.19.0`) has no ownership check
+  at all** — its source literally reads `// TODO: Do we want to apply some sort of authentication here?`,
+  confirmed by reading the compiled route file directly, not assumed from documentation. This plugin's own
+  store e-invoice routes do not copy that gap: `authenticate("customer", ["session", "bearer"])` (the same
+  middleware, same auth-type combination, Medusa's own core uses for every other customer-owned-order
+  action, `/store/orders/:id/transfer/*`) plus an explicit `customer_id` match, confirmed for real: no
+  token → `401`; a different, real registered customer → `404`; the actual owning customer → `200` with the
+  correct file, KoSIT-valid.
+- **`DetailWidgetProps<HttpTypes.AdminOrder>` (`@medusajs/types`) is the real, documented prop type for an
+  order-detail-zone admin widget** — confirmed directly in the package's own `.d.ts` doc comment/example,
+  not inferred from a third-party plugin's compiled output alone (though `@webbers/invoices-medusa`'s own
+  real, published widget, inspected directly in T-072, independently confirms the `{ data: order }` shape
+  and the adjacent `order.details.side.before` zone).
+- **A plain same-origin `fetch(url, { credentials: "include" })` from an admin widget authenticates via the
+  dashboard's own session cookie**, without needing `@medusajs/js-sdk`'s configured client the way
+  Webbers' own widget does it — confirmed by actually clicking a download link in a real logged-in admin
+  session and observing a real `200 OK` on `GET /admin/orders/:id/einvoice/:documentId/xml` in the browser's
+  own network log, not assumed from the two approaches being "probably equivalent".
+- **No `defineLink` was added between `order` and `EinvoiceDocument`**, despite `@webbers/invoices-medusa`'s
+  own real `invoice_order` link (T-072) being the obvious analogy — a deliberate scope decision, not an
+  oversight: `EinvoiceDocument.order_id` (a plain field since T-071) already answers every query this
+  plugin needs, and Webbers needs a link only because their own `Invoice` model carries no order-identifying
+  field at all (confirmed by reading it directly — no redundant mechanism to choose between, unlike here).

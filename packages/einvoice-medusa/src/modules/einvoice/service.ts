@@ -173,13 +173,13 @@ export interface EinvoiceDocumentRecord {
   readonly order_id: string;
   readonly idempotency_key: string;
   readonly document_number: string;
-  readonly xml: string;
-  /** Base64-encoded PDF/A-3 bytes (T-072's Webbers integration only — `embedInvoiceInPdfA3`'s output, when
-   * their own PDF was available to embed into); `null` for a pure-XML document (standalone mode, or
-   * Webbers mode when their PDF wasn't ready yet). Stored as a text column for the same honest reason
-   * `xml` is (`einvoice-document.ts`'s own doc comment): T-074 owns the real File Module storage design,
-   * this only needs to answer "does this document have a PDF" until then. */
-  readonly pdf: string | null;
+  /** File Module file id (T-074, `storage.ts`) — the XML content itself is no longer stored on this row,
+   * `fetchFileBytes`/an admin or store download route reads it back from there. */
+  readonly xml_file_id: string;
+  /** File Module file id for the PDF/A-3 (T-072's Webbers integration, or T-073's standalone
+   * `basePdf` hook) — `null` for a pure-XML document (standalone mode with no hook, or Webbers mode
+   * before their PDF was ready). */
+  readonly pdf_file_id: string | null;
 }
 
 export interface RecordDocumentInput {
@@ -187,8 +187,8 @@ export interface RecordDocumentInput {
   readonly orderId: string;
   readonly idempotencyKey: string;
   readonly documentNumber: string;
-  readonly xml: string;
-  readonly pdf?: string | null;
+  readonly xmlFileId: string;
+  readonly pdfFileId?: string | null;
 }
 
 export interface RecordDocumentResult {
@@ -286,8 +286,8 @@ export default class EinvoiceModuleService extends MedusaService({
         order_id: input.orderId,
         idempotency_key: input.idempotencyKey,
         document_number: input.documentNumber,
-        xml: input.xml,
-        pdf: input.pdf ?? null,
+        xml_file_id: input.xmlFileId,
+        pdf_file_id: input.pdfFileId ?? null,
       })) as EinvoiceDocumentRecord;
       return { document: created, created: true };
     } catch (error) {

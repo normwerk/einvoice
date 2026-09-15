@@ -43,6 +43,12 @@
  * refund with the built credit-note `Invoice` — see `invoice-on-fulfillment-created.ts`'s identical
  * comment for the full reasoning (same option, same embedding step, just invoked once per refund here
  * instead of once per fulfillment).
+ *
+ * T-074: the original invoice's XML (needed for `extractIssueDateFromCii`, BT-2 on the corrected invoice)
+ * is no longer inline on `EinvoiceDocument` — it's fetched once from the File Module (`storage.ts`) before
+ * the per-refund loop, not once per refund, since it's the same file every time. Each credit note's own
+ * new XML/PDF are then uploaded the same way `invoice-on-fulfillment-created.ts` uploads an invoice's —
+ * same helper, same cleanup-on-lost-race behavior, per refund instead of once.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer, SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
@@ -54,6 +60,7 @@ import {
   waitForWebbersInvoice,
   WebbersInvoiceNotFoundError,
 } from "../integrations/webbers.js";
+import { deleteEinvoiceFiles, fetchFileBytes, storeEinvoiceFiles } from "../storage.js";
 import {
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
@@ -127,6 +134,10 @@ export default async function creditNoteOnPaymentRefunded({
   if (originalInvoice === undefined) {
     throw new MissingOriginalInvoiceError(order.id);
   }
+  const originalXmlBytes = await fetchFileBytes(container, originalInvoice.xml_file_id);
+  const originalIssueDate = extractIssueDateFromCii(
+    Buffer.from(originalXmlBytes).toString("utf-8"),
+  );
 
   for (const refund of refunds) {
     await creditOneRefund({
@@ -134,6 +145,7 @@ export default async function creditNoteOnPaymentRefunded({
       container,
       order,
       originalInvoice,
+      originalIssueDate,
       refundId: refund.id,
     });
   }
@@ -143,7 +155,8 @@ interface CreditOneRefundInput {
   readonly einvoiceService: EinvoiceModuleService;
   readonly container: MedusaContainer;
   readonly order: MedusaOrderForInvoice;
-  readonly originalInvoice: { readonly document_number: string; readonly xml: string };
+  readonly originalInvoice: { readonly document_number: string };
+  readonly originalIssueDate: string;
   readonly refundId: string;
 }
 
@@ -152,6 +165,7 @@ async function creditOneRefund({
   container,
   order,
   originalInvoice,
+  originalIssueDate,
   refundId,
 }: CreditOneRefundInput): Promise<void> {
   const existing = await einvoiceService.listEinvoiceDocuments({
@@ -175,11 +189,11 @@ async function creditOneRefund({
     payment: einvoiceService.options.payment,
     correctedInvoice: {
       number: originalInvoice.document_number,
-      // The original invoice's own issue date isn't stored on EinvoiceDocument today (only its number and
-      // XML) — re-derived here from today's date would be wrong, so this plugin parses it back out of the
-      // XML it already generated rather than adding a field speculatively; T-074's storage redesign is the
-      // natural place to store this explicitly instead, if this parse ever proves fragile in practice.
-      issueDate: extractIssueDateFromCii(originalInvoice.xml),
+      // The original invoice's own issue date isn't stored on EinvoiceDocument as its own field (only its
+      // number and a file id) — re-derived here from today's date would be wrong, so this plugin parses it
+      // back out of the XML it already generated (fetched once, outside this per-refund function) rather
+      // than adding a field speculatively.
+      issueDate: originalIssueDate,
     },
   });
 
@@ -227,24 +241,38 @@ async function creditOneRefund({
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });
 
-  let pdfBase64: string | null = null;
+  let finalPdfBytes: Uint8Array | undefined;
   if (basePdfBytes !== undefined) {
     const pdfa = await import("@normwerk/einvoice-pdfa");
     const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(basePdfBytes, xml, {
       profile,
       title: documentNumber,
     });
-    pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+    finalPdfBytes = pdfBytes;
   }
 
-  await einvoiceService.recordDocumentIfAbsent({
+  const stored = await storeEinvoiceFiles(container, {
+    filenamePrefix: documentNumber,
+    xml,
+    pdfBytes: finalPdfBytes,
+  });
+
+  const result = await einvoiceService.recordDocumentIfAbsent({
     type: "credit_note",
     orderId: order.id,
     idempotencyKey: refundId,
     documentNumber,
-    xml,
-    pdf: pdfBase64,
+    xmlFileId: stored.xmlFileId,
+    pdfFileId: stored.pdfFileId,
   });
+
+  if (!result.created) {
+    // Same lost-race cleanup as invoice-on-fulfillment-created.ts's identical branch.
+    await deleteEinvoiceFiles(
+      container,
+      stored.pdfFileId === null ? [stored.xmlFileId] : [stored.xmlFileId, stored.pdfFileId],
+    );
+  }
 }
 
 /**
