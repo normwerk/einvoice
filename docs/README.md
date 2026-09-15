@@ -63,8 +63,8 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
   not generated.
 - [`docs/tax-semantics.md`](tax-semantics.md) — what the validators do not catch (draft, not reviewed by a
   tax advisor — M-006; plan-v0.1 §3.5 / §9).
-- `docs/test-cases.md` — test catalog by suite.
-- `docs/manual-testing.md` — scenarios that cannot be automated.
+- [`docs/test-cases.md`](test-cases.md) — test catalog by suite.
+- [`docs/manual-testing.md`](manual-testing.md) — scenarios that cannot be automated.
 - [`docs/adr/`](adr/README.md) — architecture decision records (ADR-001…005, plan-v0.1 §3.3).
 - `docs/features/<feature>.md` — per-feature docs, added as features ship.
   - [`docs/features/einvoice-medusa.md`](features/einvoice-medusa.md) — File Module storage, the admin

@@ -27,6 +27,7 @@
     "lint": "eslint .",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
+    "license-scan": "node tools/license-scan/scan.mjs",
     "changeset": "changeset"
   },
   "devDependencies": {
