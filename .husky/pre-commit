@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# Standing instruction: AGENTS.md is a private, session-local operating-rules file and must never be
+# committed, tracked, or added to .gitignore. This is the automated guard for that rule — a human (or an
+# agent) could otherwise stage it by accident with `git add -A`.
+if git diff --cached --name-only | grep -qx "AGENTS.md"; then
+  echo "ERROR: AGENTS.md is staged. This file must never be committed."
+  echo "Unstage it and commit again: git restore --staged AGENTS.md"
+  exit 1
+fi
+
+npx lint-staged

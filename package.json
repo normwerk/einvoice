@@ -28,7 +28,17 @@
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "license-scan": "node tools/license-scan/scan.mjs",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mjs,cjs,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
@@ -40,6 +50,8 @@
     "eslint": "^9.15.0",
     "eslint-config-prettier": "^9.1.0",
     "globals": "^17.12.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
     "prettier": "^3.3.3",
     "ts-json-schema-generator": "^2.9.0",
     "typescript": "^5.7.2",
