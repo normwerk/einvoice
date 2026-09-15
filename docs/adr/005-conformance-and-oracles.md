@@ -40,8 +40,8 @@ oracles specifically so that a shared bug in one implementation doesn't read as 
 conformance (L1–L3), and — where checked — agreement with two independent implementations (L4) and
 internal consistency under round-trip (L5). It does **not** certify that the chosen VAT category, exemption
 text, or numbering scheme was the _right_ one for that transaction (`AGENTS.md` §8 rule 5) — that is
-`docs/tax-semantics.md` and, eventually, expert review's (M-006) job, and no validator run substitutes for
-either.
+`docs/tax-semantics.md`'s job (and, for the merchant, their tax advisor's), and no validator run substitutes
+for either.
 
 ## Consequences
 

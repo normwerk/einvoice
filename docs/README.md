@@ -63,8 +63,8 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
 - [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) — the adapter side: which Medusa
   order/customer field, or which `einvoice-medusa` module option, each BT/BG comes from (T-075). Hand-written,
   not generated.
-- [`docs/tax-semantics.md`](tax-semantics.md) — what the validators do not catch (draft, not reviewed by a
-  tax advisor — M-006; plan-v0.1 §3.5 / §9).
+- [`docs/tax-semantics.md`](tax-semantics.md) — the VAT rules applied, one scenario per row with legal
+  sources; what the validators do not catch. Not tax advice.
 - [`docs/test-cases.md`](test-cases.md) — test catalog by suite.
 - [`docs/manual-testing.md`](manual-testing.md) — scenarios that cannot be automated.
 - [`docs/adr/`](adr/README.md) — architecture decision records (ADR-001…005, plan-v0.1 §3.3).

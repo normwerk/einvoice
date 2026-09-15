@@ -206,8 +206,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     if (context.ossRateOverride === undefined) {
       throw new TaxRuleError(
         `OSS distance sale to ${context.buyerCountry} needs taxContext.ossRateOverride — this package does ` +
-          `not maintain a table of EU member states' VAT rates (docs/tax-semantics.md row 7, flagged for ` +
-          `expert review).`,
+          `not maintain a table of EU member states' VAT rates (docs/tax-semantics.md row 7).`,
         "tax-semantics#7",
       );
     }
@@ -216,8 +215,8 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       categoryCode: "S",
       reasoning:
         `OSS one-stop-shop distance sale; rate is buyer country ${context.buyerCountry}'s own, supplied via ` +
-        `ossRateOverride (Art. 33 VAT Directive). ⚠️ Outside the DE B2B/B2G mandate this project targets — ` +
-        `docs/tax-semantics.md row 7 flags this as not fully resolved pending expert review (M-006).`,
+        `ossRateOverride (Art. 33 VAT Directive). Outside the German B2B/B2G mandate; rate supplied by the ` +
+        `caller, see docs/tax-semantics.md row 7.`,
     };
   }
 

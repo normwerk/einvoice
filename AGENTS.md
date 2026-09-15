@@ -186,7 +186,7 @@ Rules:
 2. **An L4 difference is never dismissed.** Classify it in the diff report as: our bug / their bug / permissible variation — with the clause of EN 16931 or the CIUS that justifies the verdict. "Probably fine" is not a classification.
 3. L1–L3 green with an unexplained L4 difference is not green.
 4. If the pass rate plateaus, do not tweak endlessly: bring the diff report and stop for a decision.
-5. **Validators do not catch tax semantics** — VAT category choice, OSS, reverse charge, numbering. These are covered by scenario fixtures and by `docs/tax-semantics.md`, and ultimately by expert review (M-006). Green validators are necessary, never sufficient. Say so whenever you report results.
+5. **Validators do not catch tax semantics** — VAT category choice, OSS, reverse charge, numbering. These are covered by scenario fixtures and by `docs/tax-semantics.md`. Green validators are necessary, never sufficient. Say so whenever you report results.
 
 ---
 
@@ -235,6 +235,8 @@ Rules:
 - Reference real symbols and paths so docs stay searchable.
 - Two documents are mandatory before v0.1 ships: `docs/mapping-reference.md` (platform field → BT) and `docs/tax-semantics.md` ("what the validator does not catch").
 - Do not add unsolicited markdown beyond what these rules require.
+- User-facing text (error messages, log lines, admin UI, README) never references private planning documents (`STRATEGY.md`, `plan-*.md`, `T-NNN`, `M-NNN`, `D-NN`). Reference a public `docs/` page or a stable error code instead. Internal traceability belongs in code comments and commit messages.
+- Public text (README, `docs/`, error messages, npm descriptions) never promises a tax or legal review, and never marks anything "pending review". A review is stated only after it happened, with date and scope, as a fact. "Tax advisor" in public text always means the merchant's own advisor. Internal planning of reviews lives outside this repository.
 
 ---
 
