@@ -20,17 +20,17 @@ npm install @normwerk/einvoice-medusa @normwerk/einvoice-model @normwerk/einvoic
 ```
 
 Full setup — configuration, migrations, optional PDF modes — is the
-[quickstart](https://github.com/Normwerk/eInvoice/blob/main/docs/quickstart-medusa.md): about 30 minutes
+[quickstart](https://github.com/normwerk/einvoice/blob/main/docs/quickstart-medusa.md): about 30 minutes
 from a fresh `create-medusa-app` project to a KoSIT-validated invoice on your first fulfilled order.
 
 ## Documentation
 
-Part of [Normwerk/eInvoice](https://github.com/Normwerk/eInvoice). See that repository for:
+Part of [normwerk/einvoice](https://github.com/normwerk/einvoice). See that repository for:
 
-- [Quickstart](https://github.com/Normwerk/eInvoice/blob/main/docs/quickstart-medusa.md)
-- [Medusa field → BT/BG mapping reference](https://github.com/Normwerk/eInvoice/blob/main/docs/mapping-reference-medusa.md)
-- [Storage, admin widget, Store API design](https://github.com/Normwerk/eInvoice/blob/main/docs/features/einvoice-medusa.md)
-- [Domain glossary — every real Medusa v2 gotcha found building this](https://github.com/Normwerk/eInvoice/blob/main/docs/domain-glossary.md)
+- [Quickstart](https://github.com/normwerk/einvoice/blob/main/docs/quickstart-medusa.md)
+- [Medusa field → BT/BG mapping reference](https://github.com/normwerk/einvoice/blob/main/docs/mapping-reference-medusa.md)
+- [Storage, admin widget, Store API design](https://github.com/normwerk/einvoice/blob/main/docs/features/einvoice-medusa.md)
+- [Domain glossary — every real Medusa v2 gotcha found building this](https://github.com/normwerk/einvoice/blob/main/docs/domain-glossary.md)
 
 ## License
 

@@ -5,7 +5,7 @@ sequential numbering, profile selection (EN 16931 vs. Germany's XRechnung CIUS).
 Medusa or Vendure types live here; `@normwerk/einvoice-medusa` is the Medusa-specific adapter built on top
 of it.
 
-Part of [Normwerk/eInvoice](https://github.com/Normwerk/eInvoice), a TypeScript e-invoicing toolkit for
+Part of [normwerk/einvoice](https://github.com/normwerk/einvoice), a TypeScript e-invoicing toolkit for
 Germany's XRechnung/ZUGFeRD mandate. See that repository for documentation, the tax-semantics reference,
 and the full package list.
 

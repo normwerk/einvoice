@@ -69,13 +69,15 @@ Two real, external, point-in-time facts that no test suite owns:
   `https://registry.npmjs.org/-/v1/search?text=%40normwerk` returning zero results. Does not by itself
   prove the _organization_ isn't already registered (an npm org can exist with zero published packages);
   only that nothing would collide on first publish.
-- **The GitHub repository now exists, at `github.com/Normwerk/eInvoice`** (capital N, capital I — GitHub's
-  own redirect on a real `git push`, 2026-09-16, is what actually settled the casing; `git remote -v` only
-  echoes back whatever a human typed, not GitHub's canonical spelling, see `docs/domain-glossary.md`'s own
-  entry on this). Every package's own `repository`/`homepage`/`bugs` field matches it exactly. Confirmed
-  reachable via `git ls-remote --heads origin`, not a public API fetch, since the repository is currently
-  **private** (GitHub's API returns the same 404 for "private" as for "doesn't exist" to an unauthenticated
-  caller, so a plain `GET /repos/Normwerk/eInvoice` cannot by itself distinguish the two).
+- **The GitHub repository now exists, at `github.com/normwerk/einvoice`** (all lowercase since the P-10
+  rename of 2026-09-16 — before it, GitHub's own redirect on a real `git push` had settled the casing as
+  `Normwerk/eInvoice`; `git remote -v` only echoes back whatever a human typed, not GitHub's canonical
+  spelling, see `docs/domain-glossary.md`'s own entry on this). Every package's own
+  `repository`/`homepage`/`bugs` field matches it exactly. Confirmed reachable via
+  `git ls-remote --heads origin` — which now returns refs with no `This repository moved` line, i.e. the
+  lowercase spelling is canonical — not a public API fetch, since the repository is currently **private**
+  (GitHub's API returns the same 404 for "private" as for "doesn't exist" to an unauthenticated caller, so a
+  plain `GET /repos/normwerk/einvoice` cannot by itself distinguish the two).
   Making it public is a deliberate, separate action the maintainer takes on release day, not before.
 
 Re-check both again immediately before the real publish (T-115's own release-checklist item: "Публичная

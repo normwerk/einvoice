@@ -441,16 +441,24 @@ pack`, including the one case the negation pattern alone didn't cover.
   _before_ it was consistently applied). **P-09 (2026-09-15) then "corrected" the casing to lowercase
   `github.com/normwerk/einvoice`** — based on `git remote -v` echoing back whatever casing was typed into
   `git remote add`, not GitHub's own canonical casing, which that command has no way to reveal on its own.
-  **Actually resolved 2026-09-16, empirically:** a real `git push` to the lowercase remote succeeded but
-  GitHub replied with `remote: This repository moved. Please use the new location:
+  **Settled 2026-09-16, empirically:** a real `git push` to the lowercase remote succeeded but GitHub
+  replied with `remote: This repository moved. Please use the new location:
 git@github.com:Normwerk/eInvoice.git` — GitHub's own redirect response is the actual source of truth here,
-  not a guess either way. Canonical is `github.com/Normwerk/eInvoice` (capital N, capital I) — the _original_
-  T-070 casing was right all along; P-09's "fix" was itself the bug. Confirmed reachable via `git ls-remote`,
-  not a public API fetch, since the repository is currently private (a plain `GET /repos/Normwerk/eInvoice`
-  still 404s — GitHub's API can't distinguish "private" from "doesn't exist" for an unauthenticated caller).
-  Made public is a deliberate, separate action on release day. **Lesson, stated plainly:** `git remote -v`
-  tells you what string a human typed, never GitHub's own canonical casing — only a real push (and reading
-  its response) or the GitHub API/UI settle that question.
+  not a guess either way. So at that moment canonical was `github.com/Normwerk/eInvoice` (capital N, capital
+  I): the _original_ T-070 casing, and P-09's "fix" was itself the bug. **Then superseded the same day by a
+  founder decision (P-10): one register for the name everywhere, all lowercase** — not a correction of the
+  finding above but a rename on top of it. Two of the four spellings can't be capitalised at all (npm
+  package names, the `normwerk.dev` domain), and Docker image names forbid uppercase, so `ghcr.io/Normwerk/…`
+  would not have built once M-020 starts pushing validator images. The organisation and repository were
+  renamed to `normwerk/einvoice`; GitHub treats those slugs case-insensitively, so the rename only changes
+  display — old links, clones and redirects keep working and the old name is not released. Canonical is now
+  `github.com/normwerk/einvoice`, confirmed the same way the uppercase spelling was: `git ls-remote` against
+  the lowercase remote returns refs with no `This repository moved` line. Still not a public API fetch,
+  since the repository is currently private (a plain `GET /repos/normwerk/einvoice` still 404s — GitHub's
+  API can't distinguish "private" from "doesn't exist" for an unauthenticated caller). Making it public is a
+  deliberate, separate action on release day. **Lesson, stated plainly:** `git remote -v` tells you what
+  string a human typed, never GitHub's own canonical casing — only a real push (and reading its response) or
+  the GitHub API/UI settle that question.
 - **Medusa's own real plugin-catalog listing keywords, confirmed against a live `registry.npmjs.org` search
   for currently-published packages** (not just the docs' own prose): `medusa-v2` and
   `medusa-plugin-integration` are the two required keywords; a third, category-specific one is also real
