@@ -435,16 +435,22 @@ publish` honor it — confirmed empirically, not assumed from partial/ambiguous 
   publish, regardless of which tool does the packing — confirmed working for all five packages via `pnpm
 pack`, including the one case the negation pattern alone didn't cover.
 - **The `repository` URL committed on `@normwerk/einvoice-medusa` since T-070
-  (`https://github.com/normwerk/eInvoice`, wrong casing, no `directory`) was a real, confirmed 404 at the
-  time** — the GitHub repo didn't exist yet. Caught by T-076 actually fetching it rather than treating it as
-  a plausible placeholder — a concrete instance of the project's own "verify URLs before committing" rule
-  catching a gap from _before_ that rule was consistently applied. **Resolved 2026-09-15 (P-09):** the real
-  repository is `github.com/normwerk/einvoice` (lowercase — GitHub URLs are case-insensitive, but every
-  `package.json`'s own `repository` field is kept matching it exactly so the npm card and the Medusa
-  catalog listing don't disagree in spelling); confirmed reachable via `git ls-remote`, not a public API
-  fetch, since it's currently private (a plain `GET /repos/normwerk/einvoice` still 404s — GitHub's API
-  can't distinguish "private" from "doesn't exist" for an unauthenticated caller). Made public is a
-  deliberate, separate action on release day.
+  (`https://github.com/eInvoice`, no `directory`) was a real, confirmed 404 at the time** — the GitHub repo
+  didn't exist yet, unrelated to its casing (caught by T-076 actually fetching it, not treating it as a
+  plausible placeholder — the project's own "verify URLs before committing" rule catching a gap from
+  _before_ it was consistently applied). **P-09 (2026-09-15) then "corrected" the casing to lowercase
+  `github.com/normwerk/einvoice`** — based on `git remote -v` echoing back whatever casing was typed into
+  `git remote add`, not GitHub's own canonical casing, which that command has no way to reveal on its own.
+  **Actually resolved 2026-09-16, empirically:** a real `git push` to the lowercase remote succeeded but
+  GitHub replied with `remote: This repository moved. Please use the new location:
+git@github.com:Normwerk/eInvoice.git` — GitHub's own redirect response is the actual source of truth here,
+  not a guess either way. Canonical is `github.com/Normwerk/eInvoice` (capital N, capital I) — the _original_
+  T-070 casing was right all along; P-09's "fix" was itself the bug. Confirmed reachable via `git ls-remote`,
+  not a public API fetch, since the repository is currently private (a plain `GET /repos/Normwerk/eInvoice`
+  still 404s — GitHub's API can't distinguish "private" from "doesn't exist" for an unauthenticated caller).
+  Made public is a deliberate, separate action on release day. **Lesson, stated plainly:** `git remote -v`
+  tells you what string a human typed, never GitHub's own canonical casing — only a real push (and reading
+  its response) or the GitHub API/UI settle that question.
 - **Medusa's own real plugin-catalog listing keywords, confirmed against a live `registry.npmjs.org` search
   for currently-published packages** (not just the docs' own prose): `medusa-v2` and
   `medusa-plugin-integration` are the two required keywords; a third, category-specific one is also real

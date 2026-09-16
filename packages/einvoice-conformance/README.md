@@ -13,7 +13,7 @@ docker compose -f docker/compose.conformance.yml build
 node dist/cli.js validate <file.xml|file.pdf>
 ```
 
-Part of [normwerk/einvoice](https://github.com/normwerk/einvoice), a TypeScript e-invoicing toolkit for
+Part of [Normwerk/eInvoice](https://github.com/Normwerk/eInvoice), a TypeScript e-invoicing toolkit for
 Germany's XRechnung/ZUGFeRD mandate (with `@normwerk/einvoice-medusa` as the first platform adapter, for
 Medusa v2). See that repository for the Docker setup (`docker/`), the full conformance gate
 (`AGENTS.md` §8), and the package list.
