@@ -47,7 +47,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/render-invoice.test.ts` — `renderInvoicePdf`: real embedded-font rendering, determinism, every real
   fixture rendering without throwing, and non-ASCII text (umlauts, ß, —, ½, Ø).
 
-### `einvoice-medusa` (36 tests)
+### `einvoice-medusa` (58 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
