@@ -450,15 +450,22 @@ git@github.com:Normwerk/eInvoice.git` — GitHub's own redirect response is the 
   finding above but a rename on top of it. Two of the four spellings can't be capitalised at all (npm
   package names, the `normwerk.dev` domain), and Docker image names forbid uppercase, so `ghcr.io/Normwerk/…`
   would not have built once M-020 starts pushing validator images. The organisation and repository were
-  renamed to `normwerk/einvoice`; GitHub treats those slugs case-insensitively, so the rename only changes
-  display — old links, clones and redirects keep working and the old name is not released. Canonical is now
-  `github.com/normwerk/einvoice`, confirmed the same way the uppercase spelling was: `git ls-remote` against
-  the lowercase remote returns refs with no `This repository moved` line. Still not a public API fetch,
+  to be renamed to `normwerk/einvoice`; GitHub treats those slugs case-insensitively, so the rename only
+  changes display — old links, clones and redirects keep working and the old name is not released. **Half
+  done as of the P-10 push (commit `14eb492`, 2026-09-16):** GitHub answered that push with `remote: This
+repository moved. Please use the new location: git@github.com:Normwerk/einvoice.git` — the _repository_
+  is lowercase `einvoice` now, the _organisation_ is still `Normwerk`. Canonical is therefore
+  `github.com/Normwerk/einvoice` until the org itself is renamed; every committed URL already says
+  `normwerk/einvoice` and resolves through the redirect meanwhile. **Second half of the lesson, learned the
+  same way:** `git ls-remote` is silent about redirects too — it returned refs against the lowercase remote
+  with no `moved` line, which reads exactly like confirmation and is not. Only a push says. Still not a
+  public API fetch,
   since the repository is currently private (a plain `GET /repos/normwerk/einvoice` still 404s — GitHub's
   API can't distinguish "private" from "doesn't exist" for an unauthenticated caller). Making it public is a
   deliberate, separate action on release day. **Lesson, stated plainly:** `git remote -v` tells you what
-  string a human typed, never GitHub's own canonical casing — only a real push (and reading its response) or
-  the GitHub API/UI settle that question.
+  string a human typed and `git ls-remote` succeeds through a redirect without mentioning it — neither one
+  reveals GitHub's own canonical casing. Only a real push (and reading its response) or the GitHub API/UI
+  settle that question.
 - **Medusa's own real plugin-catalog listing keywords, confirmed against a live `registry.npmjs.org` search
   for currently-published packages** (not just the docs' own prose): `medusa-v2` and
   `medusa-plugin-integration` are the two required keywords; a third, category-specific one is also real

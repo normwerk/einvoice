@@ -69,15 +69,18 @@ Two real, external, point-in-time facts that no test suite owns:
   `https://registry.npmjs.org/-/v1/search?text=%40normwerk` returning zero results. Does not by itself
   prove the _organization_ isn't already registered (an npm org can exist with zero published packages);
   only that nothing would collide on first publish.
-- **The GitHub repository now exists, at `github.com/normwerk/einvoice`** (all lowercase since the P-10
-  rename of 2026-09-16 — before it, GitHub's own redirect on a real `git push` had settled the casing as
-  `Normwerk/eInvoice`; `git remote -v` only echoes back whatever a human typed, not GitHub's canonical
-  spelling, see `docs/domain-glossary.md`'s own entry on this). Every package's own
-  `repository`/`homepage`/`bugs` field matches it exactly. Confirmed reachable via
-  `git ls-remote --heads origin` — which now returns refs with no `This repository moved` line, i.e. the
-  lowercase spelling is canonical — not a public API fetch, since the repository is currently **private**
-  (GitHub's API returns the same 404 for "private" as for "doesn't exist" to an unauthenticated caller, so a
-  plain `GET /repos/normwerk/einvoice` cannot by itself distinguish the two).
+- **The GitHub repository exists, canonically at `github.com/Normwerk/einvoice` as of 2026-09-16** — the
+  P-10 rename to an all-lowercase register is half applied: GitHub's reply to the P-10 push (`remote: This
+repository moved. Please use the new location: git@github.com:Normwerk/einvoice.git`) shows the
+  _repository_ renamed to `einvoice` and the _organisation_ still `Normwerk`. Every package's own
+  `repository`/`homepage`/`bugs` field already says `normwerk/einvoice`, which resolves through GitHub's
+  case-insensitive slugs and this redirect; it becomes the exact canonical spelling once the org is renamed.
+  Neither `git remote -v` nor `git ls-remote` can settle casing — the first echoes what a human typed, the
+  second succeeds through a redirect without mentioning it; only a real push reports it (see
+  `docs/domain-glossary.md`'s own entry). Reachability confirmed by that push, not a public API fetch, since
+  the repository is currently **private** (GitHub's API returns the same 404 for "private" as for "doesn't
+  exist" to an unauthenticated caller, so a plain `GET /repos/normwerk/einvoice` cannot by itself
+  distinguish the two).
   Making it public is a deliberate, separate action the maintainer takes on release day, not before.
 
 Re-check both again immediately before the real publish (T-115's own release-checklist item: "Публичная
