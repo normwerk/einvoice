@@ -1,0 +1,28 @@
+{
+  "id": "order_tax_matrix_08_refund",
+  "display_id": 1011,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Solartechnik Muster GmbH",
+    "email": "buyer@example.test"
+  },
+  "billing_address": {
+    "country_code": "de",
+    "city": "Munich",
+    "postal_code": "80331",
+    "address_1": "Solarweg 1",
+    "company": "Solartechnik Muster GmbH"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Photovoltaic installation, residential rooftop (§12 Abs. 3 UStG)",
+      "variant_sku": "PV-INSTALL-1",
+      "unit_price": 8000,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 0 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "specRow": "row-8",
+  "specCategory": "Z",
+  "build": { "kind": "ok", "category": "S" },
+  "profile": { "kind": "ok", "profile": "EN16931" },
+  "knownBugs": ["P-14"]
+}

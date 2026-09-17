@@ -2,8 +2,12 @@
 
 `docs/tax-semantics.md` row 12 — DE→FR B2B, service. Spec says category **AE** — but flags that no official
 artifact example exists for this case, so **the code must refuse pending M-006 (human/expert review), not
-guess AE by analogy with row 3**. This cell has no `specCategory` for that reason (same convention as row 13
-and the mandatory-rejection cells): the correct build-axis outcome is a refusal, not a category.
+guess AE by analogy with row 3**. Unlike row 13, the category itself is not in dispute — the research
+verdict is unambiguous (AE), only its _use_ is blocked pending artifact review — so `specCategory: "AE"` is
+recorded (T-133, P-28 gap 2): once P-12/P-13/P-16 are fixed and M-006 clears this row, whoever re-runs this
+cell knows exactly which category to expect, rather than having to re-derive it from prose. The
+correct build-axis outcome for now is still a refusal, not a resolved category — that's what `build` below
+asserts against the real, current adapter output.
 
 The real, distinguishing bug here is **P-16**: `TaxContext.supplyType` is set by the mapper (hardcoded
 `"goods"`, per its own doc comment — this order is a service, but the adapter has no way to say so) and

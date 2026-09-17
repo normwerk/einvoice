@@ -1,5 +1,6 @@
 {
   "specRow": "row-13",
+  "specRequiresRefusal": true,
   "build": { "kind": "ok", "category": "G" },
   "profile": {
     "kind": "error",

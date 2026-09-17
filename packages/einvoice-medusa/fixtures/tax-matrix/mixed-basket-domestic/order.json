@@ -1,0 +1,36 @@
+{
+  "id": "order_tax_matrix_mixed_basket_domestic",
+  "display_id": 1012,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Buyer GmbH",
+    "email": "buyer@example.test"
+  },
+  "billing_address": {
+    "country_code": "de",
+    "city": "Munich",
+    "postal_code": "80331",
+    "address_1": "Beispielstraße 1",
+    "company": "Buyer GmbH"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Widget (goods)",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 19 }],
+      "detail": { "quantity": 2 }
+    },
+    {
+      "title": "Setup consulting (service)",
+      "variant_sku": "SVC-SETUP-1",
+      "unit_price": 150,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 19 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

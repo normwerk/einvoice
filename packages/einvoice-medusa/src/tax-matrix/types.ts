@@ -45,17 +45,28 @@ export type ProfileAxisOutcome =
 /**
  * What a cell expects on each axis, written from `docs/tax-semantics.md` / `researches/08-vat-rules-de.md`
  * before the first run (T-117's own rule) — never inferred from whatever the adapter currently does.
- * `specCategory` records the spec-correct answer even when `build`/`profile` show the adapter getting it
- * wrong or refusing outright; the two are deliberately kept apart so a fixed bug changes the observed axis,
- * not the spec citation.
+ * `build`/`profile` always record the real, current, verified adapter output (that's what `tax-matrix
+ * .test.ts` asserts against) — `specCategory`/`specRequiresRefusal` record the spec-correct answer
+ * separately, even when `build`/`profile` show the adapter getting it wrong or silently succeeding at the
+ * wrong thing, so a fixed bug changes the observed axis without ever touching the spec citation next to it
+ * (T-133, P-28 gap 1/2: a cell that only recorded current behaviour, with no structured field marking it
+ * wrong, read as if today's output were correct).
  */
 export interface CellExpectation {
   /** `docs/tax-semantics.md` row this cell exercises, e.g. `"row-3"`; `undefined` for a mandatory-rejection
    * or known-gap cell with no single owning row. */
   readonly specRow?: string;
-  /** The category `docs/tax-semantics.md` says this scenario should resolve to — absent for a row that the
-   * spec itself says must refuse (CONTESTED rows 12/13, `supplyType: "mixed"`). */
+  /** The single category `docs/tax-semantics.md` says this scenario should resolve to. Set even when
+   * `build` shows the adapter silently resolving to a different category (e.g. row 5/6/8 — AE/E/Z, all
+   * silently misresolved to S by P-14) or refusing outright pending a blocked precondition whose eventual
+   * answer is still a known, single category (row 12 — AE, blocked on M-006 artifact review, not on the
+   * category itself being unclear). Mutually exclusive with `specRequiresRefusal`; both stay absent only
+   * for a cell with no VAT-category dimension at all (`reject-seller-not-de`). */
   readonly specCategory?: VatCategoryCode;
+  /** Set instead of `specCategory` when `docs/tax-semantics.md` itself has no single category answer for
+   * this row — genuinely CONTESTED (row 13: AE / O / G, no artifact resolves it) — so the only spec-correct
+   * behaviour is refusal, not a guess at which category. Never set together with `specCategory`. */
+  readonly specRequiresRefusal?: true;
   readonly build: BuildAxisOutcome;
   readonly profile: ProfileAxisOutcome;
   /** Non-empty only when an axis's outcome is a known bug rather than spec-correct behaviour. */

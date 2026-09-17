@@ -1,5 +1,6 @@
 {
   "specRow": "row-12",
+  "specCategory": "AE",
   "build": {
     "kind": "error",
     "errorClass": "TaxRuleError",

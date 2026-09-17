@@ -47,13 +47,13 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/render-invoice.test.ts` — `renderInvoicePdf`: real embedded-font rendering, determinism, every real
   fixture rendering without throwing, and non-ASCII text (umlauts, ß, —, ½, Ø).
 
-### `einvoice-medusa` (101 tests)
+### `einvoice-medusa` (109 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
   [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) (buyer name/address fallback chains,
   tax-inclusive price backing-out, B2G buyer reference resolution, `MissingBuyerCountryError`).
-- `src/tax-matrix/tax-matrix.test.ts` (T-117, 43 tests) — the tax-scenario fixture matrix: every
+- `src/tax-matrix/tax-matrix.test.ts` (T-117/T-133, 49 tests) — the tax-scenario fixture matrix: every
   `packages/einvoice-medusa/fixtures/tax-matrix/*` cell driven through the real, unmocked
   `mapOrderToCommerceInvoiceInput` → `buildInvoice`/`selectProfile` (two independent axes, not the
   subscribers' own early-exit chaining — see `src/tax-matrix/types.ts`'s doc comment for why), asserted
@@ -102,15 +102,15 @@ Covered in more depth in [`docs/README.md`](README.md#conformance-validators); l
 completeness since it's as much a "test suite" as the vitest ones above, just one that needs
 `docker compose -f docker/compose.conformance.yml build` first.
 
-| Level | What                                                                                                      | Command                           | Fixtures                                                                                           |
-| ----- | --------------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| L1+L2 | Real KoSIT Validator (XSD + Schematron, incl. `BR-DE-*`)                                                  | `pnpm conformance:fixtures`       | 14/14, `fixtures/`                                                                                 |
-| L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)       | `pnpm conformance:commerce`       | 5/5, `packages/einvoice-commerce/fixtures/`                                                        |
-| L1+L2 | Same, starting from a synthetic Medusa order through the real adapter (T-117); 3× per run for determinism | `pnpm conformance:tax-matrix`     | 14/14 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
-| L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance)                              | `pnpm conformance:pdfa`           | 14/14                                                                                              |
-| L4    | Differential oracle vs. `@e-invoice-eu/core`                                                              | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |
-| L4    | Differential oracle vs. `@stackforge-eu/factur-x`                                                         | `pnpm conformance:oracle-facturx` | 14 (13 classified, 1 unmappable, 0 unreviewed)                                                     |
-| L5    | Real Mustang round-trip (independent re-derivation of totals from line items)                             | `pnpm conformance:roundtrip`      | 14/14                                                                                              |
+| Level | What                                                                                                            | Command                           | Fixtures                                                                                           |
+| ----- | --------------------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| L1+L2 | Real KoSIT Validator (XSD + Schematron, incl. `BR-DE-*`)                                                        | `pnpm conformance:fixtures`       | 14/14, `fixtures/`                                                                                 |
+| L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)             | `pnpm conformance:commerce`       | 5/5, `packages/einvoice-commerce/fixtures/`                                                        |
+| L1+L2 | Same, starting from a synthetic Medusa order through the real adapter (T-117/T-133); 3× per run for determinism | `pnpm conformance:tax-matrix`     | 17/17 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
+| L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance)                                    | `pnpm conformance:pdfa`           | 14/14                                                                                              |
+| L4    | Differential oracle vs. `@e-invoice-eu/core`                                                                    | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |
+| L4    | Differential oracle vs. `@stackforge-eu/factur-x`                                                               | `pnpm conformance:oracle-facturx` | 14 (13 classified, 1 unmappable, 0 unreviewed)                                                     |
+| L5    | Real Mustang round-trip (independent re-derivation of totals from line items)                                   | `pnpm conformance:roundtrip`      | 14/14                                                                                              |
 
 `AGENTS.md` §8 governs what each level actually proves and what it's forbidden to claim — none of the above
 is ever asserted from memory of a previous run; every task that touches serialization re-runs the relevant
