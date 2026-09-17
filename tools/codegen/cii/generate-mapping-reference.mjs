@@ -10,6 +10,7 @@
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
+import { format, resolveConfig } from "prettier";
 import { invoicePlan } from "../../../packages/einvoice-cii/dist/generated/plan.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -74,5 +75,9 @@ const body = rows
   .map((r) => `| ${r.bt} | \`${r.modelPath || "(item)"}\` | \`${r.path}\` |`)
   .join("\n");
 
-writeFileSync(resolve(REPO_ROOT, "docs/mapping-reference.md"), header + body + "\n");
+const outPath = resolve(REPO_ROOT, "docs/mapping-reference.md");
+const config = await resolveConfig(outPath);
+const formatted = await format(header + body + "\n", { ...config, filepath: outPath });
+
+writeFileSync(outPath, formatted);
 console.log(`Wrote docs/mapping-reference.md with ${rows.length} rows`);

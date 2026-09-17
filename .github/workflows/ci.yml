@@ -84,6 +84,19 @@ jobs:
           pnpm codegen:pdfa
           git diff --exit-code -- packages/einvoice-pdfa/src/generated
 
+      # T-134 (release checklist): "pnpm codegen даёт нулевой дифф на чистом
+      # дереве" was previously untested end-to-end — codegen:model and
+      # codegen:pdfa were each gated individually above, but nothing ran the
+      # full `pnpm codegen` and diffed the whole tree, so a generator/prettier
+      # mismatch like the one in docs/mapping-reference.md went unnoticed
+      # until it was checked by hand. Runs last, after the narrower gates
+      # above already passed, so a failure here means the full pipeline
+      # (not just one generator) left the tree dirty.
+      - name: pnpm codegen gives a zero diff on a clean tree
+        run: |
+          pnpm codegen
+          git diff --exit-code
+
   # Spike C (T-044, plan-v0.1 §3.2): proves the Docker validator images
   # build and run the same way in CI as locally, with a machine-readable
   # report. This is a smoke test against a vendored, Apache-2.0 KoSIT test
