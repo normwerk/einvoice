@@ -1,0 +1,6 @@
+{
+  "specRow": "row-2",
+  "specCategory": "S",
+  "build": { "kind": "ok", "category": "S" },
+  "profile": { "kind": "ok", "profile": "EN16931" }
+}

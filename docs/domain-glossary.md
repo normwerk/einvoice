@@ -52,6 +52,18 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
 - **`BR-AE-02` (reverse charge) needs identification on _both_ parties**, not just the seller: the seller's
   VAT-ID or tax registration **and** the buyer's VAT-ID or legal registration identifier. Easy to miss
   because `BR-S-02`-style rules for other categories only ever check the seller.
+- **`BR-IC-02` (intra-EU supply, category K) has the exact same both-parties trap as `BR-AE-02` above**, not
+  just the seller's VAT-ID: seller **and** buyer VAT-ID, `flag="fatal"` (verbatim-verified against the
+  vendored Schematron, `researches/08-vat-rules-de.md` §1a/B12). `build-invoice.ts` guards the neighbouring
+  `BR-IC-11`/`BR-IC-12` (delivery date/country) right at the K-category check but has no equivalent guard
+  for `BR-IC-02` itself (P-19, T-117/T-079) — a real, currently-live gap this bullet exists specifically so
+  the next person adding a K-category guard doesn't repeat the BR-AE-02 mistake of only checking the seller.
+- **`BR-DE-16` (seller VAT/tax identifier) is fatal; `BR-DE-17` (allowed XRechnung document-type codes) and
+  `BR-DE-26` (`BT-25` preceding-invoice reference recommended on a corrected invoice, type 384) are only
+  `flag="warning"`** — don't "fix" a warning-only rule as if it were a rejection. This also means KoSIT's own
+  top-level `valid` attribute is not the business verdict here: a document can be `valid="false"` from a
+  `BR-DE-26` warning alone while `<rep:assessment><rep:accept>` still accepts it — see `kosit-report.ts`'s
+  `accepted` field (T-052) rather than reading `valid` alone for these two rules specifically.
 - **An allowance/charge's base amount can't be set without a percentage.** `PEPPOL-EN16931-R042`:
   "Allowance/charge percentage MUST be provided when allowance/charge base amount is provided" — CII's
   `TradeAllowanceChargeType` puts `CalculationPercent` right before `BasisAmount` in its sequence, and

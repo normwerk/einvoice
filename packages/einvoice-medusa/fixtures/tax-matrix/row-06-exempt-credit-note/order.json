@@ -1,0 +1,28 @@
+{
+  "id": "order_tax_matrix_06_refund",
+  "display_id": 1008,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Praxis Beispiel",
+    "email": "buyer@example.test"
+  },
+  "billing_address": {
+    "country_code": "de",
+    "city": "Munich",
+    "postal_code": "80331",
+    "address_1": "Praxisstraße 1",
+    "company": "Praxis Beispiel"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Medical treatment (exempt, §4 Nr. 14 UStG)",
+      "variant_sku": "SVC-MED-1",
+      "unit_price": 200,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 0 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

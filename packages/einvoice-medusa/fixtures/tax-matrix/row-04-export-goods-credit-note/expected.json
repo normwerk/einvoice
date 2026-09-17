@@ -1,0 +1,11 @@
+{
+  "specRow": "row-4",
+  "specCategory": "G",
+  "build": { "kind": "ok", "category": "G" },
+  "profile": {
+    "kind": "error",
+    "errorClass": "UnsupportedCountryError",
+    "messageIncludes": "buyer country \"CH\" is not yet supported"
+  },
+  "knownBugs": ["P-13"]
+}

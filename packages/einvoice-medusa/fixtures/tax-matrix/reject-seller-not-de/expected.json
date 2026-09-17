@@ -1,0 +1,8 @@
+{
+  "build": {
+    "kind": "error",
+    "errorClass": "TaxRuleError",
+    "messageIncludes": "decideVatCategory only covers a German seller"
+  },
+  "profile": { "kind": "ok", "profile": "EN16931" }
+}

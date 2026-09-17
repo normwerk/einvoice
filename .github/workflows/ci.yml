@@ -177,6 +177,37 @@ jobs:
 
       - run: pnpm conformance:commerce
 
+  # T-117: the fixture matrix that goes through the real Medusa adapter
+  # (mapOrderToCommerceInvoiceInput, not buildInvoice directly) instead of a
+  # hand-built CommerceInvoiceInput — separate job/fixture set from
+  # conformance-commerce above (packages/einvoice-medusa/fixtures/tax-matrix/).
+  # Only cells with a validated build-axis outcome reach KoSIT here; the rest
+  # (error/known-bug cells) are proven by the package's own fast vitest suite.
+  conformance-tax-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @normwerk/einvoice-model build
+      - run: pnpm --filter @normwerk/einvoice-cii build
+      - run: pnpm --filter @normwerk/einvoice-commerce build
+      - run: pnpm --filter @normwerk/einvoice-conformance build
+
+      - name: Build validator images
+        run: docker compose -f docker/compose.conformance.yml build kosit
+
+      - run: pnpm conformance:tax-matrix
+
   # T-030/W8 acceptance (plan-v0.1): every fixture, embedded into a PDF/A-3b
   # ZUGFeRD/Factur-X document (einvoice-pdfa), must be veraPDF-green (L3),
   # Mustang-extractable byte-for-byte, and pass Mustang's own validate

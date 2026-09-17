@@ -1,0 +1,28 @@
+{
+  "id": "order_tax_matrix_02",
+  "display_id": 1003,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Buyer GmbH",
+    "email": "buyer@example.test"
+  },
+  "billing_address": {
+    "country_code": "de",
+    "city": "Munich",
+    "postal_code": "80331",
+    "address_1": "Beispielstraße 1",
+    "company": "Buyer GmbH"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Book",
+      "variant_sku": "BOOK-1",
+      "unit_price": 20,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 7 }],
+      "detail": { "quantity": 3 }
+    }
+  ]
+}

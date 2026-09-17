@@ -1,0 +1,30 @@
+{
+  "de": {
+    "name": "Musterfirma GmbH",
+    "countryCode": "DE",
+    "city": "Berlin",
+    "postCode": "10115",
+    "vatIdentifier": "DE123456789",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Anna Muster",
+      "telephone": "+49 30 1234567",
+      "email": "invoicing@musterfirma.example"
+    }
+  },
+  "fr": {
+    "name": "Exemple SARL",
+    "countryCode": "FR",
+    "city": "Paris",
+    "postCode": "75001",
+    "vatIdentifier": "FR12345678901",
+    "electronicAddress": "facturation@exemple.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Jean Exemple",
+      "telephone": "+33 1 23456789",
+      "email": "invoicing@exemple.example"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "sellerKey": "fr",
+  "mapOptions": {
+    "kind": "invoice",
+    "issueDate": "2026-09-16",
+    "deRates": { "standard": "19", "reduced": "7" },
+    "payment": { "means": "58", "iban": "FR7630006000011234567890189" }
+  }
+}

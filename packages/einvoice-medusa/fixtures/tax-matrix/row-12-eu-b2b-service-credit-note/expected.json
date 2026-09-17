@@ -1,0 +1,14 @@
+{
+  "specRow": "row-12",
+  "build": {
+    "kind": "error",
+    "errorClass": "TaxRuleError",
+    "messageIncludes": "needs a positive VIES check"
+  },
+  "profile": {
+    "kind": "error",
+    "errorClass": "UnsupportedCountryError",
+    "messageIncludes": "buyer country \"FR\" is not yet supported"
+  },
+  "knownBugs": ["P-16", "P-12", "P-13"]
+}

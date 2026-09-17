@@ -1,0 +1,28 @@
+{
+  "id": "order_tax_matrix_13_refund",
+  "display_id": 1011,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Example Inc.",
+    "email": "buyer@example.test"
+  },
+  "billing_address": {
+    "country_code": "us",
+    "city": "New York",
+    "postal_code": "10001",
+    "address_1": "Example Ave 1",
+    "company": "Example Inc."
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Consulting service (cross-border B2B, non-EU)",
+      "variant_sku": "SVC-CONSULT-2",
+      "unit_price": 500,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 0 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}
