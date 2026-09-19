@@ -54,28 +54,29 @@ signal → `selectProfile`) — never a hand-built `CommerceInvoiceInput`.
 
 ## The matrix
 
-| Cell                                             | `docs/tax-semantics.md` row | Build axis                                                                                   | Profile axis                       | Bucket / owning task                                                                                                 |
-| ------------------------------------------------ | --------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `row-01-domestic-standard` (+ credit-note)       | 1 (S 19%)                   | ok, S                                                                                        | ok, EN16931                        | —                                                                                                                    |
-| `row-02-domestic-reduced` (+ credit-note)        | 2 (S 7%)                    | ok, S                                                                                        | ok, EN16931                        | —                                                                                                                    |
-| `row-03-intra-eu-goods` (+ credit-note)          | 3 (K)                       | **ok, K** (T-079 fixed P-12/P-25/P-19)                                                       | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                    |
-| `row-03-intra-eu-goods-no-vat-id-evidence`       | 3 (K), mandatory rejection  | error, `TaxRuleError`                                                                        | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                    |
-| `row-04-export-goods` (+ credit-note)            | 4 (G)                       | **ok, G** (tax logic correct)                                                                | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                    |
-| `row-05-reverse-charge` (+ credit-note)          | 5 (AE)                      | **ok, AE** (T-069 fixed P-14)                                                                | ok, EN16931                        | —                                                                                                                    |
-| `row-06-exempt` (+ credit-note)                  | 6 (E)                       | **ok, E** (T-069 fixed P-14)                                                                 | ok, EN16931                        | —                                                                                                                    |
-| `row-07-oss-b2c` (+ credit-note)                 | 7 (OSS/S)                   | error, `TaxRuleError` (unresolved)                                                           | **ok, EN16931** (T-066 fixed P-13) | **P-26** (build, `ossRegistered` still hardcoded) — not in T-069's or T-066's scope                                  |
-| `row-08-zero-rated-photovoltaic` (+ credit-note) | 8 (Z)                       | **ok, Z** (T-069 fixed P-14)                                                                 | ok, EN16931                        | —                                                                                                                    |
-| `row-09-mixed-rates` (+ credit-note)             | 9 (S twice)                 | ok, S                                                                                        | ok, EN16931                        | —                                                                                                                    |
-| `row-11-corrected-invoice-384`                   | 11 (doc type 384)           | n/a — unconstructible                                                                        | n/a                                | out of scope for v0.1 (document-type modeling)                                                                       |
-| `row-12-eu-b2b-service` (+ credit-note)          | 12 (AE, no artifact)        | **error, `TaxRuleError`** (T-069 fixed P-16 — spec-correct refusal pending M-006, not a bug) | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                    |
-| `row-12-eu-b2b-service-override`                 | 12 (AE, merchant-declared)  | **ok, AE** (T-135 fixed P-34 — `regimeOverride: { kind: "reverse-charge-cross-border" }`)    | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                    |
-| `row-13-non-eu-b2b-service` (+ credit-note)      | 13 (CONTESTED)              | **error, `TaxRuleError`** (T-069 fixed P-16 — was silently `ok, G`)                          | error, `UnsupportedCountryError`   | — (genuinely out of v0.1 scope: US is not DE/EU/EEA/CH/UK/clearance — not P-13, T-066 confirmed this cell unchanged) |
-| `reject-seller-not-de`                           | mandatory rejection         | error, `TaxRuleError` — **works correctly today**                                            | ok, EN16931                        | — (proves the one guard that's already right)                                                                        |
-| `mixed-basket-domestic`                          | policy cell, no single row  | ok, S — **genuinely correct**                                                                | ok, EN16931                        | — (regression guard for `mixed-basket-cross-border`, T-133/P-28 gap 4a)                                              |
-| `mixed-basket-cross-border`                      | policy cell, no single row  | **error, `MixedSupplyCrossBorderError`** (T-069 made this constructible)                     | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                    |
+| Cell                                             | `docs/tax-semantics.md` row    | Build axis                                                                                   | Profile axis                       | Bucket / owning task                                                                                                                                                          |
+| ------------------------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `row-01-domestic-standard` (+ credit-note)       | 1 (S 19%)                      | ok, S                                                                                        | ok, EN16931                        | —                                                                                                                                                                             |
+| `row-02-domestic-reduced` (+ credit-note)        | 2 (S 7%)                       | ok, S                                                                                        | ok, EN16931                        | —                                                                                                                                                                             |
+| `row-03-intra-eu-goods` (+ credit-note)          | 3 (K)                          | **ok, K** (T-079 fixed P-12/P-25/P-19)                                                       | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                                                                             |
+| `row-03-intra-eu-goods-no-vat-id-evidence`       | 3 (K), mandatory rejection     | error, `TaxRuleError`                                                                        | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                                                                             |
+| `row-04-export-goods` (+ credit-note)            | 4 (G)                          | **ok, G** (tax logic correct)                                                                | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                                                                             |
+| `row-05-reverse-charge` (+ credit-note)          | 5 (AE)                         | **ok, AE** (T-069 fixed P-14)                                                                | ok, EN16931                        | —                                                                                                                                                                             |
+| `row-06-exempt` (+ credit-note)                  | 6 (E)                          | **ok, E** (T-069 fixed P-14)                                                                 | ok, EN16931                        | —                                                                                                                                                                             |
+| `row-07-oss-b2c` (+ credit-note)                 | 7 (OSS/S)                      | **ok, S** (T-136 fixed P-26)                                                                 | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                                                                             |
+| `row-07-oss-b2c-no-rate-override`                | 7 (OSS/S), mandatory rejection | error, `TaxRuleError` ("needs taxContext.ossRateOverride")                                   | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                                                                             |
+| `row-08-zero-rated-photovoltaic` (+ credit-note) | 8 (Z)                          | **ok, Z** (T-069 fixed P-14)                                                                 | ok, EN16931                        | —                                                                                                                                                                             |
+| `row-09-mixed-rates` (+ credit-note)             | 9 (S twice)                    | ok, S                                                                                        | ok, EN16931                        | —                                                                                                                                                                             |
+| `row-11-corrected-invoice-384`                   | 11 (doc type 384)              | n/a — unconstructible                                                                        | n/a                                | out of scope for v0.1 (document-type modeling)                                                                                                                                |
+| `row-12-eu-b2b-service` (+ credit-note)          | 12 (AE, no artifact)           | **error, `TaxRuleError`** (T-069 fixed P-16 — spec-correct refusal pending M-006, not a bug) | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                                                                             |
+| `row-12-eu-b2b-service-override`                 | 12 (AE, merchant-declared)     | **ok, AE** (T-135 fixed P-34 — `regimeOverride: { kind: "reverse-charge-cross-border" }`)    | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                                                                             |
+| `row-13-non-eu-b2b-service` (+ credit-note)      | 13 (CONTESTED)                 | **error, `TaxRuleError`** (T-069 fixed P-16 — was silently `ok, G`)                          | error, `UnsupportedCountryError`   | — (genuinely out of v0.1 scope: US falls into `profile.ts` branch 5 — not P-13, T-066 confirmed this cell unchanged; stale `knownBugs: ["P-13"]` label removed by T-136/P-35) |
+| `reject-seller-not-de`                           | mandatory rejection            | error, `TaxRuleError` — **works correctly today**                                            | ok, EN16931                        | — (proves the one guard that's already right)                                                                                                                                 |
+| `mixed-basket-domestic`                          | policy cell, no single row     | ok, S — **genuinely correct**                                                                | ok, EN16931                        | — (regression guard for `mixed-basket-cross-border`, T-133/P-28 gap 4a)                                                                                                       |
+| `mixed-basket-cross-border`                      | policy cell, no single row     | **error, `MixedSupplyCrossBorderError`** (T-069 made this constructible)                     | **ok, EN16931** (T-066 fixed P-13) | —                                                                                                                                                                             |
 
-`row-03`/`row-03-...-no-vat-id-evidence`/`row-07` each demonstrate their table's namesake mandatory
-rejection ("K without evidence", "OSS without `ossRateOverride`") — `row-05`'s "AE without override" case
+`row-03`/`row-03-...-no-vat-id-evidence`/`row-07-oss-b2c-no-rate-override` each demonstrate their table's
+namesake mandatory rejection ("K without evidence", "OSS without `ossRateOverride`") — `row-05`'s "AE without override" case
 closed along with P-14 (T-069), since the adapter can now supply one. A `supplyType: "mixed"`
 mandatory-rejection cell was impossible to construct before T-069 — `mixed-basket-cross-border`'s own
 `scenario.md` has the full history — and is now `mixed-basket-cross-border` itself, pairing with
@@ -90,9 +91,10 @@ Both queued in `ecom docs/plan-v0.1-pending.md`, drafted as part of T-117, not f
   (BG-13) from `shipping_address`, falling back to `billing_address`. Was: never mapped at all, so even
   after P-12/P-13 landed, a real K-category order would still have failed `buildInvoice`'s existing
   `MissingDeliveryInfoForIntraCommunitySupplyError` guard (`BR-IC-11`/`BR-IC-12`).
-- **P-26** — `taxContext.ossRegistered` is a hardcoded `false` constant, not sourced from config or order
-  data — a merchant has no way to declare OSS registration at all. Documented on `row-07`'s `scenario.md`.
-  Still open — out of both T-069's and T-066's scope.
+- **P-26** — ✅ fixed by **T-136** (2026-09-19): `taxContext.ossRegistered` used to be a hardcoded `false`
+  constant, not sourced from config or order data at all — a merchant had no way to declare OSS registration.
+  Now sourced from `EinvoiceModuleOptions.ossRegistered` (merchant config) plus
+  `order.metadata.oss_rate_override` (per-order rate) — see the T-136 follow-up section below.
 
 ## Result
 
@@ -317,3 +319,57 @@ updated to match the real, now-fixed adapter output). `pnpm typecheck`/`pnpm lin
 across the repo. `pnpm conformance:tax-matrix` (real Docker KoSIT): 18/18 validated cells still pass, 3x
 deterministic, unchanged from T-135 — confirming the profile-axis fix really is orthogonal to XML
 serialization, not just asserted to be.
+
+## T-136 follow-up (2026-09-19): P-26 closed — a merchant can now declare OSS registration and rate
+
+`row-07-oss-b2c` was the one cell **T-069 explicitly declined to touch** ("the same family of gap but never
+merged into `todo.md`'s live T-069 entry") and **T-066 could only close half of** (the profile axis, since
+`row-07-oss-b2c`'s build axis has nothing to do with buyer-country geography). `decideVatCategory`'s own
+row-7 branch (`tax-rules.ts`) had been correct since T-061 — it already required `ossRegistered: true` and an
+explicit `ossRateOverride`, and refused otherwise — but the Medusa adapter hardcoded `ossRegistered: false`
+for every order, with no config or order field feeding it at all, so the branch could never fire through the
+real adapter. **No cell in this matrix owned the fix until now** — P-26 was mentioned in passing by
+`row-07-oss-b2c`'s own scenario and this file's "new findings" section, but no live task claimed it, the
+gap `todo.md`'s T-136 entry itself calls out explicitly.
+
+Closed the same way category K (row 3's `intra-eu-confirmed`) and cross-border AE (row 12's
+`reverse-charge-cross-border`, T-135) already handle a fact the engine can't infer on its own — except OSS
+needs two declared facts at two different tiers, not one `RegimeOverride` variant, since one is a standing
+merchant fact and the other is specific to a single order:
+
+- **OSS registration** (`taxContext.ossRegistered`) — `EinvoiceModuleOptions.ossRegistered` (new, optional,
+  defaults to `false`), the same tier as `seller`/`payment`, threaded through `MapOrderOptions.ossRegistered`
+  into both subscribers' `mapOrderToCommerceInvoiceInput` calls.
+- **destination-country rate** (`taxContext.ossRateOverride`) — `order.metadata.oss_rate_override`, a new
+  resolver (`resolveOssRateOverride`) mirroring `resolveRegimeOverride`'s own placement rationale: a rate is
+  a fact about _this order's_ buyer country, not a standing fact about the merchant, so it belongs on
+  `order.metadata` the same way `regime_override` does, not on `EinvoiceModuleOptions`.
+
+`decideVatCategory`/`tax-rules.ts` needed **zero changes** — its row-7 branch, and the guard rejecting OSS
+without an explicit rate, were already correct and already unit-tested (`tax-rules.test.ts`'s pre-existing
+"row 7" tests). The entire gap was adapter-side: two `TaxContext` fields with real semantics and nowhere to
+come from.
+
+`row-07-oss-b2c` (+ credit-note) now resolve **ok, S** at the buyer country's own declared rate (`"21"`, the
+Netherlands' real standard VAT rate, not a placeholder) through the real, unmocked adapter, and both pass
+real KoSIT, 3x deterministically. The mandatory-rejection half this cell used to double as ("OSS without
+`ossRateOverride`") is no longer demonstrated by a now-green cell — split out into a new
+`row-07-oss-b2c-no-rate-override` (`ossRegistered: true`, no declared rate), the same way
+`row-03-intra-eu-goods-no-vat-id-evidence` split out of `row-03-intra-eu-goods` when T-079 made K reachable.
+
+**Bundled cleanup (P-35, `todo.md`'s own instruction alongside T-136):** `row-13-non-eu-b2b-service` (+
+credit-note) carried a stale `knownBugs: ["P-13"]` in `expected.json` — T-066's own follow-up (above) already
+rewrote both cells' `scenario.md` prose to say no known bugs remained, but left the structured field
+untouched, so the machine-readable field and the human-readable prose disagreed. Removed; both `scenario.md`
+files now also name the exact `selectProfile` branch responsible (branch 5, `profile.ts`'s own numbered doc
+comment — "anything else: not DE, not EU/EEA, not CH/UK, not a clearance country"), not just "unchanged by
+T-066" as before. **After this cleanup, zero cells in the entire matrix carry a `knownBugs` array** — the
+release checklist item `todo.md`'s T-136 entry itself names ("матрица T-117 зелёная").
+
+Regression: `packages/einvoice-commerce test` — 92 tests, unchanged (no code changes in this package; its
+row-7 unit tests already covered this behavior before T-136). `packages/einvoice-medusa test` — 125 (up from
+119: 4 new mapper unit tests for `ossRegistered`/`ossRateOverride`, and the new
+`row-07-oss-b2c-no-rate-override` cell's two axis tests). `pnpm typecheck`/`pnpm lint`/`pnpm format` clean
+across the repo. `pnpm conformance:tax-matrix` (real Docker KoSIT): 20/20 validated cells pass, 3x
+deterministic — `row-07-oss-b2c` and its credit-note twin join the validated set as genuinely KoSIT-valid S
+documents at a non-German rate, not just internally consistent.

@@ -248,6 +248,27 @@ describe("mapOrderToCommerceInvoiceInput", () => {
     expect(input.taxContext.regimeOverride).toBeUndefined();
   });
 
+  it("reads options.ossRegistered — a seller-level fact, not sourced from the order", () => {
+    const input = mapOrderToCommerceInvoiceInput(baseOrder(), baseOptions({ ossRegistered: true }));
+    expect(input.taxContext.ossRegistered).toBe(true);
+  });
+
+  it("defaults ossRegistered to false when the option is omitted", () => {
+    const input = mapOrderToCommerceInvoiceInput(baseOrder(), baseOptions());
+    expect(input.taxContext.ossRegistered).toBe(false);
+  });
+
+  it("reads order.metadata.oss_rate_override — a per-order fact, distinct from ossRegistered", () => {
+    const order = baseOrder({ metadata: { oss_rate_override: "21" } });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.taxContext.ossRateOverride).toBe("21");
+  });
+
+  it("leaves ossRateOverride unset when order.metadata has none", () => {
+    const input = mapOrderToCommerceInvoiceInput(baseOrder(), baseOptions());
+    expect(input.taxContext.ossRateOverride).toBeUndefined();
+  });
+
   it('derives supplyType per line from requires_shipping, and aggregates goods+services to "mixed"', () => {
     const order = baseOrder({
       items: [

@@ -10,6 +10,5 @@
     "kind": "error",
     "errorClass": "UnsupportedCountryError",
     "messageIncludes": "buyer country \"US\" is not yet supported"
-  },
-  "knownBugs": ["P-13"]
+  }
 }

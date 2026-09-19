@@ -1,5 +1,6 @@
 # row-07-oss-b2c-credit-note
 
-Credit note pairing for `row-07-oss-b2c` — same `ossRegistered`-hardcoded-false fallthrough on a return.
+Credit note pairing for `row-07-oss-b2c` — same declared `ossRegistered`/`ossRateOverride` fix on a return.
+See that cell's `scenario.md` for the full history (P-26, closed by **T-136**).
 
-Known bugs: **P-26** (build axis, new finding) — **P-13** (profile axis) closed by T-066.
+No known bugs remain on this cell as of T-136.

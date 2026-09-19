@@ -24,9 +24,13 @@ goes red on this cell" — that's what happened, and `expected.json` now records
   applies) — a refusal never reaches serialization, so there is nothing left for KoSIT to check here.
 - **Profile axis**: buyer country US — still expected **error**, `UnsupportedCountryError`, unchanged by
   **T-066**. Before T-066 this was **P-13** (every non-DE buyer refused unconditionally) masking the
-  correctly-refusing build axis; T-066 replaced that blanket gate with four branches (DE, EU/EEA/CH/UK,
-  clearance-model IT/PL, everything else), and the US falls into "everything else" — v0.1 has no reviewed
-  e-invoicing basis for it at all, the same generic "not yet supported" refusal as before, just no longer a
-  bug. Re-run against the real, fixed `selectProfile`: byte-for-byte the same outcome.
+  correctly-refusing build axis; T-066 replaced that blanket gate with five branches (`profile.ts`'s own
+  numbered doc comment), and the US falls into **branch 5** ("anything else — not DE, not EU/EEA, not CH/UK,
+  not a clearance country") — v0.1 has no reviewed e-invoicing basis for it at all, the same generic "not yet
+  supported" refusal as before, just no longer a bug. Re-run against the real, fixed `selectProfile`:
+  byte-for-byte the same outcome.
 
-No known bugs remain on this cell as of T-066 — both axes are spec-correct refusals.
+No known bugs remain on this cell as of T-066 — both axes are spec-correct refusals. **T-136/P-35**: this
+cell's `knownBugs: ["P-13"]` label in `expected.json` was itself stale — the prose above already recorded
+the fix, but the machine-readable field had never been updated to match. Removed, so `expected.json` and
+`scenario.md` no longer disagree.

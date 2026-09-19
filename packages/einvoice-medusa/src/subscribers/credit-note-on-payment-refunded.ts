@@ -187,6 +187,7 @@ async function creditOneRefund({
     issueDate,
     deRates: { standard: commerce.DE_STANDARD_RATE, reduced: commerce.DE_REDUCED_RATE },
     payment: einvoiceService.options.payment,
+    ossRegistered: einvoiceService.options.ossRegistered,
     correctedInvoice: {
       number: originalInvoice.document_number,
       // The original invoice's own issue date isn't stored on EinvoiceDocument as its own field (only its

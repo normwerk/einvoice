@@ -3,6 +3,7 @@
   "display_id": 1009,
   "email": "buyer@example.test",
   "currency_code": "eur",
+  "metadata": { "oss_rate_override": "21" },
   "customer": {
     "first_name": "Anke",
     "last_name": "Voorbeeld",
@@ -21,7 +22,7 @@
       "variant_sku": "WID-1",
       "unit_price": 100,
       "is_tax_inclusive": false,
-      "tax_lines": [{ "rate": 19 }],
+      "tax_lines": [{ "rate": 21 }],
       "detail": { "quantity": 1 }
     }
   ]

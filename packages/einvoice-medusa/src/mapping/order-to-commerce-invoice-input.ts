@@ -38,6 +38,7 @@ import type {
   "resolution-mode": "import",
 };
 import type {
+  Amount,
   CountryCode,
   CurrencyCode,
   IsoDate,
@@ -161,6 +162,12 @@ export interface MapOrderOptions {
     readonly iban?: string;
     readonly terms?: string;
   };
+  /** T-136/P-26: whether the merchant is OSS-registered — a standing fact about the seller, true for every
+   * order they issue, not something any individual order can declare (unlike `ossRateOverride` below).
+   * Threaded from `EinvoiceModuleOptions.ossRegistered` (`service.ts`), the same tier as `seller`/`payment`
+   * above. Defaults to `false` when omitted, matching `taxContext.ossRegistered`'s own pre-T-136 default —
+   * "not OSS-registered" stays the honest default for a merchant who never configured this. */
+  readonly ossRegistered?: boolean | undefined;
 }
 
 /**
@@ -263,6 +270,22 @@ function resolveDeliveryAddress(
  */
 function resolveRegimeOverride(order: MedusaOrderForInvoice): RegimeOverride | undefined {
   return (order.metadata?.["regime_override"] as RegimeOverride | undefined) ?? undefined;
+}
+
+/**
+ * T-136/P-26: `order.metadata.oss_rate_override` — the destination-country VAT rate for an OSS distance
+ * sale (`docs/tax-semantics.md` row 7), on `order.metadata` rather than `EinvoiceModuleOptions` because,
+ * unlike `ossRegistered` (a standing fact about the merchant), the rate is a fact about *this order's*
+ * buyer country — the same reasoning `resolveRegimeOverride`'s own doc comment already applies to
+ * `regime_override`. This package still refuses to look the rate up itself (`TaxContext.ossRateOverride`'s
+ * own doc comment: no vendored EU rate table, a live and frequently-changing dataset) — the caller who
+ * already computed it at checkout is the only honest source. Not runtime-validated here, the same trust
+ * boundary `regime_override`/`vat_id` already rely on: a malformed value is caught downstream, either by
+ * `buildInvoice`'s structural gate or, for a value that's syntactically a string but not a real rate, by
+ * whichever KoSIT rule actually inspects the resulting percentage.
+ */
+function resolveOssRateOverride(order: MedusaOrderForInvoice): Amount | undefined {
+  return (order.metadata?.["oss_rate_override"] as Amount | undefined) ?? undefined;
 }
 
 /**
@@ -390,10 +413,12 @@ export function mapOrderToCommerceInvoiceInput(
       buyerCountry,
       buyerVatId,
       buyerIsBusiness: Boolean(order.customer?.company_name),
-      // OSS registration has no source on a Medusa order or this plugin's config yet (P-26, not this
-      // task's scope — todo.md's T-069 only names P-14/P-16/P-20) — "not OSS-registered" stays this
-      // mapping's honest default rather than a claim about every merchant using this plugin.
-      ossRegistered: false,
+      // T-136/P-26: sourced from merchant config (see MapOrderOptions.ossRegistered's own doc comment) —
+      // "not OSS-registered" (the default when the merchant never set the option) stays the honest fallback
+      // rather than a claim about every merchant using this plugin, the same "declared fact, never inferred"
+      // shape category K's intra-eu-confirmed override and row 12's reverse-charge-cross-border already use.
+      ossRegistered: options.ossRegistered ?? false,
+      ossRateOverride: resolveOssRateOverride(order),
       supplyType: resolveOrderSupplyType(order.items),
       regimeOverride: resolveRegimeOverride(order),
     },

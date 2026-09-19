@@ -1,0 +1,10 @@
+{
+  "specRow": "row-7",
+  "specCategory": "S",
+  "build": {
+    "kind": "error",
+    "errorClass": "TaxRuleError",
+    "messageIncludes": "needs taxContext.ossRateOverride"
+  },
+  "profile": { "kind": "ok", "profile": "EN16931" }
+}

@@ -107,6 +107,7 @@ export default async function invoiceOnFulfillmentCreated({
     issueDate,
     deRates: { standard: commerce.DE_STANDARD_RATE, reduced: commerce.DE_REDUCED_RATE },
     payment: einvoiceService.options.payment,
+    ossRegistered: einvoiceService.options.ossRegistered,
   });
 
   // The *raw* B2G signal, not `input.references.buyerReference` — that field is always populated (BR-DE-15,

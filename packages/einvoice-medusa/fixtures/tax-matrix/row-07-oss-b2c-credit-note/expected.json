@@ -1,11 +1,6 @@
 {
   "specRow": "row-7",
   "specCategory": "S",
-  "build": {
-    "kind": "error",
-    "errorClass": "TaxRuleError",
-    "messageIncludes": "No rule in docs/tax-semantics.md matches this TaxContext"
-  },
-  "profile": { "kind": "ok", "profile": "EN16931" },
-  "knownBugs": ["P-26"]
+  "build": { "kind": "ok", "category": "S" },
+  "profile": { "kind": "ok", "profile": "EN16931" }
 }

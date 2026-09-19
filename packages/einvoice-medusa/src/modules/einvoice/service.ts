@@ -122,6 +122,17 @@ export interface EinvoiceModuleOptions {
    * `assertValidOptions` needs to reject, the same way `integration`/`standalone` above aren't either.
    */
   readonly vatIdVerifier?: VatIdVerifier;
+  /**
+   * T-136/P-26: whether this merchant is registered for the EU's OSS one-stop-shop scheme
+   * (`docs/tax-semantics.md` row 7) — a standing fact about the seller, true for every order, the same tier
+   * as `seller`/`payment` above, not something read off an individual order. `decideVatCategory`
+   * (`@normwerk/einvoice-commerce`) still refuses row 7's category S without a per-order
+   * `taxContext.ossRateOverride` too (`order.metadata.oss_rate_override`,
+   * `order-to-commerce-invoice-input.ts`'s own doc comment) — this option only satisfies the *registration*
+   * half of that guard, never bypasses it. Omitted (the default, `false`) keeps today's behavior unchanged;
+   * not a misconfiguration `assertValidOptions` needs to reject, the same way `vatIdVerifier` above isn't.
+   */
+  readonly ossRegistered?: boolean;
 }
 
 export class InvalidEinvoiceModuleOptionsError extends Error {
