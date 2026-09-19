@@ -4,10 +4,13 @@
  * the point of this suite is proving the adapter, not `@normwerk/einvoice-commerce` in isolation (that's
  * already covered by `packages/einvoice-commerce/fixtures/`, T-060/T-061).
  *
- * Both real subscribers (`../subscribers/`) call `selectProfile` before `buildInvoice`, and `selectProfile`
- * rejects any non-German buyer today (P-13) — which would mask P-12/P-16/P-19 on every cross-border cell if
- * a fixture chained the two calls with early exit. Each cell therefore asserts two independent axes off the
- * one real mapper output: `build` (mapper → `buildInvoice`) and `profile` (the mapper's own B2G signal →
+ * Both real subscribers (`../subscribers/`) call `selectProfile` before `buildInvoice`. Until **T-066**
+ * fixed **P-13**, `selectProfile` rejected any non-German buyer unconditionally, which would have masked
+ * P-12/P-16/P-19 on every cross-border cell if a fixture chained the two calls with early exit — the reason
+ * this matrix asserts two independent axes instead. That reason still holds after the fix: a genuinely
+ * unsupported or clearance-model buyer country still throws on the profile axis, and it must stay
+ * distinguishable from an unrelated build-axis refusal. Each cell therefore asserts two independent axes off
+ * the one real mapper output: `build` (mapper → `buildInvoice`) and `profile` (the mapper's own B2G signal →
  * `selectProfile`). Neither axis hand-builds a `CommerceInvoiceInput` — both consume the actual object the
  * real mapper produced from the actual synthetic order.
  */

@@ -15,7 +15,7 @@ refusal to guess.
 "tax-semantics#12"`. The buyer carries a VAT-ID (`customer.metadata.vat_id`), satisfying `BR-AE-02`
   (`MissingBuyerIdentifierForReverseChargeError` would otherwise fire the same way it did on `row-05` before
   its own fixture got one, T-069's follow-up).
-- **Profile axis**: buyer country FR ≠ DE — expected **error**, `UnsupportedCountryError`, same known bug
-  **P-13** every other cross-border cell in this matrix already carries (owned by T-066, not this task).
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**, same fix (**T-066** closed **P-13**) every
+  other cross-border cell in this matrix carried before it landed.
 
-Known bugs: **P-13** (profile axis only — the build axis is spec-correct AE, not a bug).
+No known bugs remain on this cell as of T-066.

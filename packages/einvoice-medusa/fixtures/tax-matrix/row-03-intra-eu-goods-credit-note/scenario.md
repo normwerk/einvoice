@@ -5,6 +5,7 @@ call site (`credit-note-on-payment-refunded.ts`), own `vat-id-evidence.json`. Sa
 (T-079: P-12/P-25/P-19 all closed) — build axis now reaches category K here too.
 
 - **Build axis**: expected **ok**, category **K**.
-- **Profile axis**: still expected **error**, `UnsupportedCountryError` — **P-13**, owned by T-066.
+- **Profile axis**: expected **ok, `EN16931`** — was **P-13** (`UnsupportedCountryError`) until T-066
+  closed it; France is an EU member state.
 
-Known bugs: **P-13** (profile axis only).
+No known bugs remain on this cell as of T-066.

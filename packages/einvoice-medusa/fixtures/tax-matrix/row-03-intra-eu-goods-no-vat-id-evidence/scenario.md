@@ -16,7 +16,8 @@ rejection genuinely redundant no longer: this cell is what still proves it.
 - **Build axis**: expected **error**, `TaxRuleError` ("needs a positive VIES check") — `decideVatCategory`'s
   own refusal (`einvoice-commerce`), unchanged by T-079: no `vatIdEvidence` and no
   `regimeOverride: { kind: "intra-eu-confirmed" }` still means no category K, by design (D-19).
-- **Profile axis**: buyer country FR ≠ DE — expected **error**, `UnsupportedCountryError`, same known bug
-  **P-13** as `row-03-intra-eu-goods`, still owned by T-066.
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**, same fix (**T-066** closed **P-13**) as
+  `row-03-intra-eu-goods`.
 
-Known bugs: **P-13** (profile axis only — the build axis here is spec-correct refusal, not a bug).
+No known bugs remain on the profile axis as of T-066; the build axis's refusal is spec-correct by design
+(D-19), not a bug.

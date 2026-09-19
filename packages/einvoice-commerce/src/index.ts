@@ -72,4 +72,5 @@ export {
   UnsupportedCountryError,
   type EInvoiceProfileName,
   type SelectProfileOptions,
+  type UnsupportedCountryReason,
 } from "./profile.js";

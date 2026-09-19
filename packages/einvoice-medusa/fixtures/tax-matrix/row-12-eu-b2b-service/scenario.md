@@ -26,7 +26,9 @@ refusal fires _before_ `vatIdEvidence` is even consulted).
 
 - **Build axis**: expected **error**, `TaxRuleError` ("no official artifact example confirms a real
   validator accepts it").
-- **Profile axis**: buyer country FR ≠ DE — expected **error**, `UnsupportedCountryError`. Known bug
-  **P-13**, masking the (now correctly refusing) build axis in the real production call order.
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**. Was `error`, `UnsupportedCountryError`
+  (**P-13**, masking the correctly-refusing build axis in the real production call order) until **T-066**
+  closed it; France is an EU member state.
 
-Known bugs: **P-13** (profile axis only — the build axis is spec-correct refusal, not a bug).
+No known bugs remain on the profile axis as of T-066; the build axis's refusal is spec-correct pending
+M-006, not a bug.

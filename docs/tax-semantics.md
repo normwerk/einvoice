@@ -65,11 +65,19 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   new, separate override kind, not an extension of row 5's — §13b UStG (domestic) and §3a Abs. 2 UStG /
   Art. 44+196 (cross-border) are different legal bases, and the engine still never infers AE for this row
   on its own; only a merchant-declared fact reaches it (D-37).
-- **Profile choice is the recipient's expectation, not the buyer's country as a gate (P-05, T-066).** A
-  German seller invoicing a French or Dutch business (rows 3–4) needs no national CIUS of the buyer's
-  country: the EN 16931 hybrid (Factur-X = ZUGFeRD `EN 16931`) is accepted EU-wide. Only clearance-model
-  countries (IT SDI, PL KSeF) cannot be served by any EN 16931 document at all — those are refused
-  explicitly, not silently. Seller-side jurisdiction (tax rules) stays DE-only until v0.2.
+- **Profile choice is the recipient's expectation, not the buyer's country as a gate (P-05, T-066).**
+  ✅ Fixed by **T-066** (2026-09-19). Before it, `selectProfile()` refused _any_ non-German buyer country
+  outright — not only DK/NO/SE as its own doc comment claimed, but France, Switzerland, the UK, everything
+  (**P-13**, found during T-117's first tax-matrix run). A German seller invoicing a French or Dutch
+  business (rows 3–4) needs no national CIUS of the buyer's country: the EN 16931 hybrid (Factur-X =
+  ZUGFeRD `EN 16931`) is accepted EU-wide, so `selectProfile` now resolves it (or the caller's own
+  `preferredProfile`) for any EU/EEA member state and for Switzerland/the UK too — neither runs a clearance
+  system of its own. Only clearance-model countries (IT SDI, PL KSeF) cannot be served by any EN 16931
+  document at all — those are still refused explicitly, with a distinct message naming the reason, not
+  silently and not with the generic "not yet supported" text. A buyer country outside all of the above (e.g.
+  the US, row 13) is still refused with that generic text — v0.1 has no reviewed e-invoicing basis for it.
+  Seller-side jurisdiction (tax rules) is unaffected and stays DE-only until v0.2
+  (`packages/einvoice-commerce/src/profile.ts`).
 - **A credit note is never structurally forced to reference the invoice it corrects (row 10).** `BR-55`
   only requires `BT-25` to be non-empty _if_ a preceding-invoice-reference group is present at all — it
   never requires the group itself. `einvoice-commerce`'s credit-note path must make BT-25 mandatory by its
@@ -133,9 +141,13 @@ This list is a starting point, not exhaustive — it grows as scenarios are adde
 ## DK/NO/SE identifiers (out of v0.1 scope — documented, not implemented)
 
 T-052 asks this document to at least name what v0.1 deliberately does not cover, rather than leave the gap
-silent. v0.1 targets Germany only (`STRATEGY.md` §2); `einvoice-commerce`'s `selectProfile()` (T-065)
-refuses a non-German buyer country outright rather than guessing a profile for it, and `decideVatCategory()`
-(T-061) refuses a non-German seller the same way (`tax-rules.ts`).
+silent. v0.1 targets Germany only as a _seller_ jurisdiction (`STRATEGY.md` §2); `decideVatCategory()`
+(T-061) refuses a non-German seller outright rather than guessing at a jurisdiction's VAT rules it was never
+reviewed against (`tax-rules.ts`). Buyer geography is a separate axis: since T-066 (P-05), `selectProfile()`
+resolves the EN 16931 hybrid profile for a DK/NO/SE buyer the same way it does for any other EU/EEA buyer —
+it no longer refuses them. What genuinely stays out of v0.1 scope, gated on `einvoice-ubl` existing at all
+(M-033), is the DK/NO/SE-specific _identifier_ mapping below and a `PEPPOL_BIS` profile preference for
+those buyers — `selectProfile` has no third profile value yet, only `"EN16931" | "XRECHNUNG"`.
 
 Denmark, Norway, and Sweden each use their own national business-registry identifier as the Peppol
 participant-ID scheme, already present in this repo's own vendored `EasCode` codelist (`BT-34`/`BT-49`

@@ -19,7 +19,8 @@ final refusal.
 
 - **Build axis**: expected **error**, `TaxRuleError` ("No rule in docs/tax-semantics.md matches this
   TaxContext"). New finding **P-26**.
-- **Profile axis**: buyer country NL ≠ DE — expected **error**, `UnsupportedCountryError`. Known bug
-  **P-13** (masks P-26 in the real production call order, same relationship as row 3/P-12).
+- **Profile axis**: buyer country NL — expected **ok, `EN16931`**. Was `error`, `UnsupportedCountryError`
+  (**P-13**, masking P-26 in the real production call order, same relationship as row 3/P-12) until **T-066**
+  closed it; the Netherlands is an EU member state.
 
-Known bugs: **P-26** (build axis, new finding), **P-13** (profile axis).
+Known bugs: **P-26** (build axis, new finding) — **P-13** (profile axis) closed by T-066.

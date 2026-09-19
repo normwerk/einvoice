@@ -22,7 +22,11 @@ goes red on this cell" — that's what happened, and `expected.json` now records
 - **Build axis**: expected **error**, `TaxRuleError` (CONTESTED, citing `docs/tax-semantics.md` row 13).
   This cell drops out of the Docker gate's "validated" set (`expected.build.kind === "ok"` no longer
   applies) — a refusal never reaches serialization, so there is nothing left for KoSIT to check here.
-- **Profile axis**: buyer country US ≠ DE — expected **error**, `UnsupportedCountryError`. Known bug
-  **P-13**, masking the (now correctly refusing) build axis in the real production call order.
+- **Profile axis**: buyer country US — still expected **error**, `UnsupportedCountryError`, unchanged by
+  **T-066**. Before T-066 this was **P-13** (every non-DE buyer refused unconditionally) masking the
+  correctly-refusing build axis; T-066 replaced that blanket gate with four branches (DE, EU/EEA/CH/UK,
+  clearance-model IT/PL, everything else), and the US falls into "everything else" — v0.1 has no reviewed
+  e-invoicing basis for it at all, the same generic "not yet supported" refusal as before, just no longer a
+  bug. Re-run against the real, fixed `selectProfile`: byte-for-byte the same outcome.
 
-Known bugs: **P-13** (profile axis only — the build axis is spec-correct refusal, not a bug).
+No known bugs remain on this cell as of T-066 — both axes are spec-correct refusals.

@@ -4,6 +4,7 @@ Credit note (381) for a full return of `row-04-export-goods` — separate `selec
 (`credit-note-on-payment-refunded.ts`), same real adapter functions.
 
 - **Build axis**: reachable, expected **green**, category G.
-- **Profile axis**: buyer CH — expected **error**, `UnsupportedCountryError` (**P-13**).
+- **Profile axis**: buyer CH — expected **ok, `EN16931`** — was **P-13** (`UnsupportedCountryError`) until
+  T-066 closed it; Switzerland has no clearance system of its own.
 
-Known bug: **P-13** (profile axis only).
+No known bugs remain on this cell as of T-066.

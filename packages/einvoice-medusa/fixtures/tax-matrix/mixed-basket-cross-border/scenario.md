@@ -35,8 +35,7 @@ of fact for M-006, not something this code can determine on its own (the same do
 `scenario.md` cites for its photovoltaic-installation example).
 
 - **Build axis**: expected **error**, `MixedSupplyCrossBorderError`.
-- **Profile axis**: buyer country FR ≠ DE — expected **error**, `UnsupportedCountryError`. Known bug
-  **P-13**, masking the above in the real production call order (would fire first, before `buildInvoice` is
-  ever reached).
-
-Known bugs: **P-13** (profile axis only — the build axis is spec-correct refusal, not a bug).
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**. Was `error`, `UnsupportedCountryError`
+  (**P-13**) before **T-066**: `selectProfile` rejected every non-German buyer unconditionally, which would
+  have masked the build axis above in the real production call order (fires first, before `buildInvoice`).
+  France is an EU member state, so it now resolves the EN 16931 hybrid profile like any other EU/EEA buyer.

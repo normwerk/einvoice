@@ -7,11 +7,13 @@ correctly through today's real adapter.
 
 - **Build axis**: reachable, expected **green**, category G. The tax logic itself is correct here — worth
   calling out explicitly, since every other cross-border cell in this matrix is red.
-- **Profile axis**: buyer country CH ≠ DE — expected **error**, `UnsupportedCountryError` (**P-13**,
-  `selectProfile` rejects every non-German buyer unconditionally, `packages/einvoice-commerce/src/profile.ts`).
-  In the real subscriber pipeline `selectProfile` runs _before_ `buildInvoice`, so in production this order
-  would never reach the (correct) build-axis result above — P-13 masks a working piece of tax logic here,
-  not a broken one, which is exactly why the two axes are checked independently (see `types.ts`'s doc
-  comment).
+- **Profile axis**: buyer country CH — expected **ok, `EN16931`**. Was `error`, `UnsupportedCountryError`
+  (**P-13** — `selectProfile` rejected every non-German buyer unconditionally,
+  `packages/einvoice-commerce/src/profile.ts`) until **T-066** closed it: Switzerland has no e-invoice
+  mandate or clearance system of its own, so it's one of the two non-EU/EEA countries (with the UK)
+  `selectProfile` still accepts. Before the fix, `selectProfile` running _before_ `buildInvoice` in the real
+  subscriber pipeline meant production would never have reached the (correct) build-axis result above —
+  P-13 masked a working piece of tax logic here, not a broken one, exactly why the two axes are checked
+  independently (see `types.ts`'s doc comment).
 
-Known bug: **P-13** (profile axis only).
+No known bugs remain on this cell as of T-066.

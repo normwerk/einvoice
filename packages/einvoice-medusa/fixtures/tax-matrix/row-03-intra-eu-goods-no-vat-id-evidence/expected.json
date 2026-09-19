@@ -6,10 +6,5 @@
     "errorClass": "TaxRuleError",
     "messageIncludes": "needs a positive VIES check"
   },
-  "profile": {
-    "kind": "error",
-    "errorClass": "UnsupportedCountryError",
-    "messageIncludes": "buyer country \"FR\" is not yet supported"
-  },
-  "knownBugs": ["P-13"]
+  "profile": { "kind": "ok", "profile": "EN16931" }
 }

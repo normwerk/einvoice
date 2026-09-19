@@ -2,33 +2,111 @@ import { describe, expect, it } from "vitest";
 import { selectProfile, UnsupportedCountryError } from "./profile.js";
 
 describe("selectProfile", () => {
-  it("throws UnsupportedCountryError for any buyer country other than DE (v0.1 scope)", () => {
-    expect(() => selectProfile({ buyerCountry: "FR" })).toThrow(UnsupportedCountryError);
-    try {
-      selectProfile({ buyerCountry: "FR" });
-    } catch (error) {
-      expect(error).toBeInstanceOf(UnsupportedCountryError);
-      expect((error as UnsupportedCountryError).countryCode).toBe("FR");
-      expect((error as Error).message).toMatch(/FR/);
-    }
+  describe("branch 1: DE buyer with a Leitweg-ID-shaped buyerReference", () => {
+    it("resolves XRECHNUNG regardless of preferredProfile", () => {
+      expect(selectProfile({ buyerCountry: "DE", buyerReference: "991-12345-67" })).toBe(
+        "XRECHNUNG",
+      );
+      expect(
+        selectProfile({
+          buyerCountry: "DE",
+          buyerReference: "991-12345-67",
+          preferredProfile: "EN16931",
+        }),
+      ).toBe("XRECHNUNG");
+    });
   });
 
-  it("resolves XRECHNUNG whenever a buyerReference is present, regardless of preferredProfile", () => {
-    expect(selectProfile({ buyerCountry: "DE", buyerReference: "991-12345-67" })).toBe("XRECHNUNG");
-    expect(
-      selectProfile({
-        buyerCountry: "DE",
-        buyerReference: "991-12345-67",
-        preferredProfile: "EN16931",
-      }),
-    ).toBe("XRECHNUNG");
+  describe("branch 2: DE buyer without a Leitweg-ID-shaped buyerReference", () => {
+    it("falls back to preferredProfile when there is no buyerReference", () => {
+      expect(selectProfile({ buyerCountry: "DE", preferredProfile: "XRECHNUNG" })).toBe(
+        "XRECHNUNG",
+      );
+    });
+
+    it("defaults to EN16931 when there is no buyerReference and no preferredProfile", () => {
+      expect(selectProfile({ buyerCountry: "DE" })).toBe("EN16931");
+    });
+
+    it("does not treat an ordinary free-text buyerReference as a B2G signal", () => {
+      // Doesn't match LEITWEG_ID_PATTERN (no mandatory trailing "-NN" checksum segment) — an ordinary B2B
+      // purchase-order reference, not a malformed Leitweg-ID.
+      expect(selectProfile({ buyerCountry: "DE", buyerReference: "PO-2026-4471" })).toBe("EN16931");
+      expect(
+        selectProfile({
+          buyerCountry: "DE",
+          buyerReference: "PO-2026-4471",
+          preferredProfile: "XRECHNUNG",
+        }),
+      ).toBe("XRECHNUNG");
+    });
   });
 
-  it("falls back to preferredProfile when there is no buyerReference", () => {
-    expect(selectProfile({ buyerCountry: "DE", preferredProfile: "XRECHNUNG" })).toBe("XRECHNUNG");
+  describe("branch 3: other EU/EEA buyer, or Switzerland/UK", () => {
+    it("resolves EN16931 for another EU member state", () => {
+      expect(selectProfile({ buyerCountry: "FR" })).toBe("EN16931");
+      expect(selectProfile({ buyerCountry: "NL" })).toBe("EN16931");
+    });
+
+    it("resolves EN16931 for an EEA member that isn't also an EU member", () => {
+      expect(selectProfile({ buyerCountry: "NO" })).toBe("EN16931");
+    });
+
+    it("resolves EN16931 for Switzerland and the UK", () => {
+      expect(selectProfile({ buyerCountry: "CH" })).toBe("EN16931");
+      expect(selectProfile({ buyerCountry: "GB" })).toBe("EN16931");
+    });
+
+    it("honors preferredProfile", () => {
+      expect(selectProfile({ buyerCountry: "FR", preferredProfile: "XRECHNUNG" })).toBe(
+        "XRECHNUNG",
+      );
+    });
+
+    it("ignores buyerReference — Leitweg-ID/B2G is a Germany-only signal", () => {
+      expect(selectProfile({ buyerCountry: "FR", buyerReference: "991-12345-67" })).toBe("EN16931");
+    });
   });
 
-  it("defaults to EN16931 when there is no buyerReference and no preferredProfile", () => {
-    expect(selectProfile({ buyerCountry: "DE" })).toBe("EN16931");
+  describe("branch 4: clearance-model country (Italy, Poland)", () => {
+    it("throws UnsupportedCountryError naming the clearance reason, for Italy", () => {
+      expect(() => selectProfile({ buyerCountry: "IT" })).toThrow(UnsupportedCountryError);
+      try {
+        selectProfile({ buyerCountry: "IT" });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(UnsupportedCountryError);
+        expect((error as UnsupportedCountryError).countryCode).toBe("IT");
+        expect((error as UnsupportedCountryError).reason).toBe("clearance-model");
+        expect((error as Error).message).toContain("national platform");
+      }
+    });
+
+    it("throws UnsupportedCountryError naming the clearance reason, for Poland", () => {
+      try {
+        selectProfile({ buyerCountry: "PL" });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(UnsupportedCountryError);
+        expect((error as UnsupportedCountryError).countryCode).toBe("PL");
+        expect((error as UnsupportedCountryError).reason).toBe("clearance-model");
+        expect((error as Error).message).toContain("national platform");
+      }
+    });
+  });
+
+  describe("branch 5: everything else (not DE, not EU/EEA/CH/UK, not a clearance country)", () => {
+    it("throws UnsupportedCountryError with the generic not-yet-supported message", () => {
+      expect(() => selectProfile({ buyerCountry: "US" })).toThrow(UnsupportedCountryError);
+      try {
+        selectProfile({ buyerCountry: "US" });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(UnsupportedCountryError);
+        expect((error as UnsupportedCountryError).countryCode).toBe("US");
+        expect((error as UnsupportedCountryError).reason).toBe("not-yet-supported");
+        expect((error as Error).message).toContain('buyer country "US" is not yet supported');
+      }
+    });
   });
 });

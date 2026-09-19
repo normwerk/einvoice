@@ -6,10 +6,6 @@
     "errorClass": "TaxRuleError",
     "messageIncludes": "No rule in docs/tax-semantics.md matches this TaxContext"
   },
-  "profile": {
-    "kind": "error",
-    "errorClass": "UnsupportedCountryError",
-    "messageIncludes": "buyer country \"NL\" is not yet supported"
-  },
-  "knownBugs": ["P-26", "P-13"]
+  "profile": { "kind": "ok", "profile": "EN16931" },
+  "knownBugs": ["P-26"]
 }
