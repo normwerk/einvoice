@@ -65,6 +65,7 @@ that `selectProfile` would in fact fire first in production, masking whatever th
 | `row-09-mixed-rates` (+ credit-note)             | 9 (S twice)                 | ok, S                                                                                        | ok, EN16931                      | —                                                                                                                                                    |
 | `row-11-corrected-invoice-384`                   | 11 (doc type 384)           | n/a — unconstructible                                                                        | n/a                              | out of scope for v0.1 (document-type modeling)                                                                                                       |
 | `row-12-eu-b2b-service` (+ credit-note)          | 12 (AE, no artifact)        | **error, `TaxRuleError`** (T-069 fixed P-16 — spec-correct refusal pending M-006, not a bug) | error, `UnsupportedCountryError` | **P-13** (profile only) → T-066                                                                                                                      |
+| `row-12-eu-b2b-service-override`                 | 12 (AE, merchant-declared)  | **ok, AE** (T-135 fixed P-34 — `regimeOverride: { kind: "reverse-charge-cross-border" }`)    | error, `UnsupportedCountryError` | **P-13** (profile only) → T-066                                                                                                                      |
 | `row-13-non-eu-b2b-service` (+ credit-note)      | 13 (CONTESTED)              | **error, `TaxRuleError`** (T-069 fixed P-16 — was silently `ok, G`)                          | error, `UnsupportedCountryError` | **P-13** (profile only) → T-066                                                                                                                      |
 | `reject-seller-not-de`                           | mandatory rejection         | error, `TaxRuleError` — **works correctly today**                                            | ok, EN16931                      | — (proves the one guard that's already right)                                                                                                        |
 | `mixed-basket-domestic`                          | policy cell, no single row  | ok, S — **genuinely correct**                                                                | ok, EN16931                      | — (regression guard for `mixed-basket-cross-border`, T-133/P-28 gap 4a)                                                                              |
@@ -236,3 +237,37 @@ new axis tests). `pnpm typecheck`/`pnpm lint`/`pnpm format` clean across the rep
 `row-05`/`row-06`/`row-08` newly join the validated set (their AE/E/Z documents are genuinely KoSIT-valid,
 not just internally consistent); `row-12`/`row-13`/`mixed-basket-cross-border` correctly leave it, since a
 refusal never reaches serialization.
+
+## T-135 follow-up (2026-09-19): P-34 closed — a cross-border B2B service had no way out at all
+
+T-069 made `row-12` refuse correctly (pending M-006), but left it a dead end: `regimeOverride: { kind:
+"reverse-charge" }` (row 5's own escape hatch) explicitly rejects any non-DE buyer, so a German seller of a
+cross-border EU B2B service — SaaS, consulting, other digital services, an ordinary scenario for this
+project's audience (D-36) — had **no way**, default or declared, to get a document out at all. Found during
+T-069's own verification pass, queued as **P-34**.
+
+Closed the same way category K already handles the analogous gap (row 3's `intra-eu-confirmed` override): a
+new, separate `RegimeOverride` kind, `reverse-charge-cross-border` (`@normwerk/einvoice-commerce`'s
+`types.ts`), lets a merchant declare the fact and reach **AE** with `VATEX-EU-AE` and its own `ruleId`
+(`tax-semantics#12`) — a distinct kind from row 5's `reverse-charge`, not a relaxed guard on it, since
+§13b UStG (domestic) and §3a Abs. 2 UStG/Art. 44+196 (cross-border) are different legal bases and merging
+them would lose the `ruleId`/exemption-text trail M-006's eventual reviewer checks against. `decideVatCategory`
+still never infers AE for this row on its own — only a merchant-declared fact reaches it (D-37). Row 5's own
+override, applied cross-border, still refuses — its error message now names row 12's override by name
+instead of the stale "not covered by this v0.1 rule table" text T-069 left behind.
+
+New cell `row-12-eu-b2b-service-override` — same DE→FR B2B service order as `row-12-eu-b2b-service`, plus
+`order.metadata.regime_override: { kind: "reverse-charge-cross-border" }` — resolves `ok, AE` through the
+real, unmocked adapter and passes real KoSIT, 3x deterministically. `docs/tax-semantics.md` rows 5 and 12
+were updated per the task's own instruction: row 5 now says explicitly, in the table itself, that it is
+domestic-only and that row 12 is the cross-border counterpart with its own override; row 12's norm-source
+cell now documents the override escape hatch next to the "refuse pending M-006" rule it qualifies.
+
+Regression: `packages/einvoice-commerce test` — 84 tests (up from 81: new AE-via-override test, two
+out-of-scope-override tests, and an updated row-5-cross-border-context test). `packages/einvoice-medusa
+test` — 119 (up from 117: the new cell's two axis tests). `pnpm typecheck`/`pnpm lint`/`pnpm format` clean
+across the repo — including `pnpm codegen`, whose regenerated `packages/einvoice-commerce/src/generated
+/json-schema.ts` (the new `RegimeOverride` member) is a clean, purely additive 16-line diff, confirming
+T-134's codegen/prettier gate still holds. `pnpm conformance:tax-matrix` (real Docker KoSIT): 18/18 validated
+cells pass, 3x deterministic — `row-12-eu-b2b-service-override` joins the validated set as a genuinely
+KoSIT-valid AE document, not just an internally-consistent one.

@@ -1,0 +1,11 @@
+{
+  "specRow": "row-12",
+  "specCategory": "AE",
+  "build": { "kind": "ok", "category": "AE" },
+  "profile": {
+    "kind": "error",
+    "errorClass": "UnsupportedCountryError",
+    "messageIncludes": "buyer country \"FR\" is not yet supported"
+  },
+  "knownBugs": ["P-13"]
+}

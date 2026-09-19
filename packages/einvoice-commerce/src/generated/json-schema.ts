@@ -1039,6 +1039,22 @@ export const commerceInvoiceInputJsonSchema = {
             "evidenceNote"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "reverse-charge-cross-border"
+            },
+            "reasonText": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
         }
       ]
     },

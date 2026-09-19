@@ -202,6 +202,18 @@ export type RegimeOverride =
        * (D-19's "явный override"). `evidenceNote` is carried into `TaxDecision.reasoning` for audit. */
       readonly kind: "intra-eu-confirmed";
       readonly evidenceNote: string;
+    }
+  | {
+      /** T-135/P-34: `docs/tax-semantics.md` row 12 (DE→EU B2B service) has a settled category — AE, §3a
+       * Abs. 2 UStG / Art. 44+196 VAT Directive — but no official artifact confirms a real validator
+       * accepts it, so `decideVatCategory` refuses by default pending M-006. This lets a merchant declare
+       * the fact anyway, the same "accept a declared fact, never infer it" shape row 3's
+       * `intra-eu-confirmed` already uses for K. A distinct kind from row 5's `reverse-charge`, not a
+       * relaxed guard on it — §13b UStG (domestic) and §3a Abs. 2 UStG/Art. 44+196 (cross-border) are
+       * different legal bases, and merging them would lose the `ruleId`/exemption-text trail M-006's
+       * reviewer needs to tell them apart. */
+      readonly kind: "reverse-charge-cross-border";
+      readonly reasonText?: string | undefined;
     };
 
 /** D-19: the sole source of a buyer VAT-ID's status. A real VIES-backed implementation is deferred to v0.2

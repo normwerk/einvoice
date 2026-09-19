@@ -90,6 +90,11 @@ const DOCUMENT_SCOPE: TaxDecisionScope = { kind: "document" };
 const REVERSE_CHARGE_DEFAULT_TEXT =
   "Steuerschuldnerschaft des Leistungsempfängers (§13b UStG) / Reverse charge";
 
+/** T-135/P-34 — row 12's cross-border counterpart to `REVERSE_CHARGE_DEFAULT_TEXT`, a different legal basis
+ * (§3a Abs. 2 UStG / Art. 44+196 VAT Directive, not §13b UStG). */
+const CROSS_BORDER_REVERSE_CHARGE_DEFAULT_TEXT =
+  "Steuerschuldnerschaft des Leistungsempfängers (§3a Abs. 2 UStG / Art. 44+196 VAT Directive) / Reverse charge";
+
 /**
  * Resolves the VAT category/exemption for the whole commercial transaction
  * (`docs/tax-semantics.md` rows 1–8; row 9 — mixed rates — is not a
@@ -151,8 +156,10 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     ) {
       throw new TaxRuleError(
         "reverse-charge override given for a non-domestic-B2B transaction — docs/tax-semantics.md row 5 " +
-          "is DE→DE B2B only; a cross-border reverse-charge scenario is a different EN 16931 category " +
-          "(not covered by this v0.1 rule table)",
+          "is DE→DE B2B only; a cross-border reverse-charge service is row 12's own " +
+          'regimeOverride: { kind: "reverse-charge-cross-border" } instead (T-135) — a different legal ' +
+          "basis (§3a Abs. 2 UStG / Art. 44+196 VAT Directive, not §13b UStG), not an extension of this " +
+          "override.",
         "tax-semantics#5",
       );
     }
@@ -162,6 +169,41 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       exemptionReasonCode: "VATEX-EU-AE",
       exemptionReasonText: override.reasonText ?? REVERSE_CHARGE_DEFAULT_TEXT,
       reasoning: "Domestic B2B reverse-charge service (§13b UStG), explicit override.",
+      scope: DOCUMENT_SCOPE,
+    };
+  }
+
+  // Row 12: DE → EU B2B service via an explicit override (T-135/P-34). The category itself is settled (AE,
+  // §3a Abs. 2 UStG; Art. 44+196 VAT Directive) but the default branch below refuses pending M-006 (no
+  // official artifact confirms a real validator accepts it) — this lets a merchant declare the fact anyway,
+  // the same "accept a declared fact, never infer it" shape row 3's `intra-eu-confirmed` override already
+  // uses for K (D-37: the engine still never infers AE here on its own). Checked ahead of `buyerIsEu`/
+  // `isCrossBorder` (computed below) since its own validity check duplicates just enough of that logic to
+  // give a scoped error message rather than reuse a shared boolean two branches down.
+  if (override?.kind === "reverse-charge-cross-border") {
+    if (
+      context.sellerCountry !== "DE" ||
+      context.buyerCountry === "DE" ||
+      !EU_MEMBER_STATES.has(context.buyerCountry) ||
+      !context.buyerIsBusiness ||
+      context.supplyType !== "services"
+    ) {
+      throw new TaxRuleError(
+        "reverse-charge-cross-border override given outside its scope — docs/tax-semantics.md row 12 is " +
+          "DE→(other EU state) B2B service only. A domestic reverse-charge service is row 5's " +
+          '"reverse-charge" override instead; a non-EU B2B service is row 13 (CONTESTED — no override ' +
+          "exists for it yet, pending M-006).",
+        "tax-semantics#12",
+      );
+    }
+    return {
+      ruleId: "tax-semantics#12",
+      categoryCode: "AE",
+      exemptionReasonCode: "VATEX-EU-AE",
+      exemptionReasonText: override.reasonText ?? CROSS_BORDER_REVERSE_CHARGE_DEFAULT_TEXT,
+      reasoning:
+        `Explicit cross-border reverse-charge override — intra-EU B2B service, place of supply in buyer ` +
+        `country ${context.buyerCountry} (§3a Abs. 2 UStG; Art. 44+196 VAT Directive).`,
       scope: DOCUMENT_SCOPE,
     };
   }
@@ -177,10 +219,12 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     throw new MixedSupplyCrossBorderError("tax-semantics#mixed-cross-border");
   }
 
-  // Row 12: DE→EU B2B service. The category itself is settled (AE, §3a Abs. 2 UStG; Art. 44+196 VAT
-  // Directive) — but docs/tax-semantics.md row 12 is explicit that no official artifact confirms a real
-  // validator accepts it, and the code must refuse, not guess, until M-006 clears it. Checked ahead of row
-  // 3 (K) so a service no longer falls into the goods-only intra-EU branch (P-16/P-20).
+  // Row 12: DE→EU B2B service, no explicit override given (the override branch above already returned/threw
+  // otherwise). The category itself is settled (AE, §3a Abs. 2 UStG; Art. 44+196 VAT Directive) — but
+  // docs/tax-semantics.md row 12 is explicit that no official artifact confirms a real validator accepts it,
+  // and the code must refuse, not guess, until M-006 clears it, unless the merchant has already declared the
+  // fact via regimeOverride: { kind: "reverse-charge-cross-border" } (T-135/P-34). Checked ahead of row 3 (K)
+  // so a service no longer falls into the goods-only intra-EU branch (P-16/P-20).
   if (
     context.sellerCountry === "DE" &&
     buyerIsEu &&

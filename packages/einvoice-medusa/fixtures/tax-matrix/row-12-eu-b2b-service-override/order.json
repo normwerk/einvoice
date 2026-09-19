@@ -1,0 +1,31 @@
+{
+  "id": "order_tax_matrix_12_override",
+  "display_id": 1011,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "metadata": { "regime_override": { "kind": "reverse-charge-cross-border" } },
+  "customer": {
+    "company_name": "Exemple SARL",
+    "email": "buyer@example.test",
+    "metadata": { "vat_id": "FR98765432109" }
+  },
+  "billing_address": {
+    "country_code": "fr",
+    "city": "Paris",
+    "postal_code": "75008",
+    "address_1": "Rue de l'Exemple 1",
+    "company": "Exemple SARL"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Consulting service (cross-border B2B, merchant-declared reverse charge)",
+      "variant_sku": "SVC-CONSULT-1",
+      "unit_price": 500,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 0 }],
+      "detail": { "quantity": 1 },
+      "requires_shipping": false
+    }
+  ]
+}

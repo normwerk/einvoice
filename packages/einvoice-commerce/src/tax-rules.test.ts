@@ -219,6 +219,70 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
     expect(() => decideVatCategory(context, evidence)).toThrow(/M-006/);
   });
 
+  it("row 12 (T-135/P-34): DE → EU B2B service via explicit cross-border reverse-charge override → AE, VATEX-EU-AE", () => {
+    const context: TaxContext = {
+      ...BASE,
+      buyerCountry: "FR",
+      supplyType: "services",
+      regimeOverride: { kind: "reverse-charge-cross-border" },
+    };
+    const decision = decideVatCategory(context);
+    expect(decision).toEqual({
+      ruleId: "tax-semantics#12",
+      categoryCode: "AE",
+      exemptionReasonCode: "VATEX-EU-AE",
+      exemptionReasonText: expect.stringContaining("Reverse charge"),
+      reasoning: expect.stringContaining("FR"),
+      scope: { kind: "document" },
+    });
+    expect(resolveLineRate(decision, context, undefined)).toBe("0");
+  });
+
+  it("row 12 (T-135/P-34): the cross-border override refuses outside its scope (domestic buyer, non-EU buyer, goods, or B2C)", () => {
+    const domestic: TaxContext = {
+      ...BASE,
+      supplyType: "services",
+      regimeOverride: { kind: "reverse-charge-cross-border" },
+    };
+    expect(() => decideVatCategory(domestic)).toThrow(TaxRuleError);
+
+    const nonEu: TaxContext = {
+      ...BASE,
+      buyerCountry: "US",
+      supplyType: "services",
+      regimeOverride: { kind: "reverse-charge-cross-border" },
+    };
+    expect(() => decideVatCategory(nonEu)).toThrow(TaxRuleError);
+
+    const goods: TaxContext = {
+      ...BASE,
+      buyerCountry: "FR",
+      supplyType: "goods",
+      regimeOverride: { kind: "reverse-charge-cross-border" },
+    };
+    expect(() => decideVatCategory(goods)).toThrow(TaxRuleError);
+
+    const b2c: TaxContext = {
+      ...BASE,
+      buyerCountry: "FR",
+      buyerIsBusiness: false,
+      supplyType: "services",
+      regimeOverride: { kind: "reverse-charge-cross-border" },
+    };
+    expect(() => decideVatCategory(b2c)).toThrow(TaxRuleError);
+  });
+
+  it("row 5's domestic reverse-charge override still refuses in a cross-border context and names row 12's own override instead", () => {
+    const context: TaxContext = {
+      ...BASE,
+      buyerCountry: "FR",
+      supplyType: "services",
+      regimeOverride: { kind: "reverse-charge" },
+    };
+    expect(() => decideVatCategory(context)).toThrow(TaxRuleError);
+    expect(() => decideVatCategory(context)).toThrow(/reverse-charge-cross-border/);
+  });
+
   it("row 13: DE → non-EU B2B service refuses as CONTESTED, not the export branch (P-16/P-20)", () => {
     const context: TaxContext = { ...BASE, buyerCountry: "US", supplyType: "services" };
     expect(() => decideVatCategory(context)).toThrow(TaxRuleError);
