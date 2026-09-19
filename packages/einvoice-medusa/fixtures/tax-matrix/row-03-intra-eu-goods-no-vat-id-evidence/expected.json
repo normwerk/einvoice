@@ -2,8 +2,9 @@
   "specRow": "row-3",
   "specCategory": "K",
   "build": {
-    "kind": "ok",
-    "category": "K"
+    "kind": "error",
+    "errorClass": "TaxRuleError",
+    "messageIncludes": "needs a positive VIES check"
   },
   "profile": {
     "kind": "error",

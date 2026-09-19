@@ -228,10 +228,16 @@ async function creditOneRefund({
     documentNumber = await numberer.next({ kind: "credit-note", issueDate });
   }
 
-  const buildResult = commerce.buildInvoice({
-    ...input,
-    document: { ...input.document, number: documentNumber },
-  });
+  // T-079/P-12: same VIES-evidence wiring as invoice-on-fulfillment-created.ts's identical comment.
+  const vatIdEvidence =
+    einvoiceService.options.vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
+      ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, new Date())
+      : undefined;
+
+  const buildResult = commerce.buildInvoice(
+    { ...input, document: { ...input.document, number: documentNumber } },
+    vatIdEvidence === undefined ? {} : { vatIdEvidence },
+  );
 
   // T-073: standalone mode's own PDF source — see invoice-on-fulfillment-created.ts's identical comment.
   if (integration?.kind !== "webbers") {

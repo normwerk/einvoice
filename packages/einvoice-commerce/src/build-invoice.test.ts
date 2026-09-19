@@ -4,6 +4,8 @@ import {
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
   InvalidLeitwegIdError,
+  MissingBuyerIdentifierForReverseChargeError,
+  MissingBuyerVatIdError,
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,
@@ -186,6 +188,69 @@ describe("buildInvoice — intra-EU supply (row 3), needs vatIdEvidence", () => 
     expect(() => buildInvoice(withoutDelivery, { vatIdEvidence: evidence })).toThrow(
       MissingDeliveryInfoForIntraCommunitySupplyError,
     );
+  });
+
+  it("requires buyer.vatIdentifier on the document itself, not just a positive VIES check (BR-IC-02, P-19)", () => {
+    const withoutBuyerVatId = {
+      ...intraEuInput,
+      buyer: { ...intraEuInput.buyer, vatIdentifier: undefined },
+    };
+    expect(() => buildInvoice(withoutBuyerVatId, { vatIdEvidence: evidence })).toThrow(
+      MissingBuyerVatIdError,
+    );
+  });
+});
+
+describe("buildInvoice — domestic reverse charge (row 5), needs buyer.vatIdentifier and/or legalRegistrationIdentifier", () => {
+  function reverseChargeInput(buyer: CommerceInvoiceInput["buyer"]): CommerceInvoiceInput {
+    return domesticInput({
+      buyer,
+      taxContext: {
+        sellerCountry: "DE",
+        sellerVatId: "DE123456789",
+        buyerCountry: "DE",
+        buyerIsBusiness: true,
+        ossRegistered: false,
+        supplyType: "services",
+        regimeOverride: { kind: "reverse-charge" },
+      },
+    });
+  }
+
+  it("accepts buyer.vatIdentifier alone", () => {
+    const result = buildInvoice(
+      reverseChargeInput({
+        name: "Bau-Subunternehmer GmbH",
+        countryCode: "DE",
+        city: "Hamburg",
+        postCode: "20095",
+        vatIdentifier: "DE987654321",
+      }),
+    );
+    expect(result.invoice.vatBreakdown[0]?.categoryCode).toBe("AE");
+  });
+
+  it("accepts buyer.legalRegistrationIdentifier alone", () => {
+    const result = buildInvoice(
+      reverseChargeInput({
+        name: "Bau-Subunternehmer GmbH",
+        countryCode: "DE",
+        city: "Hamburg",
+        postCode: "20095",
+        legalRegistrationIdentifier: "HRB 12345",
+      }),
+    );
+    expect(result.invoice.vatBreakdown[0]?.categoryCode).toBe("AE");
+  });
+
+  it("requires at least one of the two (BR-AE-02, P-19)", () => {
+    const input = reverseChargeInput({
+      name: "Bau-Subunternehmer GmbH",
+      countryCode: "DE",
+      city: "Hamburg",
+      postCode: "20095",
+    });
+    expect(() => buildInvoice(input)).toThrow(MissingBuyerIdentifierForReverseChargeError);
   });
 });
 

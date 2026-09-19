@@ -15,7 +15,7 @@ import type {
   MapOrderOptions,
   MedusaOrderForInvoice,
 } from "../mapping/order-to-commerce-invoice-input.js";
-import type { EInvoiceProfileName } from "@normwerk/einvoice-commerce" with {
+import type { EInvoiceProfileName, VatIdEvidence } from "@normwerk/einvoice-commerce" with {
   "resolution-mode": "import",
 };
 import type { VatCategoryCode } from "@normwerk/einvoice-model" with {
@@ -81,6 +81,10 @@ export interface TaxMatrixCell {
   readonly mapOptions: Omit<MapOrderOptions, "seller">;
   readonly sellerKey: string;
   readonly selectProfileOptions?: { readonly preferredProfile?: EInvoiceProfileName } | undefined;
+  /** T-079/P-12: the one thing `run-cell.ts` cannot get from the real mapper alone — a scripted
+   * `VatIdVerifier.verify()` result, from an optional `vat-id-evidence.json` (same optional-file pattern as
+   * `select-profile-options.json`). Absent for every cell that doesn't need category K reachable. */
+  readonly vatIdEvidence?: VatIdEvidence | undefined;
   readonly expected: CellExpectation;
   /** Absolute path to the cell's directory, for error messages and for the Docker gate to locate the
    * scenario doc it doesn't itself parse. */

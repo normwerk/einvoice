@@ -276,6 +276,7 @@ describe("creditNoteOnPaymentRefunded", () => {
           correctedInvoice: { number: "RE-2026-0001", issueDate: "2026-01-01" },
         }),
       }),
+      expect.anything(),
     );
     expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "credit_note", documentNumber: "GS-2026-0001" }),

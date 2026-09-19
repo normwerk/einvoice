@@ -215,6 +215,24 @@ function resolveBuyerAddress(
   return { ...address, country_code: address.country_code };
 }
 
+/**
+ * BG-13 (P-25) — prefers `shipping_address` (where goods are actually dispatched to), falling back to
+ * `buyerAddress` (billing, or shipping again — `resolveBuyerAddress`'s own fallback direction) the same way
+ * a buyer address with no separate shipping address already does for billing purposes. Always resolves to
+ * *some* address with a country code, since `resolveBuyerAddress` already guarantees one exists on this
+ * same order.
+ */
+function resolveDeliveryAddress(
+  order: MedusaOrderForInvoice,
+  buyerAddress: MedusaOrderAddress & { readonly country_code: string },
+): MedusaOrderAddress & { readonly country_code: string } {
+  const shipping = order.shipping_address;
+  if (shipping?.country_code !== undefined && shipping.country_code !== null) {
+    return { ...shipping, country_code: shipping.country_code };
+  }
+  return buyerAddress;
+}
+
 function resolveBuyerName(order: MedusaOrderForInvoice): string {
   const customer = order.customer;
   if (customer?.company_name) {
@@ -237,6 +255,7 @@ export function mapOrderToCommerceInvoiceInput(
   options: MapOrderOptions,
 ): CommerceInvoiceInput {
   const buyerAddress = resolveBuyerAddress(order);
+  const deliveryAddress = resolveDeliveryAddress(order, buyerAddress);
   // Medusa's own static country dataset uses uppercase ISO alpha-2 (`@medusajs/utils`'s
   // `defaults/countries.js`: `{ alpha2: "DE", name: "Germany", ... }`), but the value actually stored on
   // an address isn't re-verified to match that case here — normalizing defensively costs nothing and
@@ -290,6 +309,19 @@ export function mapOrderToCommerceInvoiceInput(
     })),
     references: { buyerReference },
     payment: options.payment,
+    // BG-13 (P-25). `buildInvoice` only ever consults this for category K (BR-IC-11/12) — harmless to
+    // populate unconditionally otherwise, the same way taxContext.buyerVatId is always computed regardless
+    // of the category that ends up resolving. `actualDeliveryDate: options.issueDate` is a deliberate
+    // simplification, not a guessed-at field: this subscriber runs in reaction to `order.fulfillment_created`
+    // itself, so "today" is an honest proxy for the dispatch date — a real per-fulfillment date would need a
+    // new query.graph field this task doesn't add without verifying it against a real running instance
+    // first (this file's own doc comment on why an unverified field path is a real risk, not a formality).
+    delivery: {
+      actualDeliveryDate: options.issueDate,
+      deliverToCountryCode: deliveryAddress.country_code.toUpperCase() as CountryCode,
+      deliverToCity: deliveryAddress.city ?? undefined,
+      deliverToPostCode: deliveryAddress.postal_code ?? undefined,
+    },
     taxContext: {
       sellerCountry: options.seller.countryCode,
       // assertValidOptions (service.ts) already refuses a module config without a non-empty

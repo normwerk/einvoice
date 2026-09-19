@@ -141,10 +141,18 @@ export default async function invoiceOnFulfillmentCreated({
     documentNumber = await numberer.next({ kind: "invoice", issueDate });
   }
 
-  const buildResult = commerce.buildInvoice({
-    ...input,
-    document: { ...input.document, number: documentNumber },
-  });
+  // T-079/P-12: VAT-ID verification is real I/O — it happens here, before buildInvoice, never inside it
+  // (ADR-003). Only attempted when both a verifier is configured and the buyer actually has a VAT-ID to
+  // check; omitting either keeps category K unreachable, same as today (service.ts's own doc comment).
+  const vatIdEvidence =
+    einvoiceService.options.vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
+      ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, new Date())
+      : undefined;
+
+  const buildResult = commerce.buildInvoice(
+    { ...input, document: { ...input.document, number: documentNumber } },
+    vatIdEvidence === undefined ? {} : { vatIdEvidence },
+  );
 
   // T-073: standalone mode's own PDF source — see this file's own doc comment. Webbers mode already
   // resolved `basePdfBytes` (or left it `undefined`) above; this only runs for the other branch.

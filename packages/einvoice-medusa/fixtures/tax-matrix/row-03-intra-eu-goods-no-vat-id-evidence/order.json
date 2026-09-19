@@ -1,0 +1,29 @@
+{
+  "id": "order_tax_matrix_03_no_evidence",
+  "display_id": 1016,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Exemple SARL",
+    "email": "buyer@example.test",
+    "metadata": { "vat_id": "FR98765432109" }
+  },
+  "billing_address": {
+    "country_code": "fr",
+    "city": "Paris",
+    "postal_code": "75008",
+    "address_1": "Rue de l'Exemple 1",
+    "company": "Exemple SARL"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Widget",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 0 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

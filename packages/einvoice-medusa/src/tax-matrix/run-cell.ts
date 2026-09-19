@@ -78,7 +78,10 @@ export function runTaxMatrixCell(cell: TaxMatrixCell, deps: TaxMatrixDeps): Cell
   let build: BuildAxisOutcome;
   let buildResult: BuildResult | undefined;
   try {
-    const result = deps.buildInvoice(input);
+    const result = deps.buildInvoice(
+      input,
+      cell.vatIdEvidence === undefined ? {} : { vatIdEvidence: cell.vatIdEvidence },
+    );
     const category = result.decisions[0]?.categoryCode;
     if (category === undefined) {
       throw new Error(`buildInvoice returned no decisions for cell "${cell.id}"`);

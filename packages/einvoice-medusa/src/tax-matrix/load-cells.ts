@@ -50,6 +50,10 @@ export function loadTaxMatrixCells(): readonly TaxMatrixCell[] {
     const selectProfileOptions = existsSync(selectProfileOptionsPath)
       ? readJson<TaxMatrixCell["selectProfileOptions"]>(selectProfileOptionsPath)
       : undefined;
+    const vatIdEvidencePath = resolve(dir, "vat-id-evidence.json");
+    const vatIdEvidence = existsSync(vatIdEvidencePath)
+      ? readJson<TaxMatrixCell["vatIdEvidence"]>(vatIdEvidencePath)
+      : undefined;
     const expected = readJson<CellExpectation>(resolve(dir, "expected.json"));
 
     if (!(cellOptions.sellerKey in sellers)) {
@@ -62,6 +66,7 @@ export function loadTaxMatrixCells(): readonly TaxMatrixCell[] {
       mapOptions: cellOptions.mapOptions,
       sellerKey: cellOptions.sellerKey,
       selectProfileOptions,
+      vatIdEvidence,
       expected,
       dir,
     });

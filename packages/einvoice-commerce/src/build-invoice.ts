@@ -73,6 +73,29 @@ export class MissingDeliveryInfoForIntraCommunitySupplyError extends Error {
   }
 }
 
+export class MissingBuyerVatIdError extends Error {
+  constructor() {
+    super(
+      "An intra-EU supply (category K) requires buyer.vatIdentifier (BT-48) on the document itself, not " +
+        "just a positive VIES check — BR-IC-02 (P-19, real KoSIT rejection): 'shall contain the Seller VAT " +
+        "Identifier (BT-31) or the Seller tax representative VAT identifier (BT-63) and the Buyer VAT " +
+        'identifier (BT-48)\', flag="fatal" (verified against the vendored Schematron).',
+    );
+    this.name = "MissingBuyerVatIdError";
+  }
+}
+
+export class MissingBuyerIdentifierForReverseChargeError extends Error {
+  constructor() {
+    super(
+      "A reverse-charge supply (category AE) requires buyer.vatIdentifier (BT-48) and/or " +
+        "buyer.legalRegistrationIdentifier (BT-47) on the document — BR-AE-02 (P-19, real KoSIT rejection), " +
+        "which requires the buyer identifier the same way BR-IC-02 requires it for category K.",
+    );
+    this.name = "MissingBuyerIdentifierForReverseChargeError";
+  }
+}
+
 export class InvalidLeitwegIdError extends Error {
   constructor(
     readonly value: string,
@@ -224,6 +247,16 @@ export function buildInvoice(
       input.delivery?.deliverToCountryCode === undefined)
   ) {
     throw new MissingDeliveryInfoForIntraCommunitySupplyError();
+  }
+  if (regimeDecision.categoryCode === "K" && input.buyer.vatIdentifier === undefined) {
+    throw new MissingBuyerVatIdError();
+  }
+  if (
+    regimeDecision.categoryCode === "AE" &&
+    input.buyer.vatIdentifier === undefined &&
+    input.buyer.legalRegistrationIdentifier === undefined
+  ) {
+    throw new MissingBuyerIdentifierForReverseChargeError();
   }
 
   const lineComputations = input.lines.map((line, index) => ({

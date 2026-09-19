@@ -51,23 +51,24 @@ that `selectProfile` would in fact fire first in production, masking whatever th
 
 ## The matrix
 
-| Cell                                             | `docs/tax-semantics.md` row | Build axis                                        | Profile axis                     | Bucket / owning task                                                                  |
-| ------------------------------------------------ | --------------------------- | ------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------- |
-| `row-01-domestic-standard` (+ credit-note)       | 1 (S 19%)                   | ok, S                                             | ok, EN16931                      | —                                                                                     |
-| `row-02-domestic-reduced` (+ credit-note)        | 2 (S 7%)                    | ok, S                                             | ok, EN16931                      | —                                                                                     |
-| `row-03-intra-eu-goods` (+ credit-note)          | 3 (K)                       | error, `TaxRuleError`                             | error, `UnsupportedCountryError` | **P-12** (build) / **P-13** (profile) → T-079 / T-066                                 |
-| `row-04-export-goods` (+ credit-note)            | 4 (G)                       | **ok, G** (tax logic correct)                     | error, `UnsupportedCountryError` | **P-13** (profile only) → T-066                                                       |
-| `row-05-reverse-charge` (+ credit-note)          | 5 (AE)                      | ok, **S** (spec: AE)                              | ok, EN16931                      | **P-14** (build only) → T-069                                                         |
-| `row-06-exempt` (+ credit-note)                  | 6 (E)                       | ok, **S** (spec: E)                               | ok, EN16931                      | **P-14** (build only) → T-069                                                         |
-| `row-07-oss-b2c` (+ credit-note)                 | 7 (OSS/S)                   | error, `TaxRuleError` (unresolved)                | error, `UnsupportedCountryError` | **P-26** new finding (build) / **P-13** (profile) → T-069 / T-066                     |
-| `row-08-zero-rated-photovoltaic` (+ credit-note) | 8 (Z)                       | ok, **S** (spec: Z)                               | ok, EN16931                      | **P-14** (build only) → T-069                                                         |
-| `row-09-mixed-rates` (+ credit-note)             | 9 (S twice)                 | ok, S                                             | ok, EN16931                      | —                                                                                     |
-| `row-11-corrected-invoice-384`                   | 11 (doc type 384)           | n/a — unconstructible                             | n/a                              | out of scope for v0.1 (document-type modeling)                                        |
-| `row-12-eu-b2b-service` (+ credit-note)          | 12 (AE, no artifact)        | error, `TaxRuleError` (same as row 3)             | error, `UnsupportedCountryError` | **P-16** root cause / **P-12** proximate / **P-13** (profile) → T-069 / T-079 / T-066 |
-| `row-13-non-eu-b2b-service` (+ credit-note)      | 13 (CONTESTED)              | ok, **G** (spec: must refuse)                     | error, `UnsupportedCountryError` | **P-16**, most severe form (build) / **P-13** (profile) → T-069 / T-066               |
-| `reject-seller-not-de`                           | mandatory rejection         | error, `TaxRuleError` — **works correctly today** | ok, EN16931                      | — (proves the one guard that's already right)                                         |
-| `mixed-basket-domestic`                          | policy cell, no single row  | ok, S — **genuinely correct**                     | ok, EN16931                      | — (regression guard for a future cross-border-mixed guard, T-133/P-28 gap 4a)         |
-| `mixed-basket-cross-border`                      | policy cell, no single row  | n/a — unconstructible                             | n/a                              | blocked on a full P-16 fix (per-line `supplyType`) — T-133/P-28 gap 4a                |
+| Cell                                             | `docs/tax-semantics.md` row | Build axis                                        | Profile axis                     | Bucket / owning task                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------ | --------------------------- | ------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `row-01-domestic-standard` (+ credit-note)       | 1 (S 19%)                   | ok, S                                             | ok, EN16931                      | —                                                                                                                                                                                                                                                                                                                                                                   |
+| `row-02-domestic-reduced` (+ credit-note)        | 2 (S 7%)                    | ok, S                                             | ok, EN16931                      | —                                                                                                                                                                                                                                                                                                                                                                   |
+| `row-03-intra-eu-goods` (+ credit-note)          | 3 (K)                       | **ok, K** (T-079 fixed P-12/P-25/P-19)            | error, `UnsupportedCountryError` | **P-13** (profile only) → T-066                                                                                                                                                                                                                                                                                                                                     |
+| `row-03-intra-eu-goods-no-vat-id-evidence`       | 3 (K), mandatory rejection  | error, `TaxRuleError`                             | error, `UnsupportedCountryError` | **P-13** (profile only) → T-066                                                                                                                                                                                                                                                                                                                                     |
+| `row-04-export-goods` (+ credit-note)            | 4 (G)                       | **ok, G** (tax logic correct)                     | error, `UnsupportedCountryError` | **P-13** (profile only) → T-066                                                                                                                                                                                                                                                                                                                                     |
+| `row-05-reverse-charge` (+ credit-note)          | 5 (AE)                      | ok, **S** (spec: AE)                              | ok, EN16931                      | **P-14** (build only) → T-069                                                                                                                                                                                                                                                                                                                                       |
+| `row-06-exempt` (+ credit-note)                  | 6 (E)                       | ok, **S** (spec: E)                               | ok, EN16931                      | **P-14** (build only) → T-069                                                                                                                                                                                                                                                                                                                                       |
+| `row-07-oss-b2c` (+ credit-note)                 | 7 (OSS/S)                   | error, `TaxRuleError` (unresolved)                | error, `UnsupportedCountryError` | **P-26** new finding (build) / **P-13** (profile) → T-069 / T-066                                                                                                                                                                                                                                                                                                   |
+| `row-08-zero-rated-photovoltaic` (+ credit-note) | 8 (Z)                       | ok, **S** (spec: Z)                               | ok, EN16931                      | **P-14** (build only) → T-069                                                                                                                                                                                                                                                                                                                                       |
+| `row-09-mixed-rates` (+ credit-note)             | 9 (S twice)                 | ok, S                                             | ok, EN16931                      | —                                                                                                                                                                                                                                                                                                                                                                   |
+| `row-11-corrected-invoice-384`                   | 11 (doc type 384)           | n/a — unconstructible                             | n/a                              | out of scope for v0.1 (document-type modeling)                                                                                                                                                                                                                                                                                                                      |
+| `row-12-eu-b2b-service` (+ credit-note)          | 12 (AE, no artifact)        | error, `TaxRuleError` (same as row 3)             | error, `UnsupportedCountryError` | **P-16** root cause → T-069 / **P-13** (profile) → T-066 — **not** T-079: this cell deliberately has no `vat-id-evidence.json` (P-12's own fix is in place, but scripting evidence here before T-069 fixes `supplyType` would make this _service_ order silently get category K instead of AE — exactly the danger `plan-v0.1-pending.md`'s P-19 entry warns about) |
+| `row-13-non-eu-b2b-service` (+ credit-note)      | 13 (CONTESTED)              | ok, **G** (spec: must refuse)                     | error, `UnsupportedCountryError` | **P-16**, most severe form (build) / **P-13** (profile) → T-069 / T-066                                                                                                                                                                                                                                                                                             |
+| `reject-seller-not-de`                           | mandatory rejection         | error, `TaxRuleError` — **works correctly today** | ok, EN16931                      | — (proves the one guard that's already right)                                                                                                                                                                                                                                                                                                                       |
+| `mixed-basket-domestic`                          | policy cell, no single row  | ok, S — **genuinely correct**                     | ok, EN16931                      | — (regression guard for a future cross-border-mixed guard, T-133/P-28 gap 4a)                                                                                                                                                                                                                                                                                       |
+| `mixed-basket-cross-border`                      | policy cell, no single row  | n/a — unconstructible                             | n/a                              | blocked on a full P-16 fix (per-line `supplyType`) — T-133/P-28 gap 4a                                                                                                                                                                                                                                                                                              |
 
 `row-03`/`row-05`/`row-07` each double as their table's namesake mandatory rejection ("K without evidence",
 "AE without override", "OSS without `ossRateOverride`") — the adapter has no field to supply evidence,
@@ -83,10 +84,10 @@ construct today: a mixed goods/service basket domestically is, correctly, uncond
 
 Both queued in `ecom docs/plan-v0.1-pending.md`, drafted as part of T-117, not fixed here:
 
-- **P-25** — `delivery` (BG-13) is never mapped by `mapOrderToCommerceInvoiceInput`/`MapOrderOptions` at
-  all. Even after P-12/P-13 land, a real K-category order would still fail `buildInvoice`'s existing
-  `MissingDeliveryInfoForIntraCommunitySupplyError` guard (`BR-IC-11`/`BR-IC-12`). Not directly observable
-  today — P-13 masks everything before it would matter — documented on `row-03`'s `scenario.md`.
+- **P-25** — ✅ fixed by **T-079** (2026-09-17): `mapOrderToCommerceInvoiceInput` now maps `delivery`
+  (BG-13) from `shipping_address`, falling back to `billing_address`. Was: never mapped at all, so even
+  after P-12/P-13 landed, a real K-category order would still have failed `buildInvoice`'s existing
+  `MissingDeliveryInfoForIntraCommunitySupplyError` guard (`BR-IC-11`/`BR-IC-12`).
 - **P-26** — `taxContext.ossRegistered` is a hardcoded `false` constant, not sourced from config or order
   data — a merchant has no way to declare OSS registration at all. Documented on `row-07`'s `scenario.md`.
 
@@ -134,3 +135,45 @@ A review of the first real run (P-28) found four gaps, closed here:
    two shipments" is not, today, a working escape hatch for a mixed-category cross-border order; an error
    message must not promise it until a real per-fulfillment split exists. Queued as **P-30**
    (`ecom docs/plan-v0.1-pending.md`).
+
+## T-079 follow-up (2026-09-17): P-12/P-25/P-19 closed, `row-03` reaches category K for real
+
+`row-03-intra-eu-goods`'s own `scenario.md` documented a three-bugs-deep masking chain — P-13 (profile) masks
+P-12 (no VIES evidence path), which masks P-25 (`delivery` never mapped), which masks P-19 (no `BR-IC-02`
+guard) — and named this exact cell going green on re-run as T-079's acceptance criterion. All three build-axis
+blockers are now closed:
+
+- **P-12**: `EinvoiceModuleOptions.vatIdVerifier` (new, optional field); both subscribers call `.verify()`
+  before `buildInvoice` and pass the result as `vatIdEvidence` (ADR-003 — I/O stays outside `buildInvoice`).
+- **P-25**: `mapOrderToCommerceInvoiceInput` now maps `delivery` (BG-13) from `shipping_address`, falling
+  back to the same address `resolveBuyerAddress` already falls back to; `actualDeliveryDate` uses the
+  invoice's own `issueDate` (a deliberate simplification, documented in the mapper's own doc comment — not a
+  guessed-at new Medusa query field).
+- **P-19**: `build-invoice.ts` gained `MissingBuyerVatIdError` (`BR-IC-02`, category K) and
+  `MissingBuyerIdentifierForReverseChargeError` (`BR-AE-02`, category AE), next to the pre-existing
+  `BR-IC-11`/`BR-IC-12` delivery guard.
+
+The harness itself needed one real extension to prove any of this: `run-cell.ts`/`load-cells.ts`/`types.ts`
+had no way to give a cell scripted VAT-ID evidence at all (`deps.buildInvoice(input)` took no options).
+Added an optional `vat-id-evidence.json` per cell directory, same pattern `select-profile-options.json`
+already established.
+
+`row-03-intra-eu-goods` (+ credit-note) now scripts a positive VIES check and goes **ok, K** on the build
+axis — genuinely, through the real, unmocked adapter, not asserted by relaxing the fixture. Its own
+`scenario.md` doc comment about "no synthetic order shape could reach K with evidence, so a separate
+rejection fixture would be redundant" stopped being true the moment K became reachable — split into a new
+`row-03-intra-eu-goods-no-vat-id-evidence` cell, which keeps proving the "K without evidence" mandatory
+rejection `decideVatCategory` still enforces by design.
+
+**Deliberately not touched: `row-12-eu-b2b-service`.** It stays red with the exact same `TaxRuleError` as
+before — not because P-12's fix doesn't apply, but because scripting evidence for it _before_ T-069 fixes
+`supplyType` would make this service order silently resolve to category K instead of AE (the P-16 danger
+`plan-v0.1-pending.md`'s P-19 entry names explicitly: "a fix to one bug opening a different one, catchable
+only by fixing both together"). Correctly staying on the current, safe error until T-069 lands.
+
+Regression: `pnpm --filter @normwerk/einvoice-commerce test` (77 tests, including new `BR-IC-02`/`BR-AE-02`
+unit tests) and `pnpm --filter @normwerk/einvoice-medusa test` (111 tests, up from 109 — the new negative
+fixture) both green; `pnpm typecheck`/`pnpm lint`/`pnpm format` clean. `pnpm conformance:tax-matrix` (real
+Docker KoSIT) confirms this isn't just internally consistent: `row-03-intra-eu-goods` and its credit-note
+twin now join the "validated" set and both genuinely pass the real validator, 3x deterministically (19/19
+validated cells pass) — the K-category XML this task makes reachable really is KoSIT-valid.

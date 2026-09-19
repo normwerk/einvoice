@@ -26,7 +26,11 @@
 // two real Medusa plugins, the official create-medusa-app --plugin scaffold and @webbers/invoices-medusa,
 // neither sets it). A type-only import across that boundary needs an explicit resolution-mode (TS 5.3+),
 // not a real cross-module runtime concern since these are erased at compile time anyway.
-import type { CommerceParty, EInvoiceProfileName } from "@normwerk/einvoice-commerce" with {
+import type {
+  CommerceParty,
+  EInvoiceProfileName,
+  VatIdVerifier,
+} from "@normwerk/einvoice-commerce" with {
   "resolution-mode": "import",
 };
 import type { Invoice, PaymentMeansCode } from "@normwerk/einvoice-model" with {
@@ -107,6 +111,17 @@ export interface EinvoiceModuleOptions {
       invoice: Invoice,
     ) => Promise<Uint8Array | undefined> | Uint8Array | undefined;
   };
+  /**
+   * T-079/P-12: the one thing standing between this plugin and category K (intra-EU supply) —
+   * `buildInvoice` (`@normwerk/einvoice-commerce`) refuses that category without a positive VIES check, and
+   * `VatIdVerifier` (public API since T-061) had no way in until this option. Both subscribers call
+   * `.verify()` themselves before `buildInvoice` (ADR-003: I/O happens before that call, never inside it)
+   * and pass the result on as `vatIdEvidence`. Omitted (the default) keeps today's behavior unchanged —
+   * category K stays unreachable, the same honest v0.1 default `@normwerk/einvoice-commerce` itself
+   * documents (a real VIES-backed implementation is deferred to v0.2); this is not a misconfiguration
+   * `assertValidOptions` needs to reject, the same way `integration`/`standalone` above aren't either.
+   */
+  readonly vatIdVerifier?: VatIdVerifier;
 }
 
 export class InvalidEinvoiceModuleOptionsError extends Error {
