@@ -1,32 +1,42 @@
-# mixed-basket-cross-border (documentation only, no runnable fixture)
+# mixed-basket-cross-border
 
-Not tied to a single `docs/tax-semantics.md` row. Added by T-133 (P-28 gap 4a) to give the gap its own
-matrix entry — T-117's original README already noted, in prose, that a `supplyType: "mixed"`
-mandatory-rejection cell was "similarly impossible to construct"; this entry formalizes that as a proper,
-visible cell (like `row-11-corrected-invoice-384`) instead of leaving it only in a paragraph.
+Not tied to a single `docs/tax-semantics.md` row — a policy cell added by T-133 (P-28 gap 4a), pairing with
+`mixed-basket-domestic`. Documentation-only until T-069: there was no way to even express "this order is
+mixed" through the real adapter — `TaxContext.supplyType` was hardcoded `"goods"` by the mapper and never
+read by `decideVatCategory` at all (P-16), so no synthetic order could demonstrate the refusal live.
 
-**The scenario a fixture would need.** DE seller → another EU-state B2B buyer, one order carrying both a
-goods line (→ category K, intra-EU supply) and a service line (→ category AE, intra-EU reverse charge) —
-two different categories on one cross-border invoice. Per the founder-level decision on this question
-(`ecom docs/my-tasks.md`, M-037 variant г): a _domestic_ mixed basket (`mixed-basket-domestic`, this cell's
-pair) must stay green — mixing goods and services is not itself the problem — but a _cross-border_ order
-that actually needs two different categories on one document has no single correct EN 16931 category to
-assign the invoice as a whole, and must refuse rather than silently pick one (the same way row 13 must
-refuse rather than default to G).
+**The scenario.** DE seller → FR B2B buyer, one order carrying both a goods line (Widget, dispatched to FR
+— would resolve to category K on its own) and a service line (Setup consulting — would resolve to AE/refusal
+on its own, `row-12`). Two different categories genuinely apply to two different lines of one cross-border
+invoice, and `decideVatCategory` resolves exactly one category per document (its own doc comment) — so there
+is no single correct EN 16931 category for the document as a whole, and the code must refuse rather than
+silently pick one line's category for the entire invoice (the same principle row 13 already follows for a
+different reason).
 
-**Why there is no `order.json`.** `decideVatCategory` resolves exactly one category for the _whole_
-transaction (its own doc comment: "the whole commercial transaction... row 9 is not a separate regime, it's
-two lines both resolving to category S" — categories are never mixed within one decision), and
-`TaxContext.supplyType` is a single value for the whole order, hardcoded `"goods"` by the mapper and never
-read by `decideVatCategory` at all (P-16). There is no field anywhere in `MedusaOrderForInvoice` /
-`MapOrderOptions` / `TaxContext` that could even express "this order needs two categories" or "this order is
-mixed" — not a missing override (like rows 5/6/8's P-14), a missing _concept_. No synthetic order could
-attempt this rejection through the real adapter today, the same reason `row-11` has no `order.json`.
+**What made this constructible.** T-069 gave the mapper a real way to derive `supplyType` per line
+(`items[].requires_shipping`, this file's own doc comment on the real, verified Medusa field) and aggregate
+it to the one whole-order value `decideVatCategory` consumes: all-goods → `"goods"`, all-services →
+`"services"`, both present → `"mixed"`. This order's two lines (one `requires_shipping` unset/true, one
+`false`) aggregate to `"mixed"` — the first synthetic order in this matrix able to express that at all.
 
-**What would make this constructible.** A full P-16 fix that threads real per-line `supplyType` from Medusa
-order data through to a per-line-aware tax decision (not just a single whole-order `TaxContext.supplyType`
-value) — a materially bigger change than P-14's "add a `regimeOverride` field", tracked separately, not
-scoped to this fixture-only task.
+**Why refusal, not per-line category resolution.** True per-line category assignment (`docs/tax-semantics
+.md`'s "variant в") is explicitly deferred (D-50 point 6, M-037) until M-006's C-1 resolves — a materially
+bigger change (per-line `TaxDecision`s, `BuildResult.decisions` carrying more than one, CII serialization
+emitting multiple `ram:ApplicableTradeTax` groups) than this task's scope. `MixedSupplyCrossBorderError`
+(not generic `TaxRuleError` — D-50 point 3, so a caller can catch this specific, actionable refusal) is the
+honest interim behaviour: refuse cleanly rather than guess, same spirit as row 13.
 
-Bucket: **blocked on a full P-16 fix** (supplyType is a whole-order value today, not per-line). No known bug
-beyond P-16 itself — this cell can't demonstrate one live.
+**What the refusal text does not promise.** Not a fulfillment split — `invoice-on-fulfillment-created
+.split-fulfillments.test.ts` (T-133, P-30) already proved the real subscriber maps the _whole_ order on
+every `order.fulfillment_created` event, so "ship these separately" is not, today, a working escape hatch.
+The message instead names two real outs: two separate invoices (one per supply type), or tagging the line
+`"goods"` if the service is genuinely ancillary to it — a single Werklieferung (§3 Abs. 7 UStG), a question
+of fact for M-006, not something this code can determine on its own (the same doctrine `row-08`'s own
+`scenario.md` cites for its photovoltaic-installation example).
+
+- **Build axis**: expected **error**, `MixedSupplyCrossBorderError`.
+- **Profile axis**: buyer country FR ≠ DE — expected **error**, `UnsupportedCountryError`. Known bug
+  **P-13**, masking the above in the real production call order (would fire first, before `buildInvoice` is
+  ever reached).
+
+Known bugs: **P-13** (profile axis only — the build axis is spec-correct refusal, not a bug).

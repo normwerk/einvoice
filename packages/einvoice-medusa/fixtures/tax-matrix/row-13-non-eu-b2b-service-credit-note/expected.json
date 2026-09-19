@@ -1,11 +1,15 @@
 {
   "specRow": "row-13",
   "specRequiresRefusal": true,
-  "build": { "kind": "ok", "category": "G" },
+  "build": {
+    "kind": "error",
+    "errorClass": "TaxRuleError",
+    "messageIncludes": "CONTESTED"
+  },
   "profile": {
     "kind": "error",
     "errorClass": "UnsupportedCountryError",
     "messageIncludes": "buyer country \"US\" is not yet supported"
   },
-  "knownBugs": ["P-16", "P-13"]
+  "knownBugs": ["P-13"]
 }

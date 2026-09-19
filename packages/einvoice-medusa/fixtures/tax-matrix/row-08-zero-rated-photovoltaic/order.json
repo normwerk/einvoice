@@ -3,6 +3,7 @@
   "display_id": 1011,
   "email": "buyer@example.test",
   "currency_code": "eur",
+  "metadata": { "regime_override": { "kind": "zero-rated" } },
   "customer": {
     "company_name": "Solartechnik Muster GmbH",
     "email": "buyer@example.test"

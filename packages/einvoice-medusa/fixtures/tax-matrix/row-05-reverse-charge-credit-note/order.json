@@ -3,9 +3,11 @@
   "display_id": 1007,
   "email": "buyer@example.test",
   "currency_code": "eur",
+  "metadata": { "regime_override": { "kind": "reverse-charge" } },
   "customer": {
     "company_name": "Bau GmbH",
-    "email": "buyer@example.test"
+    "email": "buyer@example.test",
+    "metadata": { "vat_id": "DE987654321" }
   },
   "billing_address": {
     "country_code": "de",
@@ -22,7 +24,8 @@
       "unit_price": 1000,
       "is_tax_inclusive": false,
       "tax_lines": [{ "rate": 19 }],
-      "detail": { "quantity": 1 }
+      "detail": { "quantity": 1 },
+      "requires_shipping": false
     }
   ]
 }

@@ -30,7 +30,11 @@
  * reduced VAT rates) in as plain string parameters rather than this file importing
  * `DE_STANDARD_RATE`/`DE_REDUCED_RATE` as values itself.
  */
-import type { CommerceInvoiceInput, CommerceParty } from "@normwerk/einvoice-commerce" with {
+import type {
+  CommerceInvoiceInput,
+  CommerceParty,
+  RegimeOverride,
+} from "@normwerk/einvoice-commerce" with {
   "resolution-mode": "import",
 };
 import type {
@@ -47,6 +51,7 @@ export const ORDER_QUERY_FIELDS = [
   "display_id",
   "email",
   "currency_code",
+  "metadata",
   "customer.company_name",
   "customer.first_name",
   "customer.last_name",
@@ -68,6 +73,7 @@ export const ORDER_QUERY_FIELDS = [
   "items.is_tax_inclusive",
   "items.tax_lines.rate",
   "items.detail.quantity",
+  "items.requires_shipping",
 ] as const;
 
 export interface MedusaOrderAddress {
@@ -100,6 +106,12 @@ export interface MedusaOrderLineItem {
   /** The linked `OrderItem` row — real quantity lives here, not on the line item itself (see this file's
    * own doc comment). */
   readonly detail?: { readonly quantity: number | string } | null;
+  /** T-069/D-50 point 4: a real, first-class column on `@medusajs/order`'s own `OrderLineItem` model
+   * (checked directly against `node_modules/@medusajs/order/dist/types/line-item.d.ts`, the same tier of
+   * field as `is_tax_inclusive`/`unit_price` above — not a wildcard relation path this file's own doc
+   * comment warns query.graph can silently drop). The one signal this mapping derives `supplyType` from:
+   * `false` means a virtual/non-shippable line (a service), everything else (`true` or missing) is goods. */
+  readonly requires_shipping?: boolean | null;
 }
 
 export interface MedusaOrderForInvoice {
@@ -107,6 +119,10 @@ export interface MedusaOrderForInvoice {
   readonly display_id: number;
   readonly email?: string | null;
   readonly currency_code: string;
+  /** T-069/P-14: order-level facts a merchant declares explicitly, e.g. `regime_override` below — distinct
+   * from `customer.metadata`, which is a fact about the *customer* and would otherwise wrongly apply to
+   * every order they ever place. */
+  readonly metadata?: Record<string, unknown> | null;
   readonly customer?: MedusaOrderCustomer | null;
   readonly shipping_address?: MedusaOrderAddress | null;
   readonly billing_address?: MedusaOrderAddress | null;
@@ -233,6 +249,49 @@ function resolveDeliveryAddress(
   return buyerAddress;
 }
 
+/**
+ * T-069/P-14: `order.metadata.regime_override` — this plugin's own convention (mirrors
+ * `customer.metadata.vat_id`/`buyer_reference`'s existing tier, `docs/mapping-reference-medusa.md`), on
+ * `order.metadata` rather than `customer.metadata` because a reverse-charge/exemption/zero-rated call is a
+ * legal judgment about *this transaction*, not a standing fact about the customer that should silently
+ * apply to their every future order. Medusa's `metadata` column is `jsonb` (arbitrary nested JSON, not the
+ * flat string-only bag some other platforms restrict metadata to), so the value is carried straight
+ * through as the same `RegimeOverride` shape `@normwerk/einvoice-commerce` already defines — no bespoke
+ * re-encoding. Not runtime-validated here: a malformed value is caught downstream by `buildInvoice`'s own
+ * structural gate (`validateCommerceInvoiceInput`, T-060), the same trust boundary `vat_id`/`buyer_reference`
+ * already rely on.
+ */
+function resolveRegimeOverride(order: MedusaOrderForInvoice): RegimeOverride | undefined {
+  return (order.metadata?.["regime_override"] as RegimeOverride | undefined) ?? undefined;
+}
+
+/**
+ * T-069/P-16/P-20/D-50 point 4: per-line supply type derived from `requires_shipping` (this file's own
+ * doc comment on `MedusaOrderLineItem.requires_shipping` has the real-field verification) — `false` means a
+ * virtual/non-shippable line (a service), everything else (`true` or missing) is goods. No manual per-line
+ * override field is read here on purpose: research behind D-50 found a mandatory manual field is the one
+ * thing merchants reliably forget to fill in.
+ */
+function resolveLineSupplyType(item: MedusaOrderLineItem): "goods" | "services" {
+  return item.requires_shipping === false ? "services" : "goods";
+}
+
+/**
+ * Aggregates every line's derived supply type into the one whole-order `TaxContext.supplyType` value
+ * `decideVatCategory` consumes today — true per-line category resolution is deliberately out of scope (see
+ * `CommerceLine.supplyType`'s own doc comment); each line's own kind is still carried on
+ * `CommerceLine.supplyType` (below) so that future change has a real signal to build on.
+ */
+function resolveOrderSupplyType(
+  items: readonly MedusaOrderLineItem[],
+): "goods" | "services" | "mixed" {
+  const kinds = new Set(items.map(resolveLineSupplyType));
+  if (kinds.size > 1) {
+    return "mixed";
+  }
+  return kinds.has("services") ? "services" : "goods";
+}
+
 function resolveBuyerName(order: MedusaOrderForInvoice): string {
   const customer = order.customer;
   if (customer?.company_name) {
@@ -306,6 +365,7 @@ export function mapOrderToCommerceInvoiceInput(
       netPrice: computeNetUnitPrice(item),
       itemName: item.title,
       taxRateKind: inferTaxRateKind(item, options.deRates),
+      supplyType: resolveLineSupplyType(item),
     })),
     references: { buyerReference },
     payment: options.payment,
@@ -330,13 +390,12 @@ export function mapOrderToCommerceInvoiceInput(
       buyerCountry,
       buyerVatId,
       buyerIsBusiness: Boolean(order.customer?.company_name),
-      // Neither OSS registration nor supply type (goods vs. services) has a source on a Medusa order by
-      // default — "goods" and "not OSS-registered" are this mapping's honest defaults for v0.1's DE
-      // domestic/B2B scope, not a claim about every merchant using this plugin; a services-only or
-      // OSS-registered merchant needs a real extension point this task doesn't add (out of scope, not
-      // silently guessed at).
+      // OSS registration has no source on a Medusa order or this plugin's config yet (P-26, not this
+      // task's scope — todo.md's T-069 only names P-14/P-16/P-20) — "not OSS-registered" stays this
+      // mapping's honest default rather than a claim about every merchant using this plugin.
       ossRegistered: false,
-      supplyType: "goods",
+      supplyType: resolveOrderSupplyType(order.items),
+      regimeOverride: resolveRegimeOverride(order),
     },
   };
 }

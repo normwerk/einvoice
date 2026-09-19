@@ -30,7 +30,8 @@
       "unit_price": 150,
       "is_tax_inclusive": false,
       "tax_lines": [{ "rate": 19 }],
-      "detail": { "quantity": 1 }
+      "detail": { "quantity": 1 },
+      "requires_shipping": false
     }
   ]
 }

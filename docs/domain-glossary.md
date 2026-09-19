@@ -491,3 +491,15 @@ integrations` itself states the list "is curated from npm," and its own visible 
   etc.) are plausibly curated/assigned by Medusa's own team for well-known brands, not something a
   `package.json` field controls. Real, honest finding: plan-v0.1's own "иконка" (icon) as a T-076 metadata
   deliverable does not correspond to any confirmed real mechanism — not invented here, flagged instead.
+
+### T-069 (`regimeOverride`/`supplyType` wired through the adapter, W12)
+
+- **`OrderLineItem.requires_shipping` is a real, first-class boolean on `@medusajs/order`'s own line-item
+  model** — confirmed directly against `node_modules/@medusajs/order/dist/types/line-item.d.ts` (the
+  compiled package this monorepo actually depends on, not documentation or assumption), the same tier as
+  `is_tax_inclusive`/`unit_price` (T-071's own already-documented findings above), not a wildcard relation
+  path this section's T-070 entry already warns `query.graph` can silently drop. This is the one signal
+  `mapOrderToCommerceInvoiceInput` derives `supplyType` from (`false` → a service line): a production-grade
+  verification would still confirm it against a real running instance the way T-070 did for `ORDER_QUERY_FIELDS`
+  generally, but the type-level check is strong enough evidence for a first-class model column, not a
+  computed/admin-only field, to build on without that heavier step.

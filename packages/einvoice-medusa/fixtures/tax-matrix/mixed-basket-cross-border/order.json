@@ -1,6 +1,6 @@
 {
-  "id": "order_tax_matrix_12_refund",
-  "display_id": 1010,
+  "id": "order_tax_matrix_mixed_basket_cross_border",
+  "display_id": 1017,
   "email": "buyer@example.test",
   "currency_code": "eur",
   "customer": {
@@ -18,9 +18,17 @@
   "shipping_address": null,
   "items": [
     {
-      "title": "Consulting service (cross-border B2B)",
-      "variant_sku": "SVC-CONSULT-1",
-      "unit_price": 500,
+      "title": "Widget (goods, dispatched to FR)",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 0 }],
+      "detail": { "quantity": 2 }
+    },
+    {
+      "title": "Setup consulting (service)",
+      "variant_sku": "SVC-SETUP-1",
+      "unit_price": 150,
       "is_tax_inclusive": false,
       "tax_lines": [{ "rate": 0 }],
       "detail": { "quantity": 1 },

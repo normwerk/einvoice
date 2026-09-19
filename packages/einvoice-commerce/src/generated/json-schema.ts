@@ -797,6 +797,13 @@ export const commerceInvoiceInputJsonSchema = {
             "reduced"
           ]
         },
+        "supplyType": {
+          "type": "string",
+          "enum": [
+            "goods",
+            "services"
+          ]
+        },
         "hsCode": {
           "type": "string"
         },

@@ -12,7 +12,7 @@
  * or regime logic for a jurisdiction this table was never reviewed against.
  */
 import type { CountryCode } from "@normwerk/einvoice-model";
-import type { TaxContext, TaxDecision, VatIdEvidence } from "./types.js";
+import type { TaxContext, TaxDecision, TaxDecisionScope, VatIdEvidence } from "./types.js";
 
 /** UStG §12 Abs. 1 — docs/tax-semantics.md row 1. */
 export const DE_STANDARD_RATE = "19";
@@ -67,6 +67,26 @@ export class TaxRuleError extends Error {
   }
 }
 
+/** T-069/D-50 point 3: a cross-border order with `supplyType: "mixed"` has no single correct category for
+ * the whole document — its own distinct class (not generic `TaxRuleError`) so a caller can catch this
+ * specific, expected-and-actionable refusal instead of pattern-matching message text, which would break
+ * the moment the message wording changes. */
+export class MixedSupplyCrossBorderError extends Error {
+  constructor(readonly ruleId: string) {
+    super(
+      'A cross-border order with supplyType "mixed" (goods and services on one document) has no single ' +
+        "correct EN 16931 category — decideVatCategory resolves exactly one category per document " +
+        "(docs/tax-semantics.md's own rule; row 9's mixed rates are still one category, S, just two rates). " +
+        'Two real outs: issue two separate invoices, one per supply type; or tag the line "goods" if the ' +
+        "service is genuinely ancillary to it (a single Werklieferung, §3 Abs. 7 UStG — a question of fact, " +
+        "M-006). This is not a fulfillment split — a real per-fulfillment split does not exist (P-30).",
+    );
+    this.name = "MixedSupplyCrossBorderError";
+  }
+}
+
+const DOCUMENT_SCOPE: TaxDecisionScope = { kind: "document" };
+
 const REVERSE_CHARGE_DEFAULT_TEXT =
   "Steuerschuldnerschaft des Leistungsempfängers (§13b UStG) / Reverse charge";
 
@@ -103,6 +123,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
         "Explicit zero-rated override (regimeOverride.kind === 'zero-rated') — rare in DE; kept for " +
         "code-coverage completeness (docs/tax-semantics.md row 8). No BT-120/121 exemption text is " +
         "attached: BR-Z-10 forbids one on a Z line.",
+      scope: DOCUMENT_SCOPE,
     };
   }
 
@@ -115,6 +136,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       exemptionReasonText: override.reasonText,
       exemptionReasonCode: override.reasonCode,
       reasoning: `Explicit exempt override (UStG §4, case-by-case): ${override.reasonText}`,
+      scope: DOCUMENT_SCOPE,
     };
   }
 
@@ -140,19 +162,51 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       exemptionReasonCode: "VATEX-EU-AE",
       exemptionReasonText: override.reasonText ?? REVERSE_CHARGE_DEFAULT_TEXT,
       reasoning: "Domestic B2B reverse-charge service (§13b UStG), explicit override.",
+      scope: DOCUMENT_SCOPE,
     };
   }
 
   const buyerIsEu = EU_MEMBER_STATES.has(context.buyerCountry);
+  const isCrossBorder = context.buyerCountry !== context.sellerCountry;
 
-  // Row 3: intra-EU supply — needs either a positive VIES check or an explicit manual-confirmation
-  // override (D-19: "не выбираются без положительной проверки или явного override").
+  // T-069/D-50 point 3: a cross-border order mixing goods and services has no single correct category —
+  // checked ahead of every country-specific branch below, since it's a blanket rule regardless of whether
+  // the buyer is in the EU or not (a domestic mixed basket is fine — D-50 point 2 — so this only fires
+  // cross-border).
+  if (isCrossBorder && context.supplyType === "mixed") {
+    throw new MixedSupplyCrossBorderError("tax-semantics#mixed-cross-border");
+  }
+
+  // Row 12: DE→EU B2B service. The category itself is settled (AE, §3a Abs. 2 UStG; Art. 44+196 VAT
+  // Directive) — but docs/tax-semantics.md row 12 is explicit that no official artifact confirms a real
+  // validator accepts it, and the code must refuse, not guess, until M-006 clears it. Checked ahead of row
+  // 3 (K) so a service no longer falls into the goods-only intra-EU branch (P-16/P-20).
   if (
     context.sellerCountry === "DE" &&
     buyerIsEu &&
     context.buyerCountry !== "DE" &&
     context.buyerIsBusiness &&
-    context.buyerVatId !== undefined
+    context.supplyType === "services"
+  ) {
+    throw new TaxRuleError(
+      `DE→EU B2B service to ${context.buyerCountry} (docs/tax-semantics.md row 12) has a settled category ` +
+        `(AE) but no official artifact example confirms a real validator accepts it — refusing rather than ` +
+        `guessing until M-006 (paid legal/artifact review) clears it, per that row's own documented rule.`,
+      "tax-semantics#12",
+    );
+  }
+
+  // Row 3: intra-EU supply of goods — needs either a positive VIES check or an explicit manual-confirmation
+  // override (D-19: "не выбираются без положительной проверки или явного override"). `supplyType !==
+  // "services"` is defensive (row 12 above already intercepts every EU-B2B-service case that would reach
+  // here) rather than load-bearing on its own.
+  if (
+    context.sellerCountry === "DE" &&
+    buyerIsEu &&
+    context.buyerCountry !== "DE" &&
+    context.buyerIsBusiness &&
+    context.buyerVatId !== undefined &&
+    context.supplyType !== "services"
   ) {
     if (vatIdEvidence?.status === "valid") {
       return {
@@ -162,6 +216,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
         exemptionReasonText:
           "Innergemeinschaftliche Lieferung (§4 Nr. 1b, §6a UStG) / Intra-Community supply",
         reasoning: `Buyer VAT-ID ${context.buyerVatId} confirmed valid by VIES (consultation ${vatIdEvidence.consultationNumber ?? "n/a"}, checked ${vatIdEvidence.checkedAt}).`,
+        scope: DOCUMENT_SCOPE,
       };
     }
     if (override?.kind === "intra-eu-confirmed") {
@@ -172,6 +227,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
         exemptionReasonText:
           "Innergemeinschaftliche Lieferung (§4 Nr. 1b, §6a UStG) / Intra-Community supply",
         reasoning: `VIES unavailable; manually confirmed — ${override.evidenceNote}`,
+        scope: DOCUMENT_SCOPE,
       };
     }
     throw new TaxRuleError(
@@ -183,14 +239,33 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     );
   }
 
-  // Row 4: export outside the EU.
-  if (context.sellerCountry === "DE" && !buyerIsEu) {
+  // Row 13: DE→non-EU B2B service — CONTESTED (docs/tax-semantics.md row 13: no artifact resolves AE / O /
+  // G, and EU Commission tax-code guidance explicitly disclaims Commission authority). Checked ahead of row
+  // 4 (G) so a service no longer silently falls into the export branch (P-16/P-20).
+  if (
+    context.sellerCountry === "DE" &&
+    !buyerIsEu &&
+    context.buyerIsBusiness &&
+    context.supplyType === "services"
+  ) {
+    throw new TaxRuleError(
+      `DE→non-EU B2B service to ${context.buyerCountry} (docs/tax-semantics.md row 13) is CONTESTED — no ` +
+        `artifact resolves whether this is AE, O, or G. Refusing rather than guessing; an explicit ` +
+        `regimeOverride is the only way to force a specific outcome, and none exists for this case yet — ` +
+        `pending M-006.`,
+      "tax-semantics#13",
+    );
+  }
+
+  // Row 4: export outside the EU. `supplyType !== "services"` excludes the case row 13 now owns.
+  if (context.sellerCountry === "DE" && !buyerIsEu && context.supplyType !== "services") {
     return {
       ruleId: "tax-semantics#4",
       categoryCode: "G",
       exemptionReasonCode: "VATEX-EU-G",
       exemptionReasonText: "Ausfuhrlieferung (§4 Nr. 1a, §6 UStG) / Export outside the EU",
       reasoning: `Buyer country ${context.buyerCountry} is outside the EU.`,
+      scope: DOCUMENT_SCOPE,
     };
   }
 
@@ -217,16 +292,20 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
         `OSS one-stop-shop distance sale; rate is buyer country ${context.buyerCountry}'s own, supplied via ` +
         `ossRateOverride (Art. 33 VAT Directive). Outside the German B2B/B2G mandate; rate supplied by the ` +
         `caller, see docs/tax-semantics.md row 7.`,
+      scope: DOCUMENT_SCOPE,
     };
   }
 
   // Row 1/2: domestic. Rate itself is resolved per line (resolveLineRate) since it can vary line-to-line
-  // (row 9, mixed rates) — this decision only fixes the category and cites the regime.
+  // (row 9, mixed rates) — this decision only fixes the category and cites the regime. `supplyType` is
+  // deliberately never consulted here (D-50 point 2): a domestic goods+service basket stays S regardless of
+  // composition — mixing is only a problem cross-border, where two different categories would collide.
   if (context.sellerCountry === "DE" && context.buyerCountry === "DE") {
     return {
       ruleId: "tax-semantics#1",
       categoryCode: "S",
       reasoning: "Domestic DE→DE supply, standard VAT regime (UStG §12).",
+      scope: DOCUMENT_SCOPE,
     };
   }
 

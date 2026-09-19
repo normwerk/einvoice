@@ -128,6 +128,14 @@ export interface CommerceLine {
    * throws rather than guessing a rate for a line that needs one and doesn't have it.
    */
   readonly taxRateKind?: "standard" | "reduced" | undefined;
+  /**
+   * T-069/D-50 point 6: forward-compatible groundwork, not yet consumed. `decideVatCategory` still reads
+   * only the single whole-order `TaxContext.supplyType` aggregate an adapter derives from all of a
+   * document's lines — true per-line category resolution (docs/tax-semantics.md's "variant в") is
+   * deliberately deferred until M-006's C-1 resolves, not scoped to this field's introduction. Present now
+   * so that a future change doesn't need a breaking `schemaVersion` bump to add it.
+   */
+  readonly supplyType?: "goods" | "services" | undefined;
   /** D-19/BT-158. Not yet mapped — see `CommerceInvoiceInput.customs`. */
   readonly hsCode?: string | undefined;
   /** D-19/BT-159. Not yet mapped — see `CommerceInvoiceInput.customs`. */
@@ -219,7 +227,20 @@ export interface TaxDecision {
   readonly exemptionReasonCode?: VatexCode | undefined;
   readonly exemptionReasonText?: string | undefined;
   readonly reasoning: string;
+  /**
+   * T-069/D-50 point 6: what this decision covers. Every decision `decideVatCategory` produces today is
+   * `{ kind: "document" }` — one category for the whole transaction, `BuildResult.decisions` carrying
+   * exactly one entry. Written as an extensible union (not a bare boolean/comment) so that a future
+   * per-line category resolution can add a `{ kind: "lines"; lineIdentifiers: readonly string[] }` variant
+   * additively — `decisions[0]` would otherwise silently start lying the moment more than one decision
+   * exists for a document, with nothing in the type forcing a caller to notice.
+   */
+  readonly scope: TaxDecisionScope;
 }
+
+export type TaxDecisionScope =
+  | { readonly kind: "document" }
+  | { readonly kind: "lines"; readonly lineIdentifiers: readonly string[] };
 
 export interface BuildWarning {
   readonly code: string;

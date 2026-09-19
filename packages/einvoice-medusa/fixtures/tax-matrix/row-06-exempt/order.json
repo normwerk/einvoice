@@ -3,6 +3,12 @@
   "display_id": 1008,
   "email": "buyer@example.test",
   "currency_code": "eur",
+  "metadata": {
+    "regime_override": {
+      "kind": "exempt",
+      "reasonText": "Steuerfreie Heilbehandlung gemäß §4 Nr. 14 UStG"
+    }
+  },
   "customer": {
     "company_name": "Praxis Beispiel",
     "email": "buyer@example.test"
@@ -22,7 +28,8 @@
       "unit_price": 200,
       "is_tax_inclusive": false,
       "tax_lines": [{ "rate": 0 }],
-      "detail": { "quantity": 1 }
+      "detail": { "quantity": 1 },
+      "requires_shipping": false
     }
   ]
 }

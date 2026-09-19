@@ -232,6 +232,65 @@ describe("mapOrderToCommerceInvoiceInput", () => {
     expect(input.references?.buyerReference).toBe("04011000-1234512345-06");
   });
 
+  it("reads order.metadata.regime_override — distinct from customer.metadata, a fact about this transaction", () => {
+    const order = baseOrder({
+      metadata: { regime_override: { kind: "reverse-charge", reasonText: "Custom reason" } },
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.taxContext.regimeOverride).toEqual({
+      kind: "reverse-charge",
+      reasonText: "Custom reason",
+    });
+  });
+
+  it("leaves regimeOverride unset when order.metadata has none", () => {
+    const input = mapOrderToCommerceInvoiceInput(baseOrder(), baseOptions());
+    expect(input.taxContext.regimeOverride).toBeUndefined();
+  });
+
+  it('derives supplyType per line from requires_shipping, and aggregates goods+services to "mixed"', () => {
+    const order = baseOrder({
+      items: [
+        {
+          title: "Widget",
+          unit_price: 100,
+          is_tax_inclusive: false,
+          tax_lines: [{ rate: 19 }],
+          detail: { quantity: 1 },
+        },
+        {
+          title: "Consulting",
+          unit_price: 50,
+          is_tax_inclusive: false,
+          tax_lines: [{ rate: 19 }],
+          detail: { quantity: 1 },
+          requires_shipping: false,
+        },
+      ],
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.lines[0]?.supplyType).toBe("goods");
+    expect(input.lines[1]?.supplyType).toBe("services");
+    expect(input.taxContext.supplyType).toBe("mixed");
+  });
+
+  it('aggregates an all-services order to supplyType "services"', () => {
+    const order = baseOrder({
+      items: [
+        {
+          title: "Consulting",
+          unit_price: 50,
+          is_tax_inclusive: false,
+          tax_lines: [{ rate: 19 }],
+          detail: { quantity: 1 },
+          requires_shipping: false,
+        },
+      ],
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.taxContext.supplyType).toBe("services");
+  });
+
   it("carries document.correctedInvoice through for a credit note", () => {
     const input = mapOrderToCommerceInvoiceInput(
       baseOrder(),

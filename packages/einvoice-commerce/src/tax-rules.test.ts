@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   DE_REDUCED_RATE,
   DE_STANDARD_RATE,
+  MixedSupplyCrossBorderError,
   TaxRuleError,
   decideVatCategory,
   resolveLineRate,
@@ -59,6 +60,7 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
       exemptionReasonText:
         "Innergemeinschaftliche Lieferung (§4 Nr. 1b, §6a UStG) / Intra-Community supply",
       reasoning: expect.stringContaining("FR12345678901"),
+      scope: { kind: "document" },
     });
     expect(resolveLineRate(decision, context, undefined)).toBe("0");
   });
@@ -110,6 +112,7 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
       exemptionReasonCode: "VATEX-EU-G",
       exemptionReasonText: "Ausfuhrlieferung (§4 Nr. 1a, §6 UStG) / Export outside the EU",
       reasoning: expect.stringContaining("CH"),
+      scope: { kind: "document" },
     });
   });
 
@@ -123,6 +126,7 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
       exemptionReasonText:
         "Steuerschuldnerschaft des Leistungsempfängers (§13b UStG) / Reverse charge",
       reasoning: expect.any(String),
+      scope: { kind: "document" },
     });
     expect(resolveLineRate(decision, context, undefined)).toBe("0");
   });
@@ -196,5 +200,40 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
   it("refuses a seller outside v0.1 scope (Germany only)", () => {
     const context: TaxContext = { ...BASE, sellerCountry: "FR", sellerVatId: "FR12345678901" };
     expect(() => decideVatCategory(context)).toThrow(TaxRuleError);
+  });
+
+  it("row 12: DE → EU B2B service refuses pending M-006, even with a positive VIES check (settled category, no artifact)", () => {
+    const context: TaxContext = {
+      ...BASE,
+      buyerCountry: "FR",
+      buyerVatId: "FR12345678901",
+      supplyType: "services",
+    };
+    const evidence: VatIdEvidence = {
+      vatId: "FR12345678901",
+      status: "valid",
+      checkedAt: "2026-09-14",
+      consultationNumber: "ABC123",
+    };
+    expect(() => decideVatCategory(context, evidence)).toThrow(TaxRuleError);
+    expect(() => decideVatCategory(context, evidence)).toThrow(/M-006/);
+  });
+
+  it("row 13: DE → non-EU B2B service refuses as CONTESTED, not the export branch (P-16/P-20)", () => {
+    const context: TaxContext = { ...BASE, buyerCountry: "US", supplyType: "services" };
+    expect(() => decideVatCategory(context)).toThrow(TaxRuleError);
+    expect(() => decideVatCategory(context)).toThrow(/CONTESTED/);
+  });
+
+  it("cross-border + mixed supplyType refuses with a distinct error class, not generic TaxRuleError", () => {
+    const context: TaxContext = { ...BASE, buyerCountry: "FR", supplyType: "mixed" };
+    expect(() => decideVatCategory(context)).toThrow(MixedSupplyCrossBorderError);
+  });
+
+  it("a domestic order ignores supplyType entirely — mixed stays S, same as goods (D-50 point 2)", () => {
+    const context: TaxContext = { ...BASE, supplyType: "mixed" };
+    const decision = decideVatCategory(context);
+    expect(decision.categoryCode).toBe("S");
+    expect(decision.ruleId).toBe("tax-semantics#1");
   });
 });

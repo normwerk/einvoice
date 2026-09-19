@@ -2,25 +2,31 @@
 
 `docs/tax-semantics.md` row 12 — DE→FR B2B, service. Spec says category **AE** — but flags that no official
 artifact example exists for this case, so **the code must refuse pending M-006 (human/expert review), not
-guess AE by analogy with row 3**. Unlike row 13, the category itself is not in dispute — the research
-verdict is unambiguous (AE), only its _use_ is blocked pending artifact review — so `specCategory: "AE"` is
-recorded (T-133, P-28 gap 2): once P-12/P-13/P-16 are fixed and M-006 clears this row, whoever re-runs this
-cell knows exactly which category to expect, rather than having to re-derive it from prose. The
-correct build-axis outcome for now is still a refusal, not a resolved category — that's what `build` below
-asserts against the real, current adapter output.
+guess AE by analogy with row 3**. Recorded as `specCategory: "AE"` (T-133, P-28 gap 2) even though the build
+axis is a refusal: the research verdict is unambiguous, only its _use_ is blocked pending artifact review.
 
-The real, distinguishing bug here is **P-16**: `TaxContext.supplyType` is set by the mapper (hardcoded
-`"goods"`, per its own doc comment — this order is a service, but the adapter has no way to say so) and
-never read by `decideVatCategory` at all (confirmed by grep — zero matches outside its own type
-declaration). A service line is therefore processed _identically_ to a goods line: this order has an EU
-buyer with a VAT-ID, so it lands in exactly the same intra-EU (K) branch as `row-03-intra-eu-goods` and
-fails for the same immediate reason (P-12, no VAT-ID evidence path) — but the deeper, service-specific
-problem P-16 describes is that the code never even distinguished this from a goods sale in the first place,
-so fixing P-12 alone would make this cell wrongly resolve to **K**, not the AE the spec actually expects.
+**This cell proved P-16 live in two steps, on purpose (todo.md's own T-069 instruction), so the fix could be
+isolated from T-079's separate evidence fix:**
 
-- **Build axis**: expected **error**, `TaxRuleError` ("needs a positive VIES check") — same proximate cause
-  as row 3 (**P-12**), but the underlying, distinguishing defect is **P-16** (supplyType ignored).
+1. **De-confounding step, before any T-069 code change:** this cell had no `vat-id-evidence.json` and failed
+   with "needs a positive VIES check" — the same _text_ T-079 fixed on `row-03`, but here for a stale reason
+   (P-12 was already fixed; this cell just hadn't been given evidence). Adding `vat-id-evidence.json` made
+   the build axis go **`ok`, category `K`** — live, empirical proof that `supplyType` was being ignored
+   (P-16): a service order reached the goods-only intra-EU branch. `knownBugs` at that point: `["P-16"]`.
+2. **After T-069 wired `supplyType`** (derived from `items[].requires_shipping`, this order's line now has
+   `requires_shipping: false`): the K branch is now excluded for services, and a new row-12-specific branch
+   intercepts the case _before_ reaching K — refusing with a message naming `docs/tax-semantics.md` row 12's
+   own "no artifact, pending M-006" rule, the same decision the code already had to make deliberately (see
+   `todo.md`'s T-069 entry — auto-resolving to AE here was considered and rejected: the row's own written
+   instruction is "refuse", matching row 13's treatment, not a guess).
+
+The `vat-id-evidence.json` fixture file is deliberately kept even though it's no longer what decides this
+cell's outcome — it proves the refusal is because of M-006, not because of missing VIES evidence (the
+refusal fires _before_ `vatIdEvidence` is even consulted).
+
+- **Build axis**: expected **error**, `TaxRuleError` ("no official artifact example confirms a real
+  validator accepts it").
 - **Profile axis**: buyer country FR ≠ DE — expected **error**, `UnsupportedCountryError`. Known bug
-  **P-13**, masking everything above in the real production call order.
+  **P-13**, masking the (now correctly refusing) build axis in the real production call order.
 
-Known bugs: **P-16** (root cause), **P-12** (proximate cause), **P-13** (profile axis, masks both).
+Known bugs: **P-13** (profile axis only — the build axis is spec-correct refusal, not a bug).

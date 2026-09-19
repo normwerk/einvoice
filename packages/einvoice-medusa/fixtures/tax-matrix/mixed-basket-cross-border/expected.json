@@ -1,10 +1,8 @@
 {
-  "specRow": "row-12",
-  "specCategory": "AE",
   "build": {
     "kind": "error",
-    "errorClass": "TaxRuleError",
-    "messageIncludes": "no official artifact example confirms a real validator accepts it"
+    "errorClass": "MixedSupplyCrossBorderError",
+    "messageIncludes": "has no single correct EN 16931 category"
   },
   "profile": {
     "kind": "error",

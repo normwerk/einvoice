@@ -1,7 +1,9 @@
 # row-13-non-eu-b2b-service-credit-note
 
-Credit note pairing for `row-13-non-eu-b2b-service` — same silent-G fallthrough on a return, same recorded
-`specRequiresRefusal: true` (T-133, P-28 gap 1/2 — see that cell's `scenario.md` for why `build` still
-reads `ok, G` rather than an error).
+Credit note pairing for `row-13-non-eu-b2b-service` — same fix, same result. See that cell's `scenario.md`
+for the full history.
 
-Known bugs: **P-16** (build axis, most severe form), **P-13** (profile axis).
+- **Build axis**: expected **error**, `TaxRuleError` (CONTESTED, same message as `row-13-non-eu-b2b-service`).
+- **Profile axis**: expected **error**, `UnsupportedCountryError`.
+
+Known bugs: **P-13** (profile axis only).
