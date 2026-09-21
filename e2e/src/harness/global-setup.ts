@@ -1,15 +1,32 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { upBase, upMedusa, down, logs } from "./compose.js";
 import { publishToVerdaccio } from "./publish.js";
 
-const ARTIFACTS_DIR = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  ".artifacts",
-);
+const execFileAsync = promisify(execFile);
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const ARTIFACTS_DIR = path.join(HERE, "..", "..", ".artifacts");
+const REPO_ROOT = path.join(HERE, "..", "..", "..");
+const CONFORMANCE_COMPOSE_FILE = path.join(REPO_ROOT, "docker", "compose.conformance.yml");
+
+/** Builds the two validator images this suite's own `assert/conformance.ts` shells out to — never a second
+ * copy of the validators themselves (plan-e2e.md §3.3), just making sure the existing images exist before
+ * a scenario needs them. `mustang` is left out: no scenario in this pass uses it (S1's PDF check is
+ * veraPDF-only for now — Mustang byte-identical extraction is the fixture suite's own L5 round-trip job,
+ * `tools/conformance/roundtrip-mustang.mjs`, not duplicated here). */
+async function buildConformanceImages(): Promise<void> {
+  await execFileAsync(
+    "docker",
+    ["compose", "-f", CONFORMANCE_COMPOSE_FILE, "build", "kosit", "verapdf"],
+    {
+      maxBuffer: 64 * 1024 * 1024,
+    },
+  );
+}
 
 /**
  * Vitest's `globalSetup` — runs exactly once before any scenario file, in the main process (not per
@@ -23,7 +40,7 @@ const ARTIFACTS_DIR = path.join(
  */
 export default async function setup(): Promise<() => Promise<void>> {
   await upBase();
-  await publishToVerdaccio();
+  await Promise.all([publishToVerdaccio(), buildConformanceImages()]);
   await upMedusa();
 
   return async function teardown(): Promise<void> {

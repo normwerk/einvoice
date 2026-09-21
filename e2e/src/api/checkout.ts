@@ -1,0 +1,94 @@
+import { storePostJson } from "./store.js";
+
+export interface BuyerAddress {
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly addressLine1: string;
+  readonly city: string;
+  readonly postalCode: string;
+  readonly countryCode: string;
+  readonly company?: string;
+}
+
+export interface CheckoutInput {
+  readonly publishableKey: string;
+  readonly regionId: string;
+  readonly salesChannelId: string;
+  readonly variantId: string;
+  readonly shippingOptionId: string;
+  readonly email: string;
+  readonly address: BuyerAddress;
+  readonly quantity?: number;
+}
+
+export interface CheckoutResult {
+  readonly orderId: string;
+  readonly cartId: string;
+}
+
+function toStoreAddress(address: BuyerAddress): Record<string, string> {
+  return {
+    first_name: address.firstName,
+    last_name: address.lastName,
+    address_1: address.addressLine1,
+    city: address.city,
+    postal_code: address.postalCode,
+    country_code: address.countryCode,
+    ...(address.company === undefined ? {} : { company: address.company }),
+  };
+}
+
+/**
+ * A real, unauthenticated Store API checkout (guest — no customer registration), verified step by step
+ * against a real run: cart → email/addresses → shipping method → payment collection/session → complete.
+ * Every scenario that doesn't need a registered customer (S1; S2/S4 need one, for the VAT-ID metadata and
+ * for the Store API ownership check respectively — a separate, later entry point, not this one) goes
+ * through this same sequence, matching the plan's own "через Admin/Store HTTP API" (plan-e2e.md §4).
+ */
+export async function checkoutToOrder(input: CheckoutInput): Promise<CheckoutResult> {
+  const { publishableKey } = input;
+
+  const created = await storePostJson<{ readonly cart: { readonly id: string } }>(
+    publishableKey,
+    "/store/carts",
+    {
+      region_id: input.regionId,
+      sales_channel_id: input.salesChannelId,
+      items: [{ variant_id: input.variantId, quantity: input.quantity ?? 1 }],
+    },
+  );
+  const cartId = created.cart.id;
+
+  await storePostJson(publishableKey, `/store/carts/${cartId}`, {
+    email: input.email,
+    billing_address: toStoreAddress(input.address),
+    shipping_address: toStoreAddress(input.address),
+  });
+
+  await storePostJson(publishableKey, `/store/carts/${cartId}/shipping-methods`, {
+    option_id: input.shippingOptionId,
+  });
+
+  const paymentCollection = await storePostJson<{
+    readonly payment_collection: { readonly id: string };
+  }>(publishableKey, "/store/payment-collections", { cart_id: cartId });
+
+  await storePostJson(
+    publishableKey,
+    `/store/payment-collections/${paymentCollection.payment_collection.id}/payment-sessions`,
+    { provider_id: "pp_system_default" },
+  );
+
+  const completed = await storePostJson<{
+    readonly type: string;
+    readonly order?: { readonly id: string };
+    readonly error?: unknown;
+  }>(publishableKey, `/store/carts/${cartId}/complete`, undefined);
+  if (completed.type !== "order" || completed.order === undefined) {
+    throw new Error(
+      `checkoutToOrder: cart did not complete into an order: ${JSON.stringify(completed)}`,
+    );
+  }
+
+  return { orderId: completed.order.id, cartId };
+}
