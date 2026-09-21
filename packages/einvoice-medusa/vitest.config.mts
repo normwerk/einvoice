@@ -25,16 +25,20 @@ export default defineConfig({
         "src/api/middlewares.ts",
         //  - MikroORM schema migrations: generated/declarative, not logic to unit-test.
         "src/modules/einvoice/migrations/**",
+        //  - Type/interface-only file (T-117's tax-matrix harness) — no runtime statements to hit; v8
+        //    reports a type-only file as 0% covered, which is a reporting artifact, not a real gap.
+        "src/tax-matrix/types.ts",
       ],
       thresholds: {
         // Real, current floor for the code this config leaves in scope (`storage.ts`, `api/einvoice-http.ts`,
-        // `mapping/**`, `integrations/webbers.ts`, `modules/einvoice/**` minus migrations, `subscribers/**`)
-        // — not an aspirational number; today's actuals are ~87/86/90/86 (stmts/branch/funcs/lines), this
-        // sits a few points under each as a real floor, not a ceiling to stop at.
+        // `mapping/**`, `integrations/webbers.ts`, `modules/einvoice/**` minus migrations, `subscribers/**`,
+        // `tax-matrix/**` minus the type-only file above) — not an aspirational number; today's actuals are
+        // ~88/83/95/88 (stmts/branch/funcs/lines), this sits a few points under each as a real floor, not a
+        // ceiling to stop at.
         // `modules/einvoice/service.ts`'s own two DB-transaction-backed methods (`allocateNextNumber`,
         // `recordDocumentIfAbsent`'s `UniqueConstraintViolationException` path) stay under-covered at the
         // unit level for the same reason routes/migrations do — they need a real Postgres transaction,
-        // which is `docs/manual-testing.md`'s e2e harness's job, not vitest's.
+        // which is `docs/e2e.md`'s job (T-078), not vitest's.
         statements: 80,
         lines: 80,
         functions: 85,
