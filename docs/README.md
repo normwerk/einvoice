@@ -46,6 +46,14 @@ This is the spike C (T-044) slice: one file in, one machine-readable JSON report
 all conformance levels (`AGENTS.md` §8), all fixtures, differential oracles — is `einvoice-conformance`'s
 later scope (T-040).
 
+## End-to-end suite
+
+[`docs/e2e.md`](e2e.md) — `pnpm e2e` runs a real Medusa v2 store (installed from a disposable local
+registry, never workspace-linked) through a real order, checking the resulting e-invoice against the same
+KoSIT/veraPDF validators the fixture suite uses (T-078). Proves wiring — that a real order's data reaches
+the plugin and comes back out correctly — not tax semantics, which stays the fixture-driven tax-matrix's
+job.
+
 ## Fixtures
 
 [`fixtures/`](../fixtures/README.md) holds the base scenario fixtures (T-050): 6 DE VAT scenarios, each an
@@ -67,6 +75,8 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
   sources; what the validators do not catch. Not tax advice.
 - [`docs/test-cases.md`](test-cases.md) — test catalog by suite.
 - [`docs/manual-testing.md`](manual-testing.md) — scenarios that cannot be automated.
+- [`docs/e2e.md`](e2e.md) — `pnpm e2e`: a real Medusa v2 store, installed from a disposable registry, run
+  through a real order and checked against the real conformance validators (T-078).
 - [`docs/adr/`](adr/README.md) — architecture decision records (ADR-001…005, plan-v0.1 §3.3).
 - `docs/features/<feature>.md` — per-feature docs, added as features ship.
   - [`docs/features/einvoice-medusa.md`](features/einvoice-medusa.md) — File Module storage, the admin

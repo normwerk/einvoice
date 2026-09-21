@@ -117,6 +117,17 @@ is ever asserted from memory of a previous run; every task that touches serializ
 level for real (see `docs/domain-glossary.md` and the private planning log for the specific runs behind
 each "Validation successful"/"PASS" claimed in a commit message).
 
+## End-to-end suite (T-078)
+
+Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same completeness reason as the
+conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
+data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
+document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 7 files / 13 checks:
+S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), idempotency (event
+redelivery), Store API ownership, incomplete-config boot refusal, and tarball contents across all six
+published packages.
+
 ## CI wiring
 
 `.github/workflows/ci.yml` runs, across five jobs: the full vitest suite, the `node --test` tooling suite,
@@ -128,3 +139,8 @@ conformance jobs above (`conformance-fixtures`, `conformance-commerce`, `conform
 has not yet run on GitHub Actions itself — there is no GitHub remote configured for this repository yet
 (T-001, still `doing`) — every job listed here has been run and passed locally, on the same commands CI
 itself invokes, not merely written and assumed correct.
+
+`.github/workflows/e2e.yml` (T-078) runs the end-to-end suite above separately — nightly and on
+`workflow_dispatch`, not on every push/PR, since a full Docker Compose stand boot is minutes of work per
+run and the integration surface it covers changes slowly. Same "not yet run on GitHub Actions itself"
+caveat as `ci.yml` applies; run and passed locally against the same command (`pnpm e2e`).

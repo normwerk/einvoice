@@ -12,9 +12,18 @@ This file records the _procedure_, so it can be repeated the same way next time,
 
 ## `einvoice-medusa` end-to-end (T-070–T-075)
 
-Not automatable in CI today: needs a real Postgres, a real freshly-scaffolded Medusa v2 application, and
-(until the packages are published, T-076) `yalc` linking instead of a real `npm install`. The procedure,
-repeated identically across T-070 through T-075's own real runs:
+**Now automated — see [`docs/e2e.md`](e2e.md) (T-078).** `pnpm e2e` runs this same cart → order →
+fulfillment → refund → conformance-validator flow against a real Medusa v2 app in CI, with the plugin
+packages installed from a disposable local registry rather than `yalc`-linked. What's kept manual below is
+the historical record of the six real runs (T-070–T-075) that first established this exact procedure, before
+the automated version existed — not a claim that it still needs to be repeated by hand. The one thing T-078
+doesn't cover: installing from the _real_ npm registry specifically (its own registry is a local, disposable
+one) — that stays `docs/domain-glossary.md`'s own T-076 finding, re-checked once right before an actual
+release.
+
+Not automatable in CI _before T-078_: needed a real Postgres, a real freshly-scaffolded Medusa v2
+application, and (until the packages were published, T-076) `yalc` linking instead of a real `npm install`.
+The procedure, repeated identically across T-070 through T-075's own real runs:
 
 1. `docker run -d -e POSTGRES_PASSWORD=... -e POSTGRES_USER=... -e POSTGRES_DB=... -p <port>:5432 postgres:16-alpine`.
 2. Build and `yalc publish --private` every workspace package the plugin depends on
@@ -55,9 +64,10 @@ confirmed, not assumed) and the preview browser tool used has no "save frame to 
 
 ## Store API ownership check, with real accounts (T-074)
 
+**Now automated — see [`docs/e2e.md`](e2e.md) (T-078, `e2e/src/scenarios/store-ownership.test.ts`).**
 `customerOwnsOrder`'s own logic has no dedicated unit test (it's three lines wrapping a `query.graph` call —
-the real value is in the end-to-end behavior, not the logic in isolation). Verified against a real running
-instance with three real states: no bearer token at all (`401`), a different, genuinely registered customer
+the real value is in the end-to-end behavior, not the logic in isolation). `pnpm e2e` now checks all three
+real states on every run: no bearer token at all (`401`), a different, genuinely registered customer
 (real `POST /auth/customer/emailpass/register` + login, `404` — not `403`, so as not to confirm the order
 even exists to a non-owner), and the actual owning customer (`200`, byte-identical file, KoSIT-valid).
 

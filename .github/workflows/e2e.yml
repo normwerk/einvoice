@@ -1,0 +1,48 @@
+name: E2E
+
+# T-078 (plan-e2e.md §7): a real Docker Compose stand — Postgres, Redis, Verdaccio, and a full Medusa v2
+# boot — is minutes of work per run and the integration surface it covers (does a real order's data survive
+# the trip through a real Medusa instance) changes slowly. Not run on every push/PR like ci.yml; nightly
+# catches drift within a day, workflow_dispatch covers "run it now" (before a release, or to check a fix).
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+# Least-privilege default (AGENTS.md §7, same reasoning as ci.yml's own comment): this workflow only reads
+# the repo and runs containers locally, it never pushes anything.
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `fast` profile only (plan-e2e.md §9's own descope rung 1) — the `fresh` profile
+      # (`create-medusa-app@latest`) and a Medusa-version matrix are deferred, tracked separately, not run
+      # here yet. `pnpm e2e` itself builds the two conformance validator images (kosit, verapdf) it needs.
+      - run: pnpm e2e
+
+      # One run, one findable output (plan-e2e.md §5 rule 6) — written by the harness's own globalTeardown
+      # whether the run passed or failed.
+      - name: Upload stand logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: e2e/.artifacts/
+          retention-days: 7
+          if-no-files-found: ignore
