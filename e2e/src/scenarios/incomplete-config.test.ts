@@ -6,6 +6,13 @@ import { runMedusaOnce } from "../harness/run-medusa-once.js";
 // boot rather than assumed from the unit tests alone. `EINVOICE_E2E_OMIT_PAYMENT` is a stand-only knob
 // (e2e/app/medusa-config.ts) that drops the plugin's required `payment` option.
 describe("incomplete config: the plugin refuses to boot without required options", () => {
+  // P-37 (verified 2026-09-21): this is the one scenario whose own runtime (65-83s normally observed,
+  // real npm install dominates it — a real, timestamped run showed only ~3s between "Running
+  // migrations..." and the thrown error, so there is no earlier point in the plugin's own code to fail
+  // faster at) eats most of the global 120s testTimeout, and two back-to-back full-suite runs (no pause
+  // between them, the exact way CI runs) both timed out here under the ~15-20% slowdown consecutive
+  // Docker teardown/boot cycles put on the whole suite. 240s is ~3x the best observed time and ~3x the
+  // worst *green* observed time — margin, not a guess.
   it("throws InvalidEinvoiceModuleOptionsError and never starts the server", async () => {
     const result = await runMedusaOnce({ EINVOICE_E2E_OMIT_PAYMENT: "1" }, { port: 9598 });
 
@@ -13,5 +20,5 @@ describe("incomplete config: the plugin refuses to boot without required options
     expect(result.output).toContain("InvalidEinvoiceModuleOptionsError");
     expect(result.output).toContain("options.payment.means is required");
     expect(result.output).not.toContain("Server is ready");
-  }, 120_000);
+  }, 240_000);
 });

@@ -26,9 +26,11 @@ drives it through the real Admin/Store HTTP APIs — a cart, an order, a fulfill
 the e-invoice XML/PDF it produces against the real KoSIT Validator and veraPDF, the same tools
 [`docs/README.md`](README.md#conformance-validators) uses for the fixture suite.
 
-**About 4 minutes** on a laptop, most of it a real `npm install` of the Medusa app itself (this stand's own
-`e2e/docker/Dockerfile` doesn't cache that step — see its own comment for why: caching it risked silently
-testing a stale build of this very plugin instead of what you just published).
+**About 5 minutes** on a laptop (measured across several full runs: best case ~260s, typical ~300-310s),
+most of it a real `npm install` of the Medusa app itself (this stand's own `e2e/docker/Dockerfile` doesn't
+cache that step — see its own comment for why: caching it risked silently testing a stale build of this
+very plugin instead of what you just published). Slower on a slower or more loaded machine — running it
+back-to-back with no pause between runs (as CI does) measurably slows every step.
 
 ## What you'll see
 
