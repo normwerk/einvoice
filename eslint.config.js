@@ -6,7 +6,15 @@ import globals from "globals";
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", "**/.medusa/**"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/coverage/**",
+      "**/.medusa/**",
+      // T-078: e2e/app/ is a committed `create-medusa-app` scaffold, not authored source — same
+      // treatment as generated code (AGENTS.md §9), reformatting/relinting it is not our call to make.
+      "e2e/app/**",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.strict,

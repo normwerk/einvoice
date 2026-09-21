@@ -5,6 +5,8 @@ dist
 # style; reformatting it is the generator's job if it ever cares to, not
 # ours to enforce after the fact.
 packages/*/src/generated/**
+# T-078: committed `create-medusa-app` scaffold — vendored, not authored source.
+e2e/app/**
 # Same reasoning: regenerated wholesale by tools/conformance/oracle-e-invoice-eu.mjs
 # (T-041) on every run, with long single-line classification paragraphs that
 # prettier's markdown formatter would rewrap — not worth fighting each run.

@@ -1,0 +1,33 @@
+# T-078: a real npm registry for the stand, not a proxy trick — the harness publishes the six workspace
+# packages here with the exact command shape a real release uses (plan-e2e.md §2/§3.3), and the `medusa`
+# service's own `npm install` resolves everything (Medusa itself included) through this one registry, the
+# default "**" rule below proxying anything it doesn't have locally to the real npm registry.
+storage: /verdaccio/storage/data
+
+web:
+  enable: true
+  title: einvoice-e2e
+
+auth:
+  htpasswd:
+    file: /verdaccio/storage/htpasswd
+    max_users: -1
+
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+
+packages:
+  "@normwerk/*":
+    access: $all
+    publish: $all
+    unpublish: $all
+  "**":
+    access: $all
+    publish: $all
+    proxy: npmjs
+
+logs: { type: stdout, format: pretty, level: warn }
+
+listen: 0.0.0.0:4873
+max_body_size: 100mb

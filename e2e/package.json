@@ -1,0 +1,15 @@
+{
+  "name": "@normwerk/einvoice-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "T-078: end-to-end suite on docker compose — a real Medusa v2 app, the plugin packages installed from a local Verdaccio registry (not workspace-linked), driven through the real Admin/Store HTTP APIs. Proves wiring (a real order's data reaches the plugin and comes back out correctly), not tax semantics (packages/einvoice-medusa/fixtures/tax-matrix already owns that).",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "stand:up": "docker compose -f docker/compose.e2e.yml up -d --wait",
+    "stand:down": "docker compose -f docker/compose.e2e.yml down -v",
+    "stand:logs": "docker compose -f docker/compose.e2e.yml logs",
+    "e2e:run": "vitest run"
+  }
+}

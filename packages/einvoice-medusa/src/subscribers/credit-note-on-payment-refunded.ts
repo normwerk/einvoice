@@ -179,7 +179,8 @@ async function creditOneRefund({
   const commerce = await import("@normwerk/einvoice-commerce");
   const cii = await import("@normwerk/einvoice-cii");
 
-  const issueDate = new Date().toISOString().slice(0, 10);
+  const now = () => einvoiceService.options.now?.() ?? new Date();
+  const issueDate = now().toISOString().slice(0, 10);
 
   const input = mapOrderToCommerceInvoiceInput(order, {
     seller: einvoiceService.options.seller,
@@ -232,7 +233,7 @@ async function creditOneRefund({
   // T-079/P-12: same VIES-evidence wiring as invoice-on-fulfillment-created.ts's identical comment.
   const vatIdEvidence =
     einvoiceService.options.vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
-      ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, new Date())
+      ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
       : undefined;
 
   const buildResult = commerce.buildInvoice(

@@ -1,0 +1,9 @@
+{
+  "$comment": "T-078 e2e stand — digest pins for its long-running services (AGENTS.md §7: pin by digest, not tag; bumping a version is its own reviewed task). Separate from docker/images.lock, which tracks the conformance validator images this stand reuses rather than duplicates.",
+  "images": [
+    { "service": "postgres", "ref": "postgres:16-alpine", "digest": "sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea", "pinned_at": "2026-09-21" },
+    { "service": "redis", "ref": "redis:7-alpine", "digest": "sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7", "pinned_at": "2026-09-21" },
+    { "service": "verdaccio", "ref": "verdaccio/verdaccio:5", "digest": "sha256:9d622d256378c6e7ae09f384774ee2f0f8ac67a66c066db55921a0b7218abc4c", "pinned_at": "2026-09-21" },
+    { "service": "medusa (Dockerfile base)", "ref": "node:22-alpine", "digest": "sha256:b6f26b36c8ff49624cfdac716b8ea1138d606df02586a77d364bb5536a634f85", "pinned_at": "2026-09-21" }
+  ]
+}

@@ -1,0 +1,116 @@
+# T-078: the "fast" profile stand (plan-e2e.md §3) — Postgres, Redis, Verdaccio, and a real Medusa v2 app
+# built from the committed e2e/app/ scaffold. Digests tracked in images.lock next to this file.
+#
+# Brought up in two phases by e2e/src/harness/stand.ts, not one `up -d` for every service: `medusa`'s own
+# image build needs the six plugin packages already sitting in Verdaccio, which only exist once the harness
+# has published them against the *running* verdaccio service.
+#
+#   docker compose -f e2e/docker/compose.e2e.yml up -d --wait postgres redis verdaccio
+#   <harness publishes packages/* to http://localhost:${EINVOICE_E2E_VERDACCIO_PORT}>
+#   docker compose -f e2e/docker/compose.e2e.yml up -d --wait --build medusa
+#
+# No named volumes anywhere (tmpfs only) — plan-e2e.md §5 rule 2: a fresh database and a fresh registry on
+# every run, never state reused between runs.
+services:
+  postgres:
+    image: postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    environment:
+      POSTGRES_USER: ${EINVOICE_E2E_POSTGRES_USER:-medusa}
+      POSTGRES_PASSWORD: ${EINVOICE_E2E_POSTGRES_PASSWORD:-medusa}
+      POSTGRES_DB: ${EINVOICE_E2E_POSTGRES_DB:-medusa_e2e}
+    ports:
+      - "${EINVOICE_E2E_POSTGRES_PORT:-55432}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  redis:
+    image: redis@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  verdaccio:
+    image: verdaccio/verdaccio@sha256:9d622d256378c6e7ae09f384774ee2f0f8ac67a66c066db55921a0b7218abc4c
+    volumes:
+      - ./verdaccio/config.yaml:/verdaccio/conf/config.yaml:ro
+      # A plain `tmpfs:` shorthand mount defaults to root-owned 0755 — the image's own `verdaccio` user
+      # (uid 10001, not root) can't create its storage dir under that (verified against a real run: PUT
+      # publish failed with a bogus "no such package available" 404, which was actually a permission
+      # failure one level down). `mode: 0777` is safe here specifically because this is memory-backed,
+      # wiped-every-run tmpfs, not a real shared filesystem.
+      - type: tmpfs
+        target: /verdaccio/storage
+        tmpfs:
+          mode: 0777
+    ports:
+      - "${EINVOICE_E2E_VERDACCIO_PORT:-4873}:4873"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:4873/-/ping',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  medusa:
+    build:
+      context: ../app
+      dockerfile: ../docker/medusa/Dockerfile
+    # A fresh `npm install` of ~1000 packages through Verdaccio's own npmjs proxy occasionally hits a
+    # transient network reset (verified against a real run) — a few automatic retries absorb that without
+    # making the harness itself paper over a real, repeatable failure (`--wait`'s own timeout still bounds
+    # how long a genuinely broken image gets retried).
+    restart: on-failure:3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      verdaccio:
+        condition: service_healthy
+    environment:
+      # `?sslmode=disable` is load-bearing, not decoration: Medusa's own `getDefaultDriverOptions`
+      # (@medusajs/utils) treats any clientUrl whose host isn't literally `localhost`/`127.0.0.1` as
+      # "remote" and defaults to `ssl: { rejectUnauthorized: false }` — which this plain (non-TLS)
+      # `postgres` container doesn't speak, and migrations hang for the full connection-timeout window
+      # instead of failing fast (verified against a real run). The same regex also accepts `sslmode=disable`
+      # literally, which is what this is.
+      DATABASE_URL: postgres://${EINVOICE_E2E_POSTGRES_USER:-medusa}:${EINVOICE_E2E_POSTGRES_PASSWORD:-medusa}@postgres:5432/${EINVOICE_E2E_POSTGRES_DB:-medusa_e2e}?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      PORT: ${EINVOICE_E2E_MEDUSA_PORT:-9500}
+      STORE_CORS: http://localhost:${EINVOICE_E2E_MEDUSA_PORT:-9500}
+      ADMIN_CORS: http://localhost:${EINVOICE_E2E_MEDUSA_PORT:-9500}
+      AUTH_CORS: http://localhost:${EINVOICE_E2E_MEDUSA_PORT:-9500}
+      # Test-only, throwaway secrets for an ephemeral local container — never a real deployment.
+      JWT_SECRET: einvoice-e2e-test-only
+      COOKIE_SECRET: einvoice-e2e-test-only
+      EINVOICE_E2E_VALID_VAT_ID: ${EINVOICE_E2E_VALID_VAT_ID:-FR40303265045}
+      EINVOICE_E2E_NOW: ${EINVOICE_E2E_NOW:-}
+    ports:
+      - "${EINVOICE_E2E_MEDUSA_PORT:-9500}:${EINVOICE_E2E_MEDUSA_PORT:-9500}"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:' + (process.env.PORT || 9500) + '/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      start_period: 60s
+      # Cold boot here is a real `npm install` of the whole app (Dockerfile's own doc comment on why it
+      # isn't a build-time layer) + migrations + seeding a demo store
+      # (e2e/app/src/migration-scripts/initial-data-seed.ts) — genuinely slower than the other three.
+      retries: 180

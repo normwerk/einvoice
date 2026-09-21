@@ -133,6 +133,15 @@ export interface EinvoiceModuleOptions {
    * not a misconfiguration `assertValidOptions` needs to reject, the same way `vatIdVerifier` above isn't.
    */
   readonly ossRegistered?: boolean;
+  /**
+   * T-078: the clock both subscribers use for a document's issue date and for `vatIdVerifier.verify`'s own
+   * `now` argument — real Medusa events call `new Date()` directly with no other way to override it, which
+   * is exactly what the e2e stand (a real Medusa instance, not a fixture) needs to pin down for a
+   * deterministic invoice date instead of "whatever day CI happened to run." Omitted (the default) keeps
+   * today's behavior unchanged (`() => new Date()`); not a misconfiguration `assertValidOptions` needs to
+   * reject, the same tier as `vatIdVerifier`/`ossRegistered` above.
+   */
+  readonly now?: () => Date;
 }
 
 export class InvalidEinvoiceModuleOptionsError extends Error {
