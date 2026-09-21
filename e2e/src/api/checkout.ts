@@ -19,6 +19,10 @@ export interface CheckoutInput {
   readonly email: string;
   readonly address: BuyerAddress;
   readonly quantity?: number;
+  /** A registered customer's own session token (`customer.ts`) — attaches `customer_id` to the cart/order
+   * (verified against a real run: carrying this bearer token on cart creation is what does it, not a
+   * separate "claim this cart" call). Omitted for a guest checkout (S1). */
+  readonly customerToken?: string;
 }
 
 export interface CheckoutResult {
@@ -46,7 +50,7 @@ function toStoreAddress(address: BuyerAddress): Record<string, string> {
  * through this same sequence, matching the plan's own "через Admin/Store HTTP API" (plan-e2e.md §4).
  */
 export async function checkoutToOrder(input: CheckoutInput): Promise<CheckoutResult> {
-  const { publishableKey } = input;
+  const { publishableKey, customerToken } = input;
 
   const created = await storePostJson<{ readonly cart: { readonly id: string } }>(
     publishableKey,
@@ -56,34 +60,44 @@ export async function checkoutToOrder(input: CheckoutInput): Promise<CheckoutRes
       sales_channel_id: input.salesChannelId,
       items: [{ variant_id: input.variantId, quantity: input.quantity ?? 1 }],
     },
+    customerToken,
   );
   const cartId = created.cart.id;
 
-  await storePostJson(publishableKey, `/store/carts/${cartId}`, {
-    email: input.email,
-    billing_address: toStoreAddress(input.address),
-    shipping_address: toStoreAddress(input.address),
-  });
+  await storePostJson(
+    publishableKey,
+    `/store/carts/${cartId}`,
+    {
+      email: input.email,
+      billing_address: toStoreAddress(input.address),
+      shipping_address: toStoreAddress(input.address),
+    },
+    customerToken,
+  );
 
-  await storePostJson(publishableKey, `/store/carts/${cartId}/shipping-methods`, {
-    option_id: input.shippingOptionId,
-  });
+  await storePostJson(
+    publishableKey,
+    `/store/carts/${cartId}/shipping-methods`,
+    { option_id: input.shippingOptionId },
+    customerToken,
+  );
 
   const paymentCollection = await storePostJson<{
     readonly payment_collection: { readonly id: string };
-  }>(publishableKey, "/store/payment-collections", { cart_id: cartId });
+  }>(publishableKey, "/store/payment-collections", { cart_id: cartId }, customerToken);
 
   await storePostJson(
     publishableKey,
     `/store/payment-collections/${paymentCollection.payment_collection.id}/payment-sessions`,
     { provider_id: "pp_system_default" },
+    customerToken,
   );
 
   const completed = await storePostJson<{
     readonly type: string;
     readonly order?: { readonly id: string };
     readonly error?: unknown;
-  }>(publishableKey, `/store/carts/${cartId}/complete`, undefined);
+  }>(publishableKey, `/store/carts/${cartId}/complete`, undefined, customerToken);
   if (completed.type !== "order" || completed.order === undefined) {
     throw new Error(
       `checkoutToOrder: cart did not complete into an order: ${JSON.stringify(completed)}`,

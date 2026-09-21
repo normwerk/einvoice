@@ -14,6 +14,13 @@ export const MEDUSA_URL = `http://localhost:${MEDUSA_PORT}`;
 export const ADMIN_EMAIL = "admin@einvoice-e2e.example";
 export const ADMIN_PASSWORD = "supersecret";
 
+/** `docker/compose.e2e.yml`'s own `name:` — both its container names (`<project>-<service>-1`) and its
+ * default network (`<project>_default`) derive from this. */
+export const COMPOSE_PROJECT_NAME = "einvoice-e2e";
+export const MEDUSA_CONTAINER_NAME = `${COMPOSE_PROJECT_NAME}-medusa-1`;
+export const COMPOSE_NETWORK_NAME = `${COMPOSE_PROJECT_NAME}_default`;
+export const MEDUSA_IMAGE_NAME = `${COMPOSE_PROJECT_NAME}-medusa`;
+
 /** Must match `medusa-config.ts`'s own read of the same env var — see that file's doc comment. */
 export const VALID_VAT_ID = process.env["EINVOICE_E2E_VALID_VAT_ID"] ?? "FR40303265045";
 

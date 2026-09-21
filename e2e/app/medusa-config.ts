@@ -75,10 +75,18 @@ module.exports = defineConfig({
             email: "invoicing@einvoice-e2e.example",
           },
         },
-        payment: {
-          means: "58",
-          iban: "DE89370400440532013000",
-        },
+        // T-078: `incomplete-config.test.ts` boots a one-off container with this env var set to confirm
+        // the plugin's own `assertValidOptions` (packages/einvoice-medusa) still refuses to start without
+        // it — real, existing behavior (`InvalidEinvoiceModuleOptionsError`), not something this stand
+        // adds. Unset in every other run, which is every other scenario.
+        ...(process.env.EINVOICE_E2E_OMIT_PAYMENT
+          ? {}
+          : {
+              payment: {
+                means: "58",
+                iban: "DE89370400440532013000",
+              },
+            }),
         // T-078: S1 is the plan's own designated PDF/A-3b scenario (plan-e2e.md §4) — the rest stay
         // XML-only so the suite doesn't double every scenario's runtime for a path S1 already exercises.
         standalone: {

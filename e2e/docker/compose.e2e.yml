@@ -11,6 +11,12 @@
 #
 # No named volumes anywhere (tmpfs only) — plan-e2e.md §5 rule 2: a fresh database and a fresh registry on
 # every run, never state reused between runs.
+#
+# `name:` is set explicitly so the network this stand's own one-off checks attach to
+# (`incomplete-config.test.ts`) has a stable name (`einvoice-e2e_default`) rather than one derived from
+# this file's parent directory name (`docker_default` — a name any other compose project on the same
+# machine could just as easily produce).
+name: einvoice-e2e
 services:
   postgres:
     image: postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea

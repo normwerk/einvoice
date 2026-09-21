@@ -43,6 +43,18 @@ export async function fulfillOrder(
   });
 }
 
+/** The order's single fulfillment id — every scenario in this suite ships an order in one shipment. */
+export async function getOrderFulfillmentId(admin: AdminSession, orderId: string): Promise<string> {
+  const response = await adminGetJson<{
+    readonly order: { readonly fulfillments: readonly { readonly id: string }[] };
+  }>(admin, `/admin/orders/${orderId}?fields=*fulfillments`);
+  const fulfillmentId = response.order.fulfillments[0]?.id;
+  if (fulfillmentId === undefined) {
+    throw new Error(`getOrderFulfillmentId: order ${orderId} has no fulfillment`);
+  }
+  return fulfillmentId;
+}
+
 export interface EinvoiceDocumentSummary {
   readonly id: string;
   readonly type: "invoice" | "credit_note";
