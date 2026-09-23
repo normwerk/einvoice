@@ -12,7 +12,6 @@
  * from `decideVatCategory`; it never guesses a way around a missing fact.
  */
 import { validateModel, type Invoice, type VatCategoryCode } from "@normwerk/einvoice-model";
-import { multiplyToAmount, percentOfAmount, subtractAmounts, sumAmounts } from "./decimal.js";
 import {
   DE_STANDARD_RATE,
   EU_MEMBER_STATES,
@@ -21,6 +20,13 @@ import {
   normalizeVatId,
   resolveLineRate,
 } from "./tax-rules.js";
+import {
+  compareAmounts,
+  multiplyToAmount,
+  percentOfAmount,
+  subtractAmounts,
+  sumAmounts,
+} from "./decimal.js";
 import { looksLikeLeitwegId, validateLeitwegId } from "./leitweg-id.js";
 import { validateCommerceInvoiceInput } from "./validate.js";
 import type {
@@ -112,6 +118,20 @@ export class MissingBuyerVatIdForCrossBorderServiceError extends Error {
         "EC Sales List. A legal registration identifier (BT-47) alone satisfies BR-AE-02 but not German law.",
     );
     this.name = "MissingBuyerVatIdForCrossBorderServiceError";
+  }
+}
+
+export class LineAllowanceExceedsLineAmountError extends Error {
+  constructor(
+    readonly lineIdentifier: string,
+    readonly allowances: string,
+    readonly lineAmount: string,
+  ) {
+    super(
+      `Line ${lineIdentifier}: its discounts (${allowances}) exceed the line's own amount (${lineAmount}) — ` +
+        "a line's net amount (BT-131) cannot go below zero.",
+    );
+    this.name = "LineAllowanceExceedsLineAmountError";
   }
 }
 
@@ -324,12 +344,25 @@ export function buildInvoice(
   }
   assertTaxFactsMatchDocument(regimeDecision, input);
 
-  const lineComputations = input.lines.map((line, index) => ({
-    identifier: line.identifier ?? String(index + 1),
-    netAmount: multiplyToAmount(line.quantity, line.netPrice),
-    rate: resolveLineRate(regimeDecision, input.taxContext, line.taxRateKind),
-    line,
-  }));
+  const lineComputations = input.lines.map((line, index) => {
+    const identifier = line.identifier ?? String(index + 1);
+    const grossLineAmount = multiplyToAmount(line.quantity, line.netPrice);
+    const allowances = line.allowances ?? [];
+    const sumOfLineAllowances = sumAmounts(allowances.map((a) => a.amount));
+    if (compareAmounts(sumOfLineAllowances, grossLineAmount) > 0) {
+      throw new LineAllowanceExceedsLineAmountError(
+        identifier,
+        sumOfLineAllowances,
+        grossLineAmount,
+      );
+    }
+    return {
+      identifier,
+      netAmount: subtractAmounts(grossLineAmount, sumOfLineAllowances),
+      rate: resolveLineRate(regimeDecision, input.taxContext, line.taxRateKind),
+      line,
+    };
+  });
 
   const sumOfLineNetAmounts = sumAmounts(lineComputations.map((l) => l.netAmount));
 
@@ -484,6 +517,10 @@ export function buildInvoice(
       netAmount: lc.netAmount,
       netPrice: lc.line.netPrice,
       itemName: lc.line.itemName,
+      allowances:
+        lc.line.allowances !== undefined && lc.line.allowances.length > 0
+          ? lc.line.allowances.map((a) => ({ amount: a.amount, reason: a.reason }))
+          : undefined,
       vat: { categoryCode: regimeDecision.categoryCode, rate: lc.rate },
       // BT-158/BT-159 (T-060 continuation, D-19) — undefined passes through untouched, same as every
       // other optional field here; @normwerk/einvoice-cii's plan skips the whole DesignatedProductClassification

@@ -75,6 +75,17 @@ export const ORDER_QUERY_FIELDS = [
   "items.tax_lines.rate",
   "items.detail.quantity",
   "items.requires_shipping",
+  // P-39: shipping and promotions. Requesting `total` is what makes `@medusajs/order`'s own service compute
+  // order totals at all (`OrderModuleService.shouldIncludeTotals`: only when a top-level totals field is
+  // selected), which is what populates the per-item and per-shipping-method `subtotal`/`discount_subtotal`
+  // below — Medusa's own net amounts, so this mapping never re-derives tax-inclusive/exclusive discount
+  // arithmetic itself. `total` is also read back, for `describeOrderTotalMismatch`.
+  "total",
+  "items.discount_subtotal",
+  "items.adjustments.code",
+  "shipping_methods.name",
+  "shipping_methods.subtotal",
+  "shipping_methods.discount_subtotal",
 ] as const;
 
 export interface MedusaOrderAddress {
@@ -113,6 +124,21 @@ export interface MedusaOrderLineItem {
    * comment warns query.graph can silently drop). The one signal this mapping derives `supplyType` from:
    * `false` means a virtual/non-shippable line (a service), everything else (`true` or missing) is goods. */
   readonly requires_shipping?: boolean | null;
+  /** P-39: the line's promotion discounts, net of tax, as Medusa's own totals computation derived them
+   * (`@medusajs/utils` `getLineItemTotals`: already prorated to the current quantity and already net of tax
+   * for a tax-inclusive adjustment). A `BigNumber` at runtime, read through `Number()` like `unit_price`. */
+  readonly discount_subtotal?: number | string | null;
+  /** P-39: only read for the promotion `code`s, which name the line allowance (BT-139). */
+  readonly adjustments?: readonly { readonly code?: string | null }[] | null;
+}
+
+/** P-39: `OrderShippingMethod` with Medusa's own computed totals (see `ORDER_QUERY_FIELDS`). */
+export interface MedusaOrderShippingMethod {
+  readonly name?: string | null;
+  /** Net of tax, before the shipping method's own discounts. */
+  readonly subtotal?: number | string | null;
+  /** The shipping method's own discounts, net of tax. */
+  readonly discount_subtotal?: number | string | null;
 }
 
 export interface MedusaOrderForInvoice {
@@ -128,6 +154,9 @@ export interface MedusaOrderForInvoice {
   readonly shipping_address?: MedusaOrderAddress | null;
   readonly billing_address?: MedusaOrderAddress | null;
   readonly items: readonly MedusaOrderLineItem[];
+  readonly shipping_methods?: readonly MedusaOrderShippingMethod[] | null;
+  /** What Medusa charged in total, VAT included — compared, never copied (`describeOrderTotalMismatch`). */
+  readonly total?: number | string | null;
 }
 
 export class MissingBuyerCountryError extends Error {
@@ -226,6 +255,90 @@ function computeNetUnitPrice(item: MedusaOrderLineItem): string {
   }
   const net = gross / (1 + Number(rate) / 100);
   return net.toFixed(4);
+}
+
+/**
+ * A Medusa money value (number, numeric string or `BigNumber`, all readable through `Number()`) as a
+ * 2-decimal `Amount`, rounding half away from zero. This is input conversion of an amount Medusa already
+ * computed — not arithmetic the invoice relies on; `buildInvoice` takes over with exact decimals from here.
+ */
+function toAmount(value: number | string | null | undefined): Amount {
+  const n = Number(value ?? 0);
+  const rounded = (Math.sign(n) * Math.round(Math.abs(n) * 100 + 1e-9)) / 100;
+  return rounded.toFixed(2);
+}
+
+/** P-39: one line allowance (BG-27) for everything Medusa discounted on this line, named after the
+ * promotion code(s) it carries — BR-42 requires a reason on every line allowance. */
+function resolveLineAllowances(
+  item: MedusaOrderLineItem,
+): readonly { readonly amount: Amount; readonly reason: string }[] | undefined {
+  const amount = toAmount(item.discount_subtotal);
+  if (Number(amount) <= 0) {
+    return undefined;
+  }
+  const codes = [
+    ...new Set(
+      (item.adjustments ?? [])
+        .map((adjustment) => adjustment.code)
+        .filter((code): code is string => typeof code === "string" && code !== ""),
+    ),
+  ];
+  return [{ amount, reason: codes.length > 0 ? codes.join(", ") : "Rabatt / Discount" }];
+}
+
+/** P-39: every shipping method as one document-level charge (BG-21): Medusa's net amount after its own
+ * shipping discounts. Omitted when shipping is free. Its VAT rate is `buildInvoice`'s decision, not this
+ * file's (P-40: the rate of the supply it belongs to). */
+function resolveShipping(
+  order: MedusaOrderForInvoice,
+): { readonly amount: Amount; readonly reason: string } | undefined {
+  const methods = order.shipping_methods ?? [];
+  const net = methods.reduce(
+    (sum, method) => sum + Number(method.subtotal ?? 0) - Number(method.discount_subtotal ?? 0),
+    0,
+  );
+  const amount = toAmount(net);
+  if (Number(amount) <= 0) {
+    return undefined;
+  }
+  const names = methods
+    .map((method) => method.name)
+    .filter((name): name is string => typeof name === "string" && name !== "");
+  return {
+    amount,
+    reason: names.length > 0 ? `Versand / Shipping: ${names.join(", ")}` : "Versand / Shipping",
+  };
+}
+
+/**
+ * P-39: compares the invoice's grand total (BT-112) with what Medusa actually charged (`order.total`) and
+ * describes the difference when it exceeds what per-amount rounding can explain — about a cent for each
+ * independently rounded amount (every line, the shipping charge, and the VAT). A larger difference means
+ * the invoice and the payment disagree: typically Medusa's tax configuration charged a different VAT than
+ * the one the invoice's category requires. Returns `undefined` when they agree or there is nothing to
+ * compare. Whether such a mismatch should block the invoice or only be reported is an open decision; the
+ * caller reports it.
+ */
+export function describeOrderTotalMismatch(
+  order: MedusaOrderForInvoice,
+  invoiceGrandTotal: Amount,
+): string | undefined {
+  if (order.total === undefined || order.total === null) {
+    return undefined;
+  }
+  const charged = Number(order.total);
+  const invoiced = Number(invoiceGrandTotal);
+  const tolerance = 0.01 * (order.items.length + (order.shipping_methods?.length ?? 0) + 1);
+  const difference = invoiced - charged;
+  if (Math.abs(difference) <= tolerance + 1e-9) {
+    return undefined;
+  }
+  return (
+    `Order ${order.id}: the e-invoice total (${invoiceGrandTotal}) differs from what Medusa charged ` +
+    `(${toAmount(charged)}) by ${toAmount(Math.abs(difference))} — check that Medusa's tax settings charge ` +
+    `the VAT this invoice's category requires.`
+  );
 }
 
 function resolveBuyerAddress(
@@ -389,7 +502,9 @@ export function mapOrderToCommerceInvoiceInput(
       itemName: item.title,
       taxRateKind: inferTaxRateKind(item, options.deRates),
       supplyType: resolveLineSupplyType(item),
+      allowances: resolveLineAllowances(item),
     })),
+    shipping: resolveShipping(order),
     references: { buyerReference },
     payment: options.payment,
     // BG-13 (P-25). `buildInvoice` only ever consults this for category K (BR-IC-11/12) — harmless to

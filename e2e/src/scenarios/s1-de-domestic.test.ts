@@ -68,11 +68,12 @@ describe("S1: DE -> DE B2B, 19%", () => {
     expect(bt.invoiceNumber(xml)).toBe(document.documentNumber);
     expect(bt.typeCode(xml)).toBe("380");
     expect(bt.vatCategoryCode(xml)).toBe("S");
-    // Item price is a fixed EUR 10 (the seeded "SHIRT-S-BLACK" variant, docs/... initial-data-seed.ts) at
-    // the standard 19% DE rate — a precise, self-contained expectation, not `order.total` (which also
-    // includes an untaxed shipping fee this plugin does not currently put on the invoice at all; a real,
-    // separate finding flagged for follow-up, not something this assertion should paper over).
-    expect(bt.grandTotalAmount(xml)).toBeCloseTo(11.9, 2);
+    // The seeded "SHIRT-S-BLACK" variant (EUR 10) plus the seeded "Standard Shipping" option (EUR 10), both
+    // at the standard 19% DE rate: shipping is on the invoice as a document-level charge (P-39) and takes
+    // the rate of the goods it ships (P-40). Not compared with `order.total`: this stand's tax regions carry
+    // no rate, so Medusa itself charged no VAT at all — the subscriber logs exactly that mismatch.
+    expect(bt.shippingChargeAmount(xml)).toBeCloseTo(10, 2);
+    expect(bt.grandTotalAmount(xml)).toBeCloseTo(23.8, 2);
     expect(order.currencyCode).toBe("eur");
 
     const xmlReport = await validateBytes(xmlBytes, "s1-invoice.xml");

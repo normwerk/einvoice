@@ -807,6 +807,12 @@ export const commerceInvoiceInputJsonSchema = {
             "services"
           ]
         },
+        "allowances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CommerceLineAllowance"
+          }
+        },
         "hsCode": {
           "type": "string"
         },
@@ -824,6 +830,22 @@ export const commerceInvoiceInputJsonSchema = {
     },
     "Amount": {
       "type": "string"
+    },
+    "CommerceLineAllowance": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Amount"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "amount",
+        "reason"
+      ],
+      "additionalProperties": false
     },
     "CommerceCharge": {
       "type": "object",

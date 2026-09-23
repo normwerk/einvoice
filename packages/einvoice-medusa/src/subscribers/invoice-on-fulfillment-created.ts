@@ -57,6 +57,7 @@ import {
 } from "../integrations/webbers.js";
 import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
 import {
+  describeOrderTotalMismatch,
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
   resolveB2gBuyerReference,
@@ -155,6 +156,23 @@ export default async function invoiceOnFulfillmentCreated({
     { ...input, document: { ...input.document, number: documentNumber } },
     vatIdEvidence === undefined ? {} : { vatIdEvidence },
   );
+
+  // P-39: `buildInvoice` reports what it could not map or had to assume (`BuildResult.warnings`), and the
+  // invoice total can disagree with what Medusa charged (Medusa's tax settings vs the invoice's category).
+  // Both used to vanish silently; they go to the log at warn level — codes, messages and amounts only,
+  // never the invoice payload or the buyer's details (AGENTS.md §5.2). Whether a total mismatch should
+  // block the invoice instead is an open decision; until it's made, the invoice is still issued.
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
+  for (const warning of buildResult.warnings) {
+    logger.warn(`einvoice: order ${order.id}: ${warning.message} [${warning.code}]`);
+  }
+  const totalMismatch = describeOrderTotalMismatch(
+    order,
+    buildResult.invoice.totals.totalAmountWithVat,
+  );
+  if (totalMismatch !== undefined) {
+    logger.warn(`einvoice: ${totalMismatch}`);
+  }
 
   // T-073: standalone mode's own PDF source — see this file's own doc comment. Webbers mode already
   // resolved `basePdfBytes` (or left it `undefined`) above; this only runs for the other branch.

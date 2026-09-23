@@ -16,8 +16,10 @@ import { WebbersInvoiceNotFoundError } from "../integrations/webbers.js";
 // peer in this repo (T-072's own doc comment), so its success path is unreachable without mocking.
 const mocks = vi.hoisted(() => ({
   selectProfile: vi.fn(() => "EN16931" as const),
+  // Shaped like a real BuildResult where the subscriber reads it (`invoice.totals`), otherwise the input
+  // passed straight through, which is what the orchestration assertions below compare against.
   buildInvoice: vi.fn((input: unknown) => ({
-    invoice: input,
+    invoice: { ...(input as object), totals: { totalAmountWithVat: "0.00" } },
     warnings: [],
   })),
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
@@ -29,6 +31,7 @@ const mocks = vi.hoisted(() => ({
     pdfFileId: null as string | null,
   })),
   deleteEinvoiceFiles: vi.fn(async () => undefined),
+  logger: { warn: vi.fn() },
 }));
 
 vi.mock("@normwerk/einvoice-commerce", () => ({
@@ -133,6 +136,7 @@ function makeContainer(
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, einvoiceService],
     [ContainerRegistrationKeys.QUERY, { graph }],
+    [ContainerRegistrationKeys.LOGGER, mocks.logger],
   ]);
   const container = { resolve: (key: unknown) => registry.get(key) } as unknown as MedusaContainer;
   return { container, graph };
@@ -300,5 +304,22 @@ describe("invoiceOnFulfillmentCreated", () => {
     );
 
     expect(mocks.deleteEinvoiceFiles).toHaveBeenCalledWith(container, ["file_xml", "file_pdf"]);
+  });
+  it("reports buildInvoice's warnings and a total that differs from what Medusa charged, without the invoice payload (P-39)", async () => {
+    mocks.buildInvoice.mockReturnValueOnce({
+      invoice: { totals: { totalAmountWithVat: "238.00" } },
+      warnings: [{ code: "payment-terms-not-mapped", message: "terms dropped" }],
+    } as never);
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer(einvoiceService, [{ ...ORDER, total: 200 }]);
+
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+
+    const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0]));
+    expect(logged.some((line) => line.includes("payment-terms-not-mapped"))).toBe(true);
+    expect(logged.some((line) => line.includes("differs from what Medusa charged"))).toBe(true);
+    expect(logged.join("\n")).not.toContain("buyer@example.test");
   });
 });

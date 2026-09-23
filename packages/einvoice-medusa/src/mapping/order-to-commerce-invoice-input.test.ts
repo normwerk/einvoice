@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MissingBuyerCountryError,
+  describeOrderTotalMismatch,
   mapOrderToCommerceInvoiceInput,
   type MapOrderOptions,
   type MedusaOrderForInvoice,
@@ -325,5 +326,83 @@ describe("mapOrderToCommerceInvoiceInput", () => {
       number: "RE-2026-0001",
       issueDate: "2026-09-01",
     });
+  });
+});
+
+describe("mapOrderToCommerceInvoiceInput — shipping and discounts (P-39)", () => {
+  it("maps a line's promotion discount (Medusa's own net discount_subtotal) to a line allowance with the promotion code", () => {
+    const order = baseOrder({
+      items: [
+        {
+          title: "Widget",
+          unit_price: 100,
+          is_tax_inclusive: false,
+          tax_lines: [{ rate: 19 }],
+          detail: { quantity: 2 },
+          discount_subtotal: 30,
+          adjustments: [{ code: "SUMMER15" }, { code: "SUMMER15" }, { code: null }],
+        },
+      ],
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.lines[0]?.allowances).toEqual([{ amount: "30.00", reason: "SUMMER15" }]);
+  });
+
+  it("names a discount generically when Medusa carries no promotion code for it (BR-42 needs a reason)", () => {
+    const order = baseOrder({
+      items: [
+        {
+          title: "Widget",
+          unit_price: 100,
+          is_tax_inclusive: false,
+          detail: { quantity: 1 },
+          discount_subtotal: 12.345,
+        },
+      ],
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.lines[0]?.allowances).toEqual([{ amount: "12.35", reason: "Rabatt / Discount" }]);
+  });
+
+  it("leaves a line without a discount free of allowances", () => {
+    const input = mapOrderToCommerceInvoiceInput(baseOrder(), baseOptions());
+    expect(input.lines[0]?.allowances).toBeUndefined();
+  });
+
+  it("maps shipping methods to one document-level charge: Medusa's net subtotal minus its own net discount", () => {
+    const order = baseOrder({
+      shipping_methods: [
+        { name: "Standard Shipping", subtotal: 10, discount_subtotal: 2.5 },
+        { name: "Express surcharge", subtotal: 4.2, discount_subtotal: 0 },
+      ],
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.shipping).toEqual({
+      amount: "11.70",
+      reason: "Versand / Shipping: Standard Shipping, Express surcharge",
+    });
+  });
+
+  it("omits shipping entirely when it is free", () => {
+    const order = baseOrder({
+      shipping_methods: [{ name: "Free Shipping", subtotal: 0, discount_subtotal: 0 }],
+    });
+    expect(mapOrderToCommerceInvoiceInput(order, baseOptions()).shipping).toBeUndefined();
+  });
+});
+
+describe("describeOrderTotalMismatch (P-39)", () => {
+  it("is silent when the invoice total matches what Medusa charged, within per-amount rounding", () => {
+    expect(describeOrderTotalMismatch(baseOrder({ total: 238.01 }), "238.00")).toBeUndefined();
+  });
+
+  it("names the difference when it exceeds rounding — e.g. Medusa charged no VAT where the invoice shows 19%", () => {
+    const message = describeOrderTotalMismatch(baseOrder({ total: 200 }), "238.00");
+    expect(message).toContain("order_01");
+    expect(message).toContain("38.00");
+  });
+
+  it("is silent when the order carries no total to compare against", () => {
+    expect(describeOrderTotalMismatch(baseOrder(), "238.00")).toBeUndefined();
   });
 });

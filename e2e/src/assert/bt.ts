@@ -30,12 +30,22 @@ export function typeCode(xml: string): string {
 }
 
 /** BT-112: the document grand total, `ram:SpecifiedTradeSettlementHeaderMonetarySummation >
- * ram:GrandTotalAmount`. Note this is goods (+ VAT) only — Medusa's own `order.total` also includes
- * shipping, which this plugin does not currently put on the invoice at all (a real, separate finding, not
- * an e2e assertion to paper over — see the flagged follow-up task). */
+ * ram:GrandTotalAmount` — goods, shipping and document-level charges/allowances, VAT included. */
 export function grandTotalAmount(xml: string): number {
   return Number(
     requireMatch(xml, /<ram:GrandTotalAmount>([^<]+)<\/ram:GrandTotalAmount>/, "BT-112"),
+  );
+}
+
+/** BT-99: the (first) document-level charge amount — this plugin puts shipping there (P-39). A charge is
+ * the `ram:SpecifiedTradeAllowanceCharge` whose `ram:ChargeIndicator` is `true`. */
+export function shippingChargeAmount(xml: string): number {
+  return Number(
+    requireMatch(
+      xml,
+      /<ram:SpecifiedTradeAllowanceCharge><ram:ChargeIndicator><udt:Indicator>true<\/udt:Indicator><\/ram:ChargeIndicator>(?:(?!<\/ram:SpecifiedTradeAllowanceCharge>).)*?<ram:ActualAmount>([^<]+)<\/ram:ActualAmount>/,
+      "BT-99 (document-level charge amount)",
+    ),
   );
 }
 

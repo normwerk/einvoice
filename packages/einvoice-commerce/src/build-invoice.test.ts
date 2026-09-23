@@ -4,6 +4,7 @@ import {
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
   InvalidLeitwegIdError,
+  LineAllowanceExceedsLineAmountError,
   MissingBuyerIdentifierForReverseChargeError,
   MissingBuyerVatIdError,
   MissingBuyerVatIdForCrossBorderServiceError,
@@ -327,6 +328,60 @@ describe("buildInvoice — domestic reverse charge (row 5), needs buyer.vatIdent
       postCode: "20095",
     });
     expect(() => buildInvoice(input)).toThrow(MissingBuyerIdentifierForReverseChargeError);
+  });
+});
+
+describe("buildInvoice — line-level discounts (BG-27, P-39)", () => {
+  const WIDGET = {
+    quantity: "2",
+    unitCode: "C62",
+    netPrice: "50.00",
+    itemName: "Widget",
+    taxRateKind: "standard" as const,
+  };
+  const BOOK = {
+    quantity: "1",
+    unitCode: "C62",
+    netPrice: "40.00",
+    itemName: "Book",
+    taxRateKind: "reduced" as const,
+  };
+
+  it("reduces the line's own net amount and emits it as a line allowance with its reason (BR-41/BR-42)", () => {
+    const result = buildInvoice(
+      domesticInput({
+        lines: [{ ...WIDGET, allowances: [{ amount: "15.00", reason: "SUMMER15" }] }],
+      }),
+    );
+    expect(result.invoice.lines[0]).toEqual(
+      expect.objectContaining({
+        netAmount: "85.00",
+        allowances: [{ amount: "15.00", reason: "SUMMER15" }],
+      }),
+    );
+    expect(result.invoice.totals.sumOfLineNetAmounts).toBe("85.00");
+    expect(result.invoice.totals.totalVatAmount).toBe("16.15");
+  });
+
+  it("in a mixed-rate basket, a discount on the 7% line reduces only the 7% base — no apportioning needed", () => {
+    const result = buildInvoice(
+      domesticInput({
+        lines: [WIDGET, { ...BOOK, allowances: [{ amount: "10.00", reason: "BOOKS10" }] }],
+      }),
+    );
+    const byRate = Object.fromEntries(
+      result.invoice.vatBreakdown.map((g) => [g.rate, g.taxableAmount]),
+    );
+    expect(byRate).toEqual({ "19": "100.00", "7": "30.00" });
+    expect(result.warnings.map((w) => w.code)).not.toContain("shipping-discount-rate-assumption");
+  });
+
+  it("refuses a line discount larger than the line itself", () => {
+    expect(() =>
+      buildInvoice(
+        domesticInput({ lines: [{ ...BOOK, allowances: [{ amount: "40.01", reason: "X" }] }] }),
+      ),
+    ).toThrow(LineAllowanceExceedsLineAmountError);
   });
 });
 

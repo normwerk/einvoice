@@ -137,15 +137,29 @@ export interface CommerceLine {
    * so that a future change doesn't need a breaking `schemaVersion` bump to add it.
    */
   readonly supplyType?: "goods" | "services" | undefined;
+  /**
+   * Discounts that belong to this line (BG-27, e.g. a platform promotion applied to one item) — net
+   * amounts, deducted from this line's own net amount, so each one reduces the VAT base of exactly the
+   * rate this line carries. Expressing them per line, rather than as one document-level discount, is what
+   * keeps a mixed-rate basket from needing an apportioning rule at all.
+   */
+  readonly allowances?: readonly CommerceLineAllowance[] | undefined;
   /** D-19/BT-158. Not yet mapped — see `CommerceInvoiceInput.customs`. */
   readonly hsCode?: string | undefined;
   /** D-19/BT-159. Not yet mapped — see `CommerceInvoiceInput.customs`. */
   readonly originCountry?: CountryCode | undefined;
 }
 
-/** Document-level shipping cost or discount (BG-20/BG-21) — no line-level allowance/charge in this input
- * type (plan-v0.1 §4.4 draft only has document-level `shipping`/`discounts`; a line-level one would need
- * its own BT-138/143 calculation-percent handling, T-027 — deferred, not needed by any W9 scenario). */
+/** BG-27 Invoice line allowance — a net amount. BR-42 requires a reason (or reason code) on every one, so
+ * the reason is mandatory here rather than defaulted by this package. */
+export interface CommerceLineAllowance {
+  readonly amount: Amount;
+  readonly reason: string;
+}
+
+/** Document-level shipping cost or discount (BG-20/BG-21). Line-level discounts are
+ * `CommerceLine.allowances`; line-level charges (BG-28) and calculation percents (BT-138/143) are not part
+ * of this input type. */
 export interface CommerceCharge {
   readonly amount: Amount;
   readonly reason?: string | undefined;
