@@ -2,7 +2,7 @@
 
 MIT-licensed TypeScript core for structured e-invoices ([EN 16931](https://en.wikipedia.org/wiki/CEN/TC_434)), with a thin adapter for [Medusa](https://medusajs.com/) v2. An adapter for [Vendure](https://www.vendure.io/) is planned.
 
-**Status: pre-release.** The packages below are implemented and tested, but not yet published to npm. See [`docs/README.md`](docs/README.md) for the documentation index and current state.
+**Status: pre-release.** The packages below are implemented and tested, but not yet published to npm. See [`docs/README.md`](docs/README.md) for the documentation index and current state; the same documentation is published at [normwerk.dev/einvoice/docs](https://normwerk.dev/einvoice/docs/).
 
 ## Country roadmap
 

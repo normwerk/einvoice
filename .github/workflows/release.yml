@@ -75,6 +75,13 @@ jobs:
       - run: pnpm test
       - run: pnpm license-scan
 
+      # Every conformance level against the tagged commit, before anything is published: a red level fails
+      # this step, so nothing reaches npm; the report it writes is attached to the GitHub release below.
+      - name: Build validator images
+        run: docker compose -f docker/compose.conformance.yml build kosit mustang verapdf
+      - name: Conformance report
+        run: node tools/conformance/release-report.mjs conformance-report.md
+
       # A tag checkout is a detached HEAD, which pnpm's own publish-branch check would reject — the tag
       # itself is the release decision here, so that check is skipped on purpose.
       - name: Publish to npm
@@ -86,6 +93,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: GitHub release
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes conformance-report.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

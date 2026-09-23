@@ -13,6 +13,19 @@ generate PDF/A-3 standalone from any PDF renderer you supply (including a bundle
 Documents are stored in Medusa's own File Module (private), with an admin "E-Invoices" widget on the order
 page and a Store API endpoint for a customer to fetch their own e-invoice.
 
+## Compatibility
+
+| Medusa | Status                                                              |
+| ------ | ------------------------------------------------------------------- |
+| 2.21.0 | Tested: the end-to-end suite runs a real store on it                |
+| 2.19.0 | Tested: the version the plugin is developed and unit-tested against |
+| < 2.19 | Not tested; the peer dependencies (`^2.19.0`) do not allow it       |
+
+Invoices and credit notes are issued for a seller in Germany only; the plugin refuses to start with any
+other seller country. Buyers can be in Germany (businesses, consumers, public-sector buyers), elsewhere in
+the EU/EEA except Italy and Poland (their clearance platforms take no EN 16931 document), Switzerland or
+the UK.
+
 ## Install
 
 ```bash

@@ -1,10 +1,10 @@
 {
   "name": "@normwerk/einvoice-medusa",
   "version": "0.1.0",
-  "description": "Thin Medusa v2 plugin: subscribes to platform events, maps entities to CommerceInvoiceInput, stores the result. No tax logic, no XML (AGENTS.md §6) — those live in @normwerk/einvoice-commerce and @normwerk/einvoice-cii.",
+  "description": "German e-invoices for Medusa v2: XRechnung 3.0, ZUGFeRD / Factur-X (EN 16931) for a seller in Germany, issued on fulfillment and credited on refund. Buyers in Germany (B2B, B2C, public sector), the EU/EEA except Italy and Poland, Switzerland and the UK.",
   "author": "normwerk",
   "license": "MIT",
-  "homepage": "https://github.com/normwerk/einvoice#readme",
+  "homepage": "https://normwerk.dev",
   "bugs": "https://github.com/normwerk/einvoice/issues",
   "repository": {
     "type": "git",
@@ -24,11 +24,8 @@
   ],
   "exports": {
     "./package.json": "./package.json",
-    "./workflows": "./.medusa/server/src/workflows/index.js",
     "./.medusa/server/src/modules/*": "./.medusa/server/src/modules/*/index.js",
     "./modules/*": "./.medusa/server/src/modules/*/index.js",
-    "./providers/*": "./.medusa/server/src/providers/*/index.js",
-    "./links": "./.medusa/server/src/links/index.js",
     "./*": "./.medusa/server/src/*.js",
     "./admin": {
       "import": "./.medusa/server/src/admin/index.mjs",
@@ -81,12 +78,12 @@
     "yalc": "^1.0.0-pre.53"
   },
   "peerDependencies": {
-    "@medusajs/admin-sdk": ">=2.4.0",
-    "@medusajs/cli": ">=2.4.0",
-    "@medusajs/framework": ">=2.4.0",
-    "@medusajs/icons": ">=2.4.0",
-    "@medusajs/medusa": ">=2.4.0",
-    "@medusajs/ui": ">=4.0.0",
+    "@medusajs/admin-sdk": "^2.19.0",
+    "@medusajs/cli": "^2.19.0",
+    "@medusajs/framework": "^2.19.0",
+    "@medusajs/icons": "^2.19.0",
+    "@medusajs/medusa": "^2.19.0",
+    "@medusajs/ui": "^4.2.1",
     "@webbers/invoices-medusa": ">=1.0.0"
   },
   "peerDependenciesMeta": {
