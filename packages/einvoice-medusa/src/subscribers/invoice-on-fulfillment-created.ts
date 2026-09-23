@@ -58,6 +58,7 @@ import {
 import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
 import {
   describeOrderTotalMismatch,
+  issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
   resolveB2gBuyerReference,
@@ -101,7 +102,7 @@ export default async function invoiceOnFulfillmentCreated({
   const cii = await import("@normwerk/einvoice-cii");
 
   const now = () => einvoiceService.options.now?.() ?? new Date();
-  const issueDate = now().toISOString().slice(0, 10);
+  const issueDate = issueDateInSellerTimeZone(einvoiceService.options.seller.countryCode, now());
 
   const input = mapOrderToCommerceInvoiceInput(order, {
     seller: einvoiceService.options.seller,

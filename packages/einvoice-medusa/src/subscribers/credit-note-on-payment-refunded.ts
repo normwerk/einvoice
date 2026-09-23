@@ -62,6 +62,7 @@ import {
 } from "../integrations/webbers.js";
 import { deleteEinvoiceFiles, fetchFileBytes, storeEinvoiceFiles } from "../storage.js";
 import {
+  issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
   resolveB2gBuyerReference,
@@ -180,7 +181,7 @@ async function creditOneRefund({
   const cii = await import("@normwerk/einvoice-cii");
 
   const now = () => einvoiceService.options.now?.() ?? new Date();
-  const issueDate = now().toISOString().slice(0, 10);
+  const issueDate = issueDateInSellerTimeZone(einvoiceService.options.seller.countryCode, now());
 
   const input = mapOrderToCommerceInvoiceInput(order, {
     seller: einvoiceService.options.seller,

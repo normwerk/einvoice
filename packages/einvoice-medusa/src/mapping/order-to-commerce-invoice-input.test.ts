@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MissingBuyerCountryError,
   describeOrderTotalMismatch,
+  issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
   type MapOrderOptions,
   type MedusaOrderForInvoice,
@@ -404,5 +405,16 @@ describe("describeOrderTotalMismatch (P-39)", () => {
 
   it("is silent when the order carries no total to compare against", () => {
     expect(describeOrderTotalMismatch(baseOrder(), "238.00")).toBeUndefined();
+  });
+});
+
+describe("issueDateInSellerTimeZone (P-48)", () => {
+  it("dates an invoice issued at 00:30 in Berlin on New Year's Day to the new year, not UTC's old one", () => {
+    expect(issueDateInSellerTimeZone("DE", new Date("2026-12-31T23:30:00Z"))).toBe("2027-01-01");
+  });
+
+  it("follows Berlin's summer time (UTC+2)", () => {
+    expect(issueDateInSellerTimeZone("DE", new Date("2026-06-30T22:30:00Z"))).toBe("2026-07-01");
+    expect(issueDateInSellerTimeZone("DE", new Date("2026-06-30T21:30:00Z"))).toBe("2026-06-30");
   });
 });

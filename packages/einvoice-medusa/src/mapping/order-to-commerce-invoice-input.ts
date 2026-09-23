@@ -257,6 +257,29 @@ function computeNetUnitPrice(item: MedusaOrderLineItem): string {
   return net.toFixed(4);
 }
 
+/** P-48: the time zone an invoice date is read in, per seller country. v0.1 covers German sellers only
+ * (`decideVatCategory` refuses any other); a seller country missing here falls back to UTC, and that
+ * invoice is refused downstream anyway. */
+const SELLER_TIME_ZONES: Readonly<Partial<Record<CountryCode, string>>> = { DE: "Europe/Berlin" };
+
+/**
+ * P-48: the calendar date of `instant` where the seller is — the invoice date (BT-2) a German seller would
+ * write, and the year its number series belongs to. `instant.toISOString()` gives the UTC date instead:
+ * wrong between midnight and 01:00 (02:00 in summer) in Berlin, and on 1 January it put the invoice into
+ * the previous year's number series.
+ */
+export function issueDateInSellerTimeZone(sellerCountry: CountryCode, instant: Date): IsoDate {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: SELLER_TIME_ZONES[sellerCountry] ?? "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const part = (type: "year" | "month" | "day"): string =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 /**
  * A Medusa money value (number, numeric string or `BigNumber`, all readable through `Number()`) as a
  * 2-decimal `Amount`, rounding half away from zero. This is input conversion of an amount Medusa already
