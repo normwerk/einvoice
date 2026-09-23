@@ -60,7 +60,8 @@ GENERATED from \`packages/einvoice-cii/src/generated/plan.ts\` by
 Re-run after any plan change: \`node tools/codegen/cii/generate-mapping-reference.mjs\`.
 
 Only fields the serializer actually emits appear here. Fields the model has but the plan does not serialize
-yet — dropped, not rejected: VAT accounting currency (BT-6), value added tax point date and code (BT-7,
+yet — \`serializeCii\` refuses an \`Invoice\` that sets any of them (\`UnmappedInvoiceFieldsError\`) instead of
+dropping it: VAT accounting currency (BT-6), value added tax point date and code (BT-7,
 BT-8), total VAT in accounting currency (BT-111), invoice line period (BG-26), item attributes (BG-32) and
 additional supporting documents (BG-24). A third address line (BT-162, BT-163, BT-165) is not in the model yet.
 

@@ -3,7 +3,11 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Invoice } from "@normwerk/einvoice-model";
-import { serializeCii } from "./index.js";
+import {
+  serializeCii,
+  UnmappedInvoiceFieldsError,
+  UnrepresentableCharacterError,
+} from "./index.js";
 
 const FIXTURES_DIR = fileURLToPath(new URL("../../../fixtures", import.meta.url));
 
@@ -255,5 +259,37 @@ describe("serializeCii", () => {
     const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
     expect(xml).not.toContain("DesignatedProductClassification");
     expect(xml).not.toContain("OriginTradeCountry");
+  });
+
+  it("refuses Invoice fields the plan has no place for instead of dropping them (P-43)", () => {
+    const base = loadFixture("de-b2b-standard");
+    const [firstLine] = base.lines;
+    if (firstLine === undefined) throw new Error("fixture de-b2b-standard has no lines");
+    const invoice: Invoice = {
+      ...base,
+      taxPointDate: "2026-09-01",
+      totals: { ...base.totals, totalVatAmountInAccountingCurrency: "19.00" },
+      lines: [{ ...firstLine, invoicingPeriod: { startDate: "2026-09-01" } }],
+    };
+    expect(() => serializeCii(invoice, { profile: "en16931-cii" })).toThrow(
+      UnmappedInvoiceFieldsError,
+    );
+    expect(() => serializeCii(invoice, { profile: "en16931-cii" })).toThrow(
+      "lines[].invoicingPeriod.startDate, taxPointDate, totals.totalVatAmountInAccountingCurrency",
+    );
+  });
+
+  it("refuses a C0 control character, which no XML 1.0 document can carry (P-43)", () => {
+    const base = loadFixture("de-b2b-standard");
+    const invoice: Invoice = { ...base, buyer: { ...base.buyer, name: "Kunde\u0007 GmbH" } };
+    expect(() => serializeCii(invoice, { profile: "en16931-cii" })).toThrow(
+      UnrepresentableCharacterError,
+    );
+    expect(() => serializeCii(invoice, { profile: "en16931-cii" })).toThrow(
+      "ram:Name: the value contains the control character U+0007",
+    );
+    // Tab and line feed are XML characters and pass through.
+    const withTab: Invoice = { ...base, buyer: { ...base.buyer, name: "Kunde\tGmbH" } };
+    expect(serializeCii(withTab, { profile: "en16931-cii" }).xml).toContain("Kunde\tGmbH");
   });
 });

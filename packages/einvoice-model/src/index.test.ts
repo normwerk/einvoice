@@ -51,6 +51,37 @@ describe("validateModel", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("rejects what the first, hand-picked schema let through (P-53)", () => {
+    const line = domesticStandardRateInvoice.lines[0];
+    if (line === undefined) throw new Error("the invoice above has a line");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- deliberately discarding `seller`
+    const { seller, ...withoutSeller } = domesticStandardRateInvoice;
+    const broken: readonly [unknown, string][] = [
+      [withoutSeller, "must have required property 'seller'"],
+      [
+        { ...domesticStandardRateInvoice, lines: [{ ...line, netAmount: "1,5e3" }] },
+        "/lines/0/netAmount must match pattern",
+      ],
+      [
+        { ...domesticStandardRateInvoice, lines: [{ ...line, quantity: "abc" }] },
+        "/lines/0/quantity must match pattern",
+      ],
+      [
+        { ...domesticStandardRateInvoice, lines: [{ ...line, unitCode: "NOPE" }] },
+        "/lines/0/unitCode must be equal to one of the allowed values",
+      ],
+      [
+        { ...domesticStandardRateInvoice, buyerRefernce: "typo" },
+        "must NOT have additional properties",
+      ],
+    ];
+    for (const [invoice, error] of broken) {
+      const result = validateModel(invoice);
+      expect(result.valid).toBe(false);
+      expect(result.errors.join("\n")).toContain(error);
+    }
+  });
+
   it("rejects an invoice missing a required field", () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- deliberately discarding `totals`
     const { totals, ...withoutTotals } = domesticStandardRateInvoice;

@@ -28,9 +28,10 @@
  * added in T-021 (business process, seller contact, seller/buyer
  * electronic address, city/postcode), plus BT-158/BT-159 (item
  * classification identifier / country of origin, T-060 continuation,
- * D-19) added for the commerce `customs` scenario. Item attributes
- * (BG-32) and additional supporting documents (BG-24) are modeled in
- * einvoice-model but not yet in this plan — no fixture needs them yet.
+ * D-19) added for the commerce `customs` scenario. BT-6/7/8, BT-111,
+ * BG-24, BG-26 and BG-32 are modeled in einvoice-model but not yet in
+ * this plan — no fixture needs them yet; `serializeCii` refuses an
+ * Invoice that sets one (P-43, `unmappedPaths`) rather than dropping it.
  * Follow-up: extend as new fixtures need them.
  */
 import type { PlanNode, QName } from "../plan-types.js";

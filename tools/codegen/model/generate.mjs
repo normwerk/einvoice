@@ -293,98 +293,64 @@ function generateCodelists() {
   return { code: out, lists };
 }
 
+/** A decimal amount as `Amount` carries it (ADR-004): digits, an optional point, no exponent, no comma. */
+const DECIMAL_PATTERN = "^-?[0-9]+(\\.[0-9]+)?$";
+
+/** The code list behind each code-list type (BR-CL-* rules of the vendored Schematron). */
+const CODELIST_OF_TYPE = {
+  VatCategoryCode: "BR-CL-17",
+  VatexCode: "BR-CL-22",
+  CurrencyCode: "BR-CL-04",
+  CountryCode: "BR-CL-14",
+  InvoiceTypeCode: "BR-CL-01",
+  PaymentMeansCode: "BR-CL-16",
+  EasCode: "BR-CL-25",
+  UnitCode: "BR-CL-23",
+};
+
+/**
+ * P-53: the JSON Schema of every group, derived from the same terms as the TypeScript interfaces — one field
+ * per term, its type, whether it is required, and no field the model does not have. The first version
+ * listed a hand-picked subset and let everything else through: an Invoice without a seller or buyer, an
+ * amount "1,5e3", a quantity "abc" or a unit code "NOPE" all passed `validateModel()`.
+ */
 function generateJsonSchema(lists) {
+  const valueSchema = (tsType) => {
+    if (tsType === "Amount") return { type: "string", pattern: DECIMAL_PATTERN };
+    if (tsType === "IsoDate") return { type: "string", format: "date" };
+    if (tsType === "string") return { type: "string" };
+    return { $ref: `#/$defs/${tsType}` };
+  };
+  const groupSchema = (group) => {
+    const properties = {};
+    const required = [];
+    for (const term of terms.filter((t) => t.group === group)) {
+      const fieldName = FIELD_NAME_OVERRIDES[term.id];
+      const value = valueSchema(term.tsType);
+      properties[fieldName] =
+        term.kind === "BG" && term.repeats
+          ? { type: "array", ...(term.required ? { minItems: 1 } : {}), items: value }
+          : value;
+      if (term.required) required.push(fieldName);
+    }
+    return { type: "object", properties, required, additionalProperties: false };
+  };
+  const groups = [...new Set(terms.filter((t) => t.kind === "BG").map((t) => t.tsType))].sort();
   const schema = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $comment: "GENERATED — see packages/einvoice-model/src/generated/README.md",
     $id: "https://normwerk.dev/schema/einvoice-model/invoice.json",
     title: "EN 16931 Invoice (model form)",
-    type: "object",
-    properties: {
-      number: { type: "string" },
-      issueDate: { type: "string", format: "date" },
-      typeCode: { type: "string", enum: lists.get("BR-CL-01").codes },
-      currencyCode: { type: "string", enum: lists.get("BR-CL-04").codes },
-      specificationIdentifier: { type: "string" },
-      vatBreakdown: {
-        type: "array",
-        minItems: 1,
-        items: {
-          type: "object",
-          properties: {
-            taxableAmount: { type: "string" },
-            taxAmount: { type: "string" },
-            categoryCode: { type: "string", enum: lists.get("BR-CL-17").codes },
-            rate: { type: "string" },
-            exemptionReasonText: { type: "string" },
-            exemptionReasonCode: { type: "string", enum: lists.get("BR-CL-22").codes },
-          },
-          required: ["taxableAmount", "taxAmount", "categoryCode"],
-        },
-      },
-      lines: {
-        type: "array",
-        minItems: 1,
-        items: {
-          type: "object",
-          properties: {
-            identifier: { type: "string" },
-            quantity: { type: "string" },
-            unitCode: { type: "string" },
-            netAmount: { type: "string" },
-            netPrice: { type: "string" },
-            itemName: { type: "string" },
-            vat: {
-              type: "object",
-              properties: {
-                categoryCode: { type: "string", enum: lists.get("BR-CL-17").codes },
-                rate: { type: "string" },
-              },
-              required: ["categoryCode"],
-            },
-          },
-          required: [
-            "identifier",
-            "quantity",
-            "unitCode",
-            "netAmount",
-            "netPrice",
-            "itemName",
-            "vat",
-          ],
-        },
-      },
-      totals: {
-        type: "object",
-        properties: {
-          sumOfLineNetAmounts: { type: "string" },
-          totalAmountWithoutVat: { type: "string" },
-          totalAmountWithVat: { type: "string" },
-          amountDueForPayment: { type: "string" },
-        },
-        required: [
-          "sumOfLineNetAmounts",
-          "totalAmountWithoutVat",
-          "totalAmountWithVat",
-          "amountDueForPayment",
-        ],
-      },
+    ...groupSchema("Invoice"),
+    $defs: {
+      ...Object.fromEntries(groups.map((group) => [group, groupSchema(group)])),
+      ...Object.fromEntries(
+        Object.entries(CODELIST_OF_TYPE).map(([tsType, list]) => [
+          tsType,
+          { type: "string", enum: lists.get(list).codes },
+        ]),
+      ),
     },
-    required: [
-      "number",
-      "issueDate",
-      "typeCode",
-      "currencyCode",
-      "specificationIdentifier",
-      "vatBreakdown",
-      "lines",
-      "totals",
-    ],
-    additionalProperties: true,
-    $comment2:
-      "additionalProperties: true deliberately — this schema covers the core scenario fields " +
-      "checked by scenario fixtures (docs/tax-semantics.md); it is not yet a full structural " +
-      "schema for every field in generated/types.ts (T-011 continuation).",
   };
   return HEADER + `export const invoiceJsonSchema = ${JSON.stringify(schema, null, 2)} as const;\n`;
 }

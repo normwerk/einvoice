@@ -174,6 +174,18 @@ export class MissingSellerContactError extends Error {
   }
 }
 
+export class MissingElectronicAddressError extends Error {
+  constructor(readonly party: "seller" | "buyer") {
+    super(
+      `${party}.electronicAddress and ${party}.electronicAddressScheme are required — every invoice this ` +
+        "package emits declares the XRechnung 3.0 CIUS, whose validation requires the seller's and the " +
+        `buyer's electronic address with a scheme (PEPPOL-EN16931-R020/R010, BR-62/BR-63). An email address ` +
+        'with scheme "EM" satisfies it.',
+    );
+    this.name = "MissingElectronicAddressError";
+  }
+}
+
 /** §33 UStDV: the gross amount up to which an invoice may leave out the buyer's name and address. */
 const SMALL_AMOUNT_INVOICE_LIMIT = "250.00";
 
@@ -347,6 +359,14 @@ export function buildInvoice(
   }
   if (input.seller.addressLine1 === undefined || input.seller.addressLine1.trim() === "") {
     throw new MissingSellerAddressError();
+  }
+  // P-43: KoSIT rejects a document without either party's electronic address (checked against a real run:
+  // a buyer without one fails PEPPOL-EN16931-R010). An order without an email reached the XML that way.
+  for (const party of ["seller", "buyer"] as const) {
+    const { electronicAddress, electronicAddressScheme } = input[party];
+    if (!electronicAddress?.trim() || electronicAddressScheme === undefined) {
+      throw new MissingElectronicAddressError(party);
+    }
   }
   // P-54: a Leitweg-ID is declared, never read out of BT-10's free text — "2024-01" or a purchase order
   // number "4500123456-10" has the same shape, and was refused or routed to XRechnung for it.

@@ -56,6 +56,8 @@ const SELLER = {
   city: "Berlin",
   postCode: "10115",
   vatIdentifier: "DE123456789",
+  electronicAddress: "invoicing@musterfirma.example",
+  electronicAddressScheme: "EM" as const,
   contact: {
     name: "Anna Muster",
     telephone: "+49 30 1234567",

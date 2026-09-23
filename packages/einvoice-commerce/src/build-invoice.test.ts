@@ -13,6 +13,7 @@ import {
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,
+  MissingElectronicAddressError,
   MissingSellerAddressError,
   MissingSellerContactError,
   UnsupportedSchemaVersionError,
@@ -27,6 +28,8 @@ const SELLER = {
   city: "Berlin",
   postCode: "10115",
   vatIdentifier: "DE123456789",
+  electronicAddress: "rechnung@musterfirma.example",
+  electronicAddressScheme: "EM" as const,
   contact: {
     name: "Rechnungsstelle",
     telephone: "+493012345678",
@@ -34,8 +37,15 @@ const SELLER = {
   },
 };
 
+/** Every buyer below gets an electronic address unless it sets one (or `undefined`) itself — XRechnung
+ * requires one on every invoice (PEPPOL-EN16931-R010). */
+const BUYER_ELECTRONIC_ADDRESS = {
+  electronicAddress: "einkauf@kunde.example",
+  electronicAddressScheme: "EM" as const,
+};
+
 function domesticInput(overrides: Partial<CommerceInvoiceInput> = {}): CommerceInvoiceInput {
-  return {
+  const input: CommerceInvoiceInput = {
     schemaVersion: 1,
     document: { kind: "invoice", number: "RE-2026-0001", issueDate: "2026-09-14", currency: "EUR" },
     seller: SELLER,
@@ -65,6 +75,7 @@ function domesticInput(overrides: Partial<CommerceInvoiceInput> = {}): CommerceI
     },
     ...overrides,
   };
+  return { ...input, buyer: { ...BUYER_ELECTRONIC_ADDRESS, ...input.buyer } };
 }
 
 describe("buildInvoice — domestic (docs/tax-semantics.md row 1)", () => {
@@ -550,6 +561,26 @@ describe("buildInvoice — input validation", () => {
       document: { kind: "invoice", issueDate: "2026-09-14", currency: "EUR" },
     });
     expect(() => buildInvoice(input)).toThrow(MissingDocumentNumberError);
+  });
+
+  it("requires both parties' electronic address — KoSIT rejects a buyer without one (PEPPOL-EN16931-R010, P-43)", () => {
+    const withoutBuyerAddress = domesticInput({
+      buyer: {
+        name: "Beispielkunde GmbH",
+        countryCode: "DE",
+        city: "Hamburg",
+        postCode: "20095",
+        electronicAddress: undefined,
+        electronicAddressScheme: undefined,
+      },
+    });
+    expect(() => buildInvoice(withoutBuyerAddress)).toThrow(
+      expect.objectContaining({ name: "MissingElectronicAddressError", party: "buyer" }),
+    );
+    const withoutSellerScheme = domesticInput({
+      seller: { ...SELLER, electronicAddressScheme: undefined },
+    });
+    expect(() => buildInvoice(withoutSellerScheme)).toThrow(MissingElectronicAddressError);
   });
 
   it("requires seller.contact (BR-DE-2, unconditional — every invoice declares the XRechnung 3.0 CIUS)", () => {

@@ -35,6 +35,7 @@ export {
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,
+  MissingElectronicAddressError,
   MissingSellerAddressError,
   MissingSellerContactError,
   UnsupportedSchemaVersionError,

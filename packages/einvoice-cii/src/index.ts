@@ -8,7 +8,7 @@
  */
 import type { Invoice } from "@normwerk/einvoice-model";
 import { invoicePlan } from "./generated/plan.js";
-import { serializeWithPlan } from "./serialize.js";
+import { serializeWithPlan, unmappedPaths } from "./serialize.js";
 
 /**
  * Profiles this package can target. Only the base EN 16931 CII binding is
@@ -34,11 +34,35 @@ export interface SerializeResult {
   readonly profileViolations: readonly ProfileViolation[];
 }
 
+/**
+ * P-43: an `Invoice` field the serialization plan has no place for. The model carries some business terms
+ * this package does not write yet (BT-6/7/8, BT-111, BG-24, BG-26, BG-32); without this refusal they were
+ * dropped from the XML without a trace.
+ */
+export class UnmappedInvoiceFieldsError extends Error {
+  constructor(readonly paths: readonly string[]) {
+    super(
+      `serializeCii cannot write these Invoice fields to CII yet, and refuses rather than dropping them: ` +
+        `${paths.join(", ")}. See docs/mapping-reference.md for the fields it writes.`,
+    );
+    this.name = "UnmappedInvoiceFieldsError";
+  }
+}
+
 export function serializeCii(invoice: Invoice, options: SerializeOptions): SerializeResult {
   void options; // profile prechecks land in T-021; base CII binding is profile-agnostic so far.
+  const unmapped = unmappedPaths(invoicePlan, invoice);
+  if (unmapped.length > 0) {
+    throw new UnmappedInvoiceFieldsError(unmapped);
+  }
   return { xml: serializeWithPlan(invoicePlan, invoice), profileViolations: [] };
 }
 
 export { invoicePlan } from "./generated/plan.js";
-export { serializeWithPlan } from "./serialize.js";
+export {
+  planPaths,
+  serializeWithPlan,
+  UnrepresentableCharacterError,
+  unmappedPaths,
+} from "./serialize.js";
 export type { PlanNode, QName } from "./plan-types.js";
