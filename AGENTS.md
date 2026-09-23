@@ -44,9 +44,9 @@ jurisdiction analysis, outreach lists, pricing. Not in docs, not in comments, no
 repository is public. (2) Public docs describe the **implemented state** of the software and nothing else.
 (3) If a task needs a strategy decision you don't have, stop and ask — do not reconstruct it or guess.
 
-Internal identifiers you'll see throughout this file and this codebase (`T-NNN`, `M-NNN`, `D-NN`,
-`plan-v0.1 §N`) point into that private workspace and are not publicly resolvable — see
-`docs/conventions.md` for why they're kept anyway.
+Internal identifiers you'll see throughout this file and in code comments (`T-NNN`, `P-NN`, `M-NNN`,
+`D-NN`, `plan-v0.1 §N`) point into that private workspace and are not publicly resolvable. They belong in
+code comments and commit messages only — never in text a user reads (section 12, `docs/conventions.md`).
 
 ---
 
@@ -235,7 +235,7 @@ Rules:
 - Reference real symbols and paths so docs stay searchable.
 - Two documents are mandatory before v0.1 ships: `docs/mapping-reference.md` (platform field → BT) and `docs/tax-semantics.md` ("what the validator does not catch").
 - Do not add unsolicited markdown beyond what these rules require.
-- User-facing text (error messages, log lines, admin UI, README) never references private planning documents (`STRATEGY.md`, `plan-*.md`, `T-NNN`, `M-NNN`, `D-NN`). Reference a public `docs/` page or a stable error code instead. Internal traceability belongs in code comments and commit messages.
+- **Internal identifiers live only in code comments and commit messages.** Every other text is user-facing and never references private planning documents or their identifiers (`STRATEGY.md`, `plan-*.md`, `T-NNN`, `P-NN`, `M-NNN`, `D-NN`): error messages, log lines, admin UI, README, npm descriptions, and every page under `docs/` — normwerk.dev publishes those pages as they are. Reference a public `docs/` page, a legal source, or a stable error code instead. Doc comments the site extracts (plugin options, error classes) stay comments; the site strips identifiers from them when it publishes them. Decided 2026-09-23 (M-042).
 - Public text (README, `docs/`, error messages, npm descriptions) never promises a tax or legal review, and never marks anything "pending review". A review is stated only after it happened, with date and scope, as a fact. "Tax advisor" in public text always means the merchant's own advisor. Internal planning of reviews lives outside this repository.
 
 ---
