@@ -33,7 +33,8 @@ export class WebbersInvoiceNotFoundError extends Error {
     super(
       `No @webbers/invoices-medusa ${type} invoice for resource ${resourceId} (order ${orderId}) appeared ` +
         "within the configured wait window. This plugin refuses to allocate its own document number in " +
-        'integration.kind === "webbers" mode ("не дублировать нумерацию", plan-v0.1 §4.6) — increase ' +
+        'integration.kind === "webbers" mode, so that one order never carries two different invoice ' +
+        "numbers — increase " +
         "integration.waitForInvoiceMs if their workflow genuinely needs longer, or check their own logs for " +
         "a failure in createInvoiceWorkflow/createCreditInvoiceWorkflow.",
     );

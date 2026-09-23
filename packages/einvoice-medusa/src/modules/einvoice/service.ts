@@ -183,7 +183,18 @@ function assertValidOptions(options: EinvoiceModuleOptions): void {
     throw new InvalidEinvoiceModuleOptionsError(
       "options.seller.electronicAddress and options.seller.electronicAddressScheme are both required — " +
         'e.g. { electronicAddress: "invoicing@example.com", electronicAddressScheme: "EM" } — BR-62 ' +
-        "rejects an invoice missing either (confirmed against a real KoSIT Validator run, T-071).",
+        "rejects an invoice missing either (confirmed against a real KoSIT Validator run).",
+    );
+  }
+  const contact = options.seller.contact;
+  if (!contact?.name?.trim() || !contact.telephone?.trim() || !contact.email?.trim()) {
+    // BR-DE-2: every document this plugin builds declares the XRechnung 3.0 CIUS, which makes seller
+    // contact (BG-6: name, telephone, email) mandatory. `buildInvoice` refuses without it — but only once an
+    // order arrives, after a document number is taken. Checked here instead, so the plugin fails at boot,
+    // as docs/quickstart-medusa.md promises.
+    throw new InvalidEinvoiceModuleOptionsError(
+      "options.seller.contact is required, with a non-empty name, telephone and email — the XRechnung CIUS " +
+        "every document declares makes seller contact mandatory (BR-DE-2).",
     );
   }
   if (options.payment === undefined || options.payment === null || !options.payment.means) {
@@ -195,7 +206,7 @@ function assertValidOptions(options: EinvoiceModuleOptions): void {
     throw new InvalidEinvoiceModuleOptionsError(
       'options.payment.means is required — e.g. { means: "58", iban: "DE89..." } ("58" = SEPA credit ' +
         "transfer, the same convention every fixture already in this repo uses) — BR-DE-1 rejects an " +
-        "invoice with no payment instructions at all (confirmed against a real KoSIT Validator run, T-071).",
+        "invoice with no payment instructions at all (confirmed against a real KoSIT Validator run).",
     );
   }
 }

@@ -274,7 +274,8 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
       consultationNumber: "ABC123",
     };
     expect(() => decideVatCategory(context, evidence)).toThrow(TaxRuleError);
-    expect(() => decideVatCategory(context, evidence)).toThrow(/M-006/);
+    // The refusal names the way out — declaring the fact — not an internal planning reference.
+    expect(() => decideVatCategory(context, evidence)).toThrow(/reverse-charge-cross-border/);
   });
 
   it("row 12 (T-135/P-34): DE → EU B2B service via explicit cross-border reverse-charge override → AE, VATEX-EU-AE", () => {

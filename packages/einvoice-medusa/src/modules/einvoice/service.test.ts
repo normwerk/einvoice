@@ -10,6 +10,11 @@ const VALID_SELLER = {
   vatIdentifier: "DE123456789",
   electronicAddress: "invoicing@musterfirma.example",
   electronicAddressScheme: "EM" as const,
+  contact: {
+    name: "Rechnungsstelle",
+    telephone: "+49 30 1234567",
+    email: "invoicing@musterfirma.example",
+  },
 };
 
 const VALID_PAYMENT = { means: "58" as const, iban: "DE89370400440532013000" };
@@ -57,6 +62,18 @@ describe("EinvoiceModuleService", () => {
           payment: VALID_PAYMENT,
         }),
     ).toThrow(InvalidEinvoiceModuleOptionsError);
+  });
+
+  it("rejects a seller without contact at startup — BR-DE-2 would otherwise refuse every order (P-55)", () => {
+    for (const contact of [undefined, { name: "", telephone: "+49 30 1", email: "a@b.example" }]) {
+      expect(
+        () =>
+          new EinvoiceModuleService(FAKE_CONTAINER, {
+            seller: { ...VALID_SELLER, contact: contact as never },
+            payment: VALID_PAYMENT,
+          }),
+      ).toThrow(InvalidEinvoiceModuleOptionsError);
+    }
   });
 
   it("rejects a seller missing vatIdentifier, even though CommerceParty leaves it optional for a buyer", () => {

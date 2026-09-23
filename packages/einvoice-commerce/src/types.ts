@@ -103,8 +103,8 @@ export interface CommerceParty {
   readonly legalRegistrationIdentifier?: string | undefined;
   readonly electronicAddress?: string | undefined;
   readonly electronicAddressScheme?: EasCode | undefined;
-  /** BG-6. `buildInvoice` requires this on the seller when the resolved e-invoice profile is XRECHNUNG
-   * (BR-DE-2 — Germany's own CIUS makes seller contact mandatory; the base EN 16931 Schematron does not). */
+  /** BG-6. `buildInvoice` requires this on the seller for every document: each one declares the XRechnung
+   * 3.0 CIUS, whose BR-DE-2 makes seller contact mandatory (the base EN 16931 Schematron does not). */
   readonly contact?:
     | {
         readonly name: string;

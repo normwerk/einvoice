@@ -59,7 +59,7 @@ export class MissingCorrectedInvoiceReferenceError extends Error {
     super(
       "A credit note (document.kind === 'credit-note') must carry document.correctedInvoice (BT-25/26) — " +
         "the base EN 16931 Schematron does not force this (BR-55 only fires if a preceding-invoice-reference " +
-        "group exists at all, docs/tax-semantics.md row 10); this package enforces it itself (T-064).",
+        "group exists at all, docs/tax-semantics.md row 10); this package enforces it itself.",
     );
     this.name = "MissingCorrectedInvoiceReferenceError";
   }
@@ -79,7 +79,7 @@ export class MissingDeliveryInfoForIntraCommunitySupplyError extends Error {
   constructor() {
     super(
       "An intra-EU supply (category K) requires delivery.actualDeliveryDate and delivery.deliverToCountryCode " +
-        "— BR-IC-11/BR-IC-12 (real KoSIT rejection, T-060 continuation; no other category in " +
+        "— BR-IC-11/BR-IC-12 (a real KoSIT rejection; no other category in " +
         "docs/tax-semantics.md's table needs delivery info the same way).",
     );
     this.name = "MissingDeliveryInfoForIntraCommunitySupplyError";
@@ -90,7 +90,7 @@ export class MissingBuyerVatIdError extends Error {
   constructor() {
     super(
       "An intra-EU supply (category K) requires buyer.vatIdentifier (BT-48) on the document itself, not " +
-        "just a positive VIES check — BR-IC-02 (P-19, real KoSIT rejection): 'shall contain the Seller VAT " +
+        "just a positive VIES check — BR-IC-02 (a real KoSIT rejection): 'shall contain the Seller VAT " +
         "Identifier (BT-31) or the Seller tax representative VAT identifier (BT-63) and the Buyer VAT " +
         'identifier (BT-48)\', flag="fatal" (verified against the vendored Schematron).',
     );
@@ -102,7 +102,7 @@ export class MissingBuyerIdentifierForReverseChargeError extends Error {
   constructor() {
     super(
       "A reverse-charge supply (category AE) requires buyer.vatIdentifier (BT-48) and/or " +
-        "buyer.legalRegistrationIdentifier (BT-47) on the document — BR-AE-02 (P-19, real KoSIT rejection), " +
+        "buyer.legalRegistrationIdentifier (BT-47) on the document — BR-AE-02 (a real KoSIT rejection), " +
         "which requires the buyer identifier the same way BR-IC-02 requires it for category K.",
     );
     this.name = "MissingBuyerIdentifierForReverseChargeError";
@@ -143,8 +143,7 @@ export class InvalidLeitwegIdError extends Error {
     super(
       `references.buyerReference "${value}" has the shape of a Leitweg-ID but fails validation (${reason}) ` +
         "— KoSIT's own validator only checks that BT-10 is present (BR-DE-15), not its format, so a " +
-        "mistyped Leitweg-ID would otherwise pass KoSIT and misroute at the receiving public-sector system " +
-        "(T-062).",
+        "mistyped Leitweg-ID would otherwise pass KoSIT and misroute at the receiving public-sector system.",
     );
     this.name = "InvalidLeitwegIdError";
   }
@@ -172,7 +171,7 @@ export class InvalidCommerceInvoiceInputError extends Error {
   constructor(readonly errors: readonly string[]) {
     super(
       `input fails structural validation against the generated CommerceInvoiceInput JSON Schema ` +
-        `(T-060, ADR-003): ${errors.join("; ")} — TypeScript cannot catch this for a hand-built or ` +
+        `(ADR-003): ${errors.join("; ")} — TypeScript cannot catch this for a hand-built or ` +
         "non-TypeScript payload, which is exactly the caller ADR-003 names as the reason this contract " +
         "carries an explicit schemaVersion in the first place.",
     );

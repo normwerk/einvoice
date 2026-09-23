@@ -84,8 +84,9 @@ export class MixedSupplyCrossBorderError extends Error {
         "correct EN 16931 category — decideVatCategory resolves exactly one category per document " +
         "(docs/tax-semantics.md's own rule; row 9's mixed rates are still one category, S, just two rates). " +
         'Two real outs: issue two separate invoices, one per supply type; or tag the line "goods" if the ' +
-        "service is genuinely ancillary to it (a single Werklieferung, §3 Abs. 7 UStG — a question of fact, " +
-        "M-006). This is not a fulfillment split — a real per-fulfillment split does not exist (P-30).",
+        "service is genuinely ancillary to it (a single Werklieferung, §3 Abs. 7 UStG — a question of fact " +
+        "for you and your tax advisor). Splitting the order into separate fulfillments does not split the " +
+        "invoice.",
     );
     this.name = "MixedSupplyCrossBorderError";
   }
@@ -116,7 +117,7 @@ const CROSS_BORDER_REVERSE_CHARGE_DEFAULT_TEXT =
 export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvidence): TaxDecision {
   if (context.sellerCountry !== "DE") {
     throw new TaxRuleError(
-      `decideVatCategory only covers a German seller (v0.1 scope, STRATEGY.md §2) — got sellerCountry "${context.sellerCountry}"`,
+      `decideVatCategory only covers a German seller in this release — got sellerCountry "${context.sellerCountry}"`,
       "tax-semantics#scope",
     );
   }
@@ -181,7 +182,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       throw new TaxRuleError(
         "reverse-charge override given for a non-domestic-B2B transaction — docs/tax-semantics.md row 5 " +
           "is DE→DE B2B only; a cross-border reverse-charge service is row 12's own " +
-          'regimeOverride: { kind: "reverse-charge-cross-border" } instead (T-135) — a different legal ' +
+          'regimeOverride: { kind: "reverse-charge-cross-border" } instead — a different legal ' +
           "basis (§3a Abs. 2 UStG / Art. 44+196 VAT Directive, not §13b UStG), not an extension of this " +
           "override.",
         "tax-semantics#5",
@@ -215,8 +216,8 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       throw new TaxRuleError(
         "reverse-charge-cross-border override given outside its scope — docs/tax-semantics.md row 12 is " +
           "DE→(other EU state) B2B service only. A domestic reverse-charge service is row 5's " +
-          '"reverse-charge" override instead; a non-EU B2B service is row 13 (CONTESTED — no override ' +
-          "exists for it yet, pending M-006).",
+          '"reverse-charge" override instead; a non-EU B2B service is row 13, which has no override: its ' +
+          "category is not settled, so this package refuses it.",
         "tax-semantics#12",
       );
     }
@@ -259,7 +260,8 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     throw new TaxRuleError(
       `DE→EU B2B service to ${context.buyerCountry} (docs/tax-semantics.md row 12) has a settled category ` +
         `(AE) but no official artifact example confirms a real validator accepts it — refusing rather than ` +
-        `guessing until M-006 (paid legal/artifact review) clears it, per that row's own documented rule.`,
+        `guessing, per that row's own documented rule. If the supply is one, declare it: ` +
+        `regimeOverride: { kind: "reverse-charge-cross-border" }.`,
       "tax-semantics#12",
     );
   }
@@ -316,7 +318,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     throw new TaxRuleError(
       `Intra-EU supply to buyer VAT-ID ${context.buyerVatId} needs a positive VIES check (vatIdEvidence.status === "valid") ` +
         `or an explicit regimeOverride: { kind: "intra-eu-confirmed" } — refusing to select category K on an ` +
-        `unverified VAT-ID (D-19). This does not need to block the underlying order — defer invoice issuance ` +
+        `unverified VAT-ID. This does not need to block the underlying order — defer invoice issuance ` +
         `until the check resolves.`,
       "tax-semantics#3",
     );
@@ -334,8 +336,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     throw new TaxRuleError(
       `DE→non-EU B2B service to ${context.buyerCountry} (docs/tax-semantics.md row 13) is CONTESTED — no ` +
         `artifact resolves whether this is AE, O, or G. Refusing rather than guessing; an explicit ` +
-        `regimeOverride is the only way to force a specific outcome, and none exists for this case yet — ` +
-        `pending M-006.`,
+        `regimeOverride is the only way to force a specific outcome, and none exists for this case.`,
       "tax-semantics#13",
     );
   }
