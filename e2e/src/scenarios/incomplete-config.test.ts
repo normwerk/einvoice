@@ -21,4 +21,15 @@ describe("incomplete config: the plugin refuses to boot without required options
     expect(result.output).toContain("options.payment.means is required");
     expect(result.output).not.toContain("Server is ready");
   }, 240_000);
+
+  // T-077: the release checklist's own item — an unsupported seller country stops the boot with a message
+  // a merchant can act on, instead of every order failing later.
+  it("refuses a seller outside Germany and never starts the server", async () => {
+    const result = await runMedusaOnce({ EINVOICE_E2E_SELLER_COUNTRY: "AT" }, { port: 9597 });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.output).toContain("InvalidEinvoiceModuleOptionsError");
+    expect(result.output).toContain('options.seller.countryCode "AT" is not supported');
+    expect(result.output).not.toContain("Server is ready");
+  }, 240_000);
 });

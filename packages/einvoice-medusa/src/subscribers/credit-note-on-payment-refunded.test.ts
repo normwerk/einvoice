@@ -284,7 +284,8 @@ describe("creditNoteOnPaymentRefunded", () => {
 
     await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
 
-    expect(mocks.buildInvoice).toHaveBeenCalledTimes(1);
+    // One credit note: its check build before the number is taken (P-48), then the real one.
+    expect(mocks.buildInvoice).toHaveBeenCalledTimes(2);
     expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
       expect.objectContaining({ idempotencyKey: "refund_02" }),
     );

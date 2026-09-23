@@ -63,7 +63,9 @@ module.exports = defineConfig({
       options: {
         seller: {
           name: "Normwerk Test GmbH",
-          countryCode: "DE",
+          // `incomplete-config.test.ts` sets EINVOICE_E2E_SELLER_COUNTRY in a one-off container to confirm
+          // the plugin refuses to start with a seller outside Germany. Unset in every other run.
+          countryCode: (process.env.EINVOICE_E2E_SELLER_COUNTRY ?? "DE") as "DE",
           addressLine1: "Teststraße 1",
           city: "Berlin",
           postCode: "10115",

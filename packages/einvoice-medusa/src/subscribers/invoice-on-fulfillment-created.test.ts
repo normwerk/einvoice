@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   })),
   deleteEinvoiceFiles: vi.fn(async () => undefined),
   logger: { warn: vi.fn() },
+  nextNumber: vi.fn(async () => "RE-2026-0001"),
 }));
 
 vi.mock("@normwerk/einvoice-commerce", () => ({
@@ -40,7 +41,7 @@ vi.mock("@normwerk/einvoice-commerce", () => ({
   selectProfile: mocks.selectProfile,
   buildInvoice: mocks.buildInvoice,
   SequentialNumberer: class {
-    next = vi.fn(async () => "RE-2026-0001");
+    next = mocks.nextNumber;
   },
 }));
 
@@ -153,6 +154,11 @@ function makeArgs(
   }>;
 }
 
+/** The `document.number` a `buildInvoice` call was given. */
+function numberOf(input: unknown): unknown {
+  return (input as { document: { number?: string } }).document.number;
+}
+
 describe("invoiceOnFulfillmentCreated", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -199,7 +205,12 @@ describe("invoiceOnFulfillmentCreated", () => {
       makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
     );
 
-    expect(mocks.buildInvoice).toHaveBeenCalledTimes(1);
+    // A check build before the number is taken (P-48), then the real one with the number.
+    expect(mocks.buildInvoice).toHaveBeenCalledTimes(2);
+    expect(mocks.buildInvoice.mock.calls.map((call) => numberOf(call[0]))).toEqual([
+      "UNALLOCATED",
+      "RE-2026-0001",
+    ]);
     expect(mocks.serializeCii).toHaveBeenCalledTimes(1);
     expect(mocks.embedInvoiceInPdfA3).not.toHaveBeenCalled();
     expect(mocks.storeEinvoiceFiles).toHaveBeenCalledWith(
@@ -306,11 +317,28 @@ describe("invoiceOnFulfillmentCreated", () => {
 
     expect(mocks.deleteEinvoiceFiles).toHaveBeenCalledWith(container, ["file_xml", "file_pdf"]);
   });
+  it("takes no document number for an order buildInvoice refuses (P-48)", async () => {
+    mocks.buildInvoice.mockImplementationOnce(() => {
+      throw new Error("refused");
+    });
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer(einvoiceService);
+
+    await expect(
+      invoiceOnFulfillmentCreated(
+        makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+      ),
+    ).rejects.toThrow("refused");
+    expect(mocks.nextNumber).not.toHaveBeenCalled();
+    expect(mocks.storeEinvoiceFiles).not.toHaveBeenCalled();
+  });
+
   it("reports buildInvoice's warnings and a total that differs from what Medusa charged, without the invoice payload (P-39)", async () => {
-    mocks.buildInvoice.mockReturnValueOnce({
+    const built = {
       invoice: { totals: { totalAmountWithVat: "238.00" } },
       warnings: [{ code: "payment-terms-not-mapped", message: "terms dropped" }],
-    } as never);
+    } as never;
+    mocks.buildInvoice.mockReturnValueOnce(built).mockReturnValueOnce(built);
     const einvoiceService = makeEinvoiceService();
     const { container } = makeContainer(einvoiceService, [{ ...ORDER, total: 200 }]);
 

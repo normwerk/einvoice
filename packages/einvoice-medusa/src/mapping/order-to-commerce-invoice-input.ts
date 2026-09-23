@@ -487,6 +487,10 @@ function resolveBuyerName(order: MedusaOrderForInvoice, buyerAddress: MedusaOrde
   return name ?? order.email ?? customer?.email ?? "Unknown customer";
 }
 
+/** P-48: `document.number` of the check build a subscriber runs before it takes a real number — never on a
+ * stored document. */
+export const UNALLOCATED_DOCUMENT_NUMBER = "UNALLOCATED";
+
 /**
  * Maps a Medusa order (fetched with `ORDER_QUERY_FIELDS`) plus this plugin's own seller config into a
  * `CommerceInvoiceInput` — `document.number` deliberately left unset (ADR-001/`numbering.ts`: numbering is

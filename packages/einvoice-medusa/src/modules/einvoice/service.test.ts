@@ -65,6 +65,16 @@ describe("EinvoiceModuleService", () => {
     ).toThrow(InvalidEinvoiceModuleOptionsError);
   });
 
+  it("rejects a seller outside Germany at startup — the VAT rules it applies are German law (T-077)", () => {
+    expect(
+      () =>
+        new EinvoiceModuleService(FAKE_CONTAINER, {
+          seller: { ...VALID_SELLER, countryCode: "AT", vatIdentifier: "ATU12345678" },
+          payment: VALID_PAYMENT,
+        }),
+    ).toThrow(/options\.seller\.countryCode "AT" is not supported/);
+  });
+
   it("rejects a seller without contact at startup — BR-DE-2 would otherwise refuse every order (P-55)", () => {
     for (const contact of [undefined, { name: "", telephone: "+49 30 1", email: "a@b.example" }]) {
       expect(

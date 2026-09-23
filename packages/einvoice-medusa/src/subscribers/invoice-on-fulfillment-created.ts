@@ -14,8 +14,8 @@
  *
  * Idempotency: checked *before* any work — `einvoiceService.listEinvoiceDocuments` for this
  * `(type, idempotency_key)` short-circuits a redelivered event without allocating a fresh document number,
- * keeping `SequentialNumberer`'s "gap-free" guarantee (`numbering.ts`) intact for the realistic redelivery
- * case (Medusa's local event bus never retries by default — `docs/domain-glossary.md` — so a genuine
+ * so a redelivery never burns one (a gap is lawful, a wasted number still confusing) in the realistic
+ * redelivery case (Medusa's local event bus never retries by default — `docs/domain-glossary.md` — so a genuine
  * redelivery here means a manual replay/retry, which is sequential, not concurrent, with the original
  * delivery). `recordDocumentIfAbsent`'s own database-level `UNIQUE` guard (`service.ts`) is the backstop
  * for the narrower case this check alone can't cover: two literally concurrent deliveries of the same
@@ -62,6 +62,7 @@ import {
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
   type MedusaOrderForInvoice,
+  UNALLOCATED_DOCUMENT_NUMBER,
 } from "../mapping/order-to-commerce-invoice-input.js";
 
 interface FulfillmentCreatedEventData {
@@ -118,6 +119,23 @@ export default async function invoiceOnFulfillmentCreated({
     preferredProfile: einvoiceService.options.defaultProfile,
   });
 
+  // T-079/P-12: VAT-ID verification is real I/O — it happens here, before buildInvoice, never inside it
+  // (ADR-003). Only attempted when both a verifier is configured and the buyer actually has a VAT-ID to
+  // check; omitting either keeps category K unreachable, same as today (service.ts's own doc comment).
+  const vatIdEvidence =
+    einvoiceService.options.vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
+      ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
+      : undefined;
+
+  const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
+  // P-48: every refusal `buildInvoice` can raise — a missing fact, an undecidable category, a rate it
+  // cannot invoice — happens here, before a document number is taken, so a refused order leaves no hole in
+  // the series. The number is the only input the real build below adds.
+  commerce.buildInvoice(
+    { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
+    buildOptions,
+  );
+
   const integration = einvoiceService.options.integration;
   let documentNumber: string;
   let basePdfBytes: Uint8Array | undefined;
@@ -141,17 +159,9 @@ export default async function invoiceOnFulfillmentCreated({
     documentNumber = await numberer.next({ kind: "invoice", issueDate });
   }
 
-  // T-079/P-12: VAT-ID verification is real I/O — it happens here, before buildInvoice, never inside it
-  // (ADR-003). Only attempted when both a verifier is configured and the buyer actually has a VAT-ID to
-  // check; omitting either keeps category K unreachable, same as today (service.ts's own doc comment).
-  const vatIdEvidence =
-    einvoiceService.options.vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
-      ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
-      : undefined;
-
   const buildResult = commerce.buildInvoice(
     { ...input, document: { ...input.document, number: documentNumber } },
-    vatIdEvidence === undefined ? {} : { vatIdEvidence },
+    buildOptions,
   );
 
   // P-39: `buildInvoice` reports what it could not map or had to assume (`BuildResult.warnings`), and the

@@ -29,6 +29,7 @@ import {
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
   type MedusaOrderForInvoice,
+  UNALLOCATED_DOCUMENT_NUMBER,
 } from "../mapping/order-to-commerce-invoice-input.js";
 import {
   PartialCreditAcrossRatesError,
@@ -159,6 +160,13 @@ export async function issueCreditNote({
     });
   }
 
+  const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
+  // P-48: refusals before a document number is taken — see invoice-on-fulfillment-created.ts.
+  commerce.buildInvoice(
+    { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
+    buildOptions,
+  );
+
   const integration = einvoiceService.options.integration;
   let documentNumber: string;
   let basePdfBytes: Uint8Array | undefined;
@@ -187,7 +195,7 @@ export async function issueCreditNote({
 
   const buildResult = commerce.buildInvoice(
     { ...input, document: { ...input.document, number: documentNumber } },
-    vatIdEvidence === undefined ? {} : { vatIdEvidence },
+    buildOptions,
   );
 
   for (const warning of buildResult.warnings) {

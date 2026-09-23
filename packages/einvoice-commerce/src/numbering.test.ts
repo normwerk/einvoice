@@ -20,7 +20,7 @@ describe("SequentialNumberer", () => {
   });
 });
 
-describe("InMemoryNumberingStore — concurrency (T-063 acceptance: gap-free under concurrent calls)", () => {
+describe("InMemoryNumberingStore — concurrency (T-063 acceptance: no duplicate or skipped number under concurrent calls)", () => {
   it("hands out every number from 1..N exactly once when N calls fire concurrently", async () => {
     const store = new InMemoryNumberingStore();
     const N = 500;

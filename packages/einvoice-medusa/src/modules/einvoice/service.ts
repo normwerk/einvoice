@@ -145,6 +145,16 @@ function assertValidOptions(options: EinvoiceModuleOptions): void {
       "options.seller.name is required and cannot be empty.",
     );
   }
+  if (options.seller.countryCode !== "DE") {
+    // T-077: every VAT rule, rate and invoice requirement this plugin applies is German law, and
+    // `decideVatCategory` refuses any other seller country — but only once an order arrives. Checked here so
+    // an unsupported seller fails at boot, not on the first order.
+    throw new InvalidEinvoiceModuleOptionsError(
+      `options.seller.countryCode "${String(options.seller.countryCode)}" is not supported — this release ` +
+        'invoices for a seller established in Germany only (countryCode "DE"): the VAT rules, rates and ' +
+        "invoice requirements it applies are German law.",
+    );
+  }
   if (!options.seller.vatIdentifier || options.seller.vatIdentifier.trim() === "") {
     // Structurally optional on CommerceParty (a buyer doesn't always have one) but not for the
     // merchant themselves — TaxContext.sellerVatId (mandatory) always needs a real value from here.
