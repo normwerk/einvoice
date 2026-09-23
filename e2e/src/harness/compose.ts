@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { ONE_OFF_LABEL } from "./env.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -28,6 +29,18 @@ export async function upMedusa(): Promise<void> {
 }
 
 export async function down(): Promise<void> {
+  // One-off containers (`run-medusa-once.ts`) are not compose's own, so `--remove-orphans` misses one a
+  // killed run left behind — and it would keep the stand's network from being removed.
+  const { stdout } = await execFileAsync("docker", [
+    "ps",
+    "-aq",
+    "--filter",
+    `label=${ONE_OFF_LABEL}`,
+  ]);
+  const leftovers = stdout.split("\n").filter((id) => id.trim() !== "");
+  if (leftovers.length > 0) {
+    await execFileAsync("docker", ["rm", "-f", ...leftovers]);
+  }
   await compose(["down", "-v", "--remove-orphans"]);
 }
 

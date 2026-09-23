@@ -20,6 +20,8 @@ export const COMPOSE_PROJECT_NAME = "einvoice-e2e";
 export const MEDUSA_CONTAINER_NAME = `${COMPOSE_PROJECT_NAME}-medusa-1`;
 export const COMPOSE_NETWORK_NAME = `${COMPOSE_PROJECT_NAME}_default`;
 export const MEDUSA_IMAGE_NAME = `${COMPOSE_PROJECT_NAME}-medusa`;
+/** Marks the disposable containers `run-medusa-once.ts` starts outside compose, for `down()` to find. */
+export const ONE_OFF_LABEL = `${COMPOSE_PROJECT_NAME}.one-off=true`;
 
 /** Must match `medusa-config.ts`'s own read of the same env var — see that file's doc comment. */
 export const VALID_VAT_ID = process.env["EINVOICE_E2E_VALID_VAT_ID"] ?? "FR40303265045";

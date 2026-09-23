@@ -8,6 +8,10 @@
 # (auto-install.xml keeps only the "veraPDF CLI" pack).
 FROM eclipse-temurin@sha256:bce52ea7da1f72e6bf5bec505e63b6eb55ba79ad1226903579f77eab1a80139a
 
+# A versioned release file: the unversioned `releases/verapdf-installer.zip` always points at the latest
+# release, so the checksum below would fail every build on the next one. Updating veraPDF is its own task
+# (AGENTS.md §7): change the version and the checksum together, and review the fixture results.
+ARG VERAPDF_VERSION=1.30.2
 ARG VERAPDF_SHA256=6cc6341cb1af644044054b81f00a6590a7918abb18f762243de115258bcad838
 
 WORKDIR /build
@@ -16,7 +20,8 @@ COPY auto-install.xml .
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl unzip ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
-  && curl -fsSL -o verapdf-installer.zip "https://software.verapdf.org/releases/verapdf-installer.zip" \
+  && curl -fsSL -o verapdf-installer.zip \
+    "https://software.verapdf.org/releases/${VERAPDF_VERSION%.*}/verapdf-greenfield-${VERAPDF_VERSION}-installer.zip" \
   && echo "${VERAPDF_SHA256}  verapdf-installer.zip" | sha256sum -c - \
   && unzip -q verapdf-installer.zip \
   && cd verapdf-greenfield-* \

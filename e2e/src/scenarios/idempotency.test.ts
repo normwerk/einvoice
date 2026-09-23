@@ -4,12 +4,12 @@ import { checkoutToOrder } from "../api/checkout.js";
 import { fulfillOrder, getOrderFulfillmentId, listEinvoiceDocuments } from "../api/orders.js";
 import { capturePayment, getOrderPayment, refundPayment } from "../api/payments.js";
 import { loadCatalog, requireVariantId, type Catalog } from "../seed/catalog.js";
-import { reemitEvent } from "../harness/exec-in-medusa.js";
+import { redeliverEvent } from "../harness/exec-in-medusa.js";
 import { waitFor } from "../harness/wait-for.js";
 
 // plan-e2e.md §4: "повторная доставка того же события не создаёт второй документ" — proven against the
-// real UNIQUE-index guard (`recordDocumentIfAbsent`, D-31) by actually redelivering the event a second
-// time (`exec-in-medusa.ts`'s own doc comment on why this needs `medusa exec`, not plain HTTP).
+// real UNIQUE-index guard (`recordDocumentIfAbsent`, D-31) by actually delivering the event to the plugin's
+// subscriber a second time and waiting for it to finish (`exec-in-medusa.ts`'s own doc comment on how).
 describe("idempotency: redelivering an event does not create a second document", () => {
   let admin: AdminSession;
   let catalog: Catalog;
@@ -54,7 +54,7 @@ describe("idempotency: redelivering an event does not create a second document",
     );
     const fulfillmentId = await getOrderFulfillmentId(admin, orderId);
 
-    await reemitEvent("order.fulfillment_created", {
+    await redeliverEvent("invoice-on-fulfillment-created", "order.fulfillment_created", {
       order_id: orderId,
       fulfillment_id: fulfillmentId,
       no_notification: false,
@@ -84,7 +84,7 @@ describe("idempotency: redelivering an event does not create a second document",
     // The event payload only ever carries the *payment's* id (docs/domain-glossary.md's own finding) — the
     // subscriber re-reads `payment.refunds` itself and skips any refund it already credited, so redelivery
     // needs no separate refund id here.
-    await reemitEvent("payment.refunded", { id: payment.id });
+    await redeliverEvent("credit-note-on-payment-refunded", "payment.refunded", { id: payment.id });
 
     const documents = await listEinvoiceDocuments(admin, orderId);
     expect(documents.filter((d) => d.type === "credit_note")).toHaveLength(1);

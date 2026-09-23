@@ -7,34 +7,42 @@ import { MEDUSA_CONTAINER_NAME } from "./env.js";
 
 const execFileAsync = promisify(execFile);
 
+/** The plugin's subscribers, as the stand's `medusa` container has them installed. */
+const SUBSCRIBERS_DIR =
+  "/app/node_modules/@normwerk/einvoice-medusa/.medusa/server/src/subscribers";
+
 /**
- * Re-emits a real Medusa event from inside the running `medusa` container, via `medusa exec` — the only
- * way to trigger the exact idempotency guard the plugin relies on (`recordDocumentIfAbsent`'s UNIQUE
- * index, D-31) from outside the process. There is no HTTP endpoint for "redeliver event X" (Medusa doesn't
- * expose one), and this stand's own event bus is the in-memory local one (no Redis-backed redelivery to
- * provoke instead) — verified against a real run: this genuinely runs the same subscriber code a second
- * time with the same payload, which is the actual thing plan-e2e.md §4's idempotency check needs proven,
- * not a mock of it.
+ * Delivers an event a second time to one of the plugin's subscribers, inside the running `medusa` container
+ * via `medusa exec` — there is no HTTP endpoint for "redeliver event X". `medusa exec` boots a second app
+ * instance against the same database, with the plugin's module and its UNIQUE-index guard (D-31) loaded.
+ *
+ * The subscriber is called directly and awaited, with the same payload the event carries. An earlier version
+ * emitted the event on that instance's in-memory event bus instead, which starts the subscriber and returns
+ * without waiting for it (P-53): the test then counted documents while the second delivery could still be
+ * running, or had been cut off when `medusa exec` exited, and passed either way. Now a failing redelivery
+ * fails `medusa exec`, and the count is taken after it has finished.
  */
-export async function reemitEvent(
+export async function redeliverEvent(
+  subscriber: "invoice-on-fulfillment-created" | "credit-note-on-payment-refunded",
   eventName: string,
   data: Readonly<Record<string, unknown>>,
 ): Promise<void> {
-  const workDir = await mkdtemp(path.join(tmpdir(), "einvoice-e2e-reemit-"));
-  const scriptPath = path.join(workDir, "reemit.mjs");
+  const workDir = await mkdtemp(path.join(tmpdir(), "einvoice-e2e-redeliver-"));
+  const scriptPath = path.join(workDir, "redeliver.mjs");
   await writeFile(
     scriptPath,
     [
-      'import { Modules } from "@medusajs/framework/utils";',
+      'import { createRequire } from "node:module";',
+      "const require = createRequire(import.meta.url);",
+      `const { default: handler } = require(${JSON.stringify(`${SUBSCRIBERS_DIR}/${subscriber}.js`)});`,
       "export default async function ({ container }) {",
-      "  const eventBus = container.resolve(Modules.EVENT_BUS);",
-      `  await eventBus.emit({ name: ${JSON.stringify(eventName)}, data: ${JSON.stringify(data)} });`,
+      `  await handler({ event: { name: ${JSON.stringify(eventName)}, data: ${JSON.stringify(data)} }, container, pluginOptions: {} });`,
       "}",
       "",
     ].join("\n"),
   );
 
-  const containerPath = "/app/.e2e-reemit.mjs";
+  const containerPath = "/app/.e2e-redeliver.mjs";
   try {
     await execFileAsync("docker", ["cp", scriptPath, `${MEDUSA_CONTAINER_NAME}:${containerPath}`]);
     await execFileAsync("docker", [
