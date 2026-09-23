@@ -1,10 +1,10 @@
 # row-12-eu-b2b-service-credit-note
 
-Credit note pairing for `row-12-eu-b2b-service` — same fix, same result. See that cell's `scenario.md` for
-the full two-step de-confounding history.
+Credit note (381) for a full return of `row-12-eu-b2b-service` — same order, same result. See that cell's
+`scenario.md` for why the refusal is expected.
 
-- **Build axis**: expected **error**, `TaxRuleError` (M-006, same message as `row-12-eu-b2b-service`).
-- **Profile axis**: expected **ok, `EN16931`** — was **P-13** (`UnsupportedCountryError`) until T-066
-  closed it.
+- **Build axis**: expected **error**, `TaxRuleError` (the category is not decided yet; same message as
+  `row-12-eu-b2b-service`).
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**.
 
-No known bugs remain on the profile axis as of T-066.
+No known bug: the refusal is the documented behaviour for this row.

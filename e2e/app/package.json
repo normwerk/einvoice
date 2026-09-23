@@ -2,7 +2,7 @@
   "name": "einvoice-e2e-app",
   "version": "0.0.1",
   "private": true,
-  "description": "T-078 fast profile: a committed create-medusa-app@2.19.0 scaffold (docs/quickstart-medusa.md's own pin), trimmed of its jest test scaffolding (the e2e suite drives it over HTTP, not from inside the app) and with the five @normwerk/einvoice-* plugin packages added — installed at container start from the stand's own Verdaccio, never workspace-linked (plan-e2e.md §2).",
+  "description": "The Medusa v2 app the end-to-end suite runs against: a committed create-medusa-app@2.19.0 scaffold (docs/quickstart-medusa.md's own pin), trimmed of its jest test scaffolding (the e2e suite drives it over HTTP, not from inside the app) and with the five @normwerk/einvoice-* plugin packages added — installed at container start from the stand's own Verdaccio, never workspace-linked, so the suite exercises the packages as published, not the workspace sources.",
   "scripts": {
     "build": "medusa build",
     "start": "medusa start",

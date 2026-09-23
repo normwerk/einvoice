@@ -7,8 +7,8 @@ gap).
 There is no `order.json` in this directory and no way to add one: `CommerceInvoiceInput.document.kind` only
 accepts `"invoice" | "credit-note"` (`packages/einvoice-commerce/src/types.ts`) — document type 384 is not a
 value the type system, `mapOrderToCommerceInvoiceInput`, or `buildInvoice` can express at all. This is not a
-bug to fix inside T-117; it's a real, already-documented v0.1 boundary (`docs/tax-semantics.md` row 11's own
-note). `load-cells.ts` skips any directory without an `order.json`, so this cell contributes no test — it
-exists purely to keep this row visible in the matrix's own inventory (see the top-level `README.md`).
+bug this matrix can fix; it's a documented v0.1 boundary (`docs/tax-semantics.md` row 11's own note).
+`load-cells.ts` skips any directory without an `order.json`, so this cell contributes no test — it exists
+purely to keep this row visible in the matrix's own inventory (see the top-level `README.md`).
 
 Bucket: **out of scope for v0.1** (document-type modeling, not the adapter this matrix tests). No known bug.

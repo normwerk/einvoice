@@ -11,7 +11,8 @@ DE seller → FR B2B buyer, goods dispatched to France, buyer's VAT-ID given. Co
   (`BT-48`, present here) is not structurally enforced by the base rule set, even though the Art. 138
   exemption is only fiscally valid with one. See `docs/tax-semantics.md`'s "what the validator does not
   catch" section.
-- **Levels:** L1–L5 once `einvoice-cii` (T-020) and the conformance suite (T-040) exist. Currently: valid
-  against `einvoice-model`'s generated JSON Schema only (`validateModel()`).
+- **Levels:** L1+L2 verified against the real KoSIT validator (`pnpm conformance:fixtures`); L4 and L5 as
+  described in [`fixtures/README.md`](../README.md).
 
-`expected/` is empty until T-020 produces a golden CII XML for this input.
+`expected/` stays empty: this fixture is checked live against the validators rather than compared to a
+committed golden CII XML.

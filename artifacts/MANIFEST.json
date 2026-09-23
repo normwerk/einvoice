@@ -1,5 +1,5 @@
 {
-  "$comment": "Rule (AGENTS.md §5.1, §9, plan-v0.1 §3.4): no artifact is used until it is recorded here with every field. Updating an artifact's version is its own task, with the fixture diff reviewed. See docs/sources.md for the full licensing research (spike A, T-013).",
+  "$comment": "Rule (AGENTS.md §5.1, §9): no artifact is used until it is recorded here with every field. Updating an artifact's version is its own task, with the fixture diff reviewed. See docs/sources.md for the full licensing research.",
   "artifacts": [
     {
       "id": "cii-d16b-xsd",
@@ -36,7 +36,7 @@
       "vendored_path": "artifacts/cii-d16b/schema/CrossIndustryInvoice_ReusableAggregateBusinessInformationEntity_100pD16B.xsd",
       "fetched_at": "2026-09-13",
       "used_for": [
-        "complex type definitions (TradePartyType, TradeTaxType, HeaderTradeSettlementType, etc.) — element sequence order for the CII serialization plan, T-020"
+        "complex type definitions (TradePartyType, TradeTaxType, HeaderTradeSettlementType, etc.) — element sequence order for the CII serialization plan"
       ]
     },
     {
@@ -48,7 +48,9 @@
       "vendored": true,
       "vendored_path": "artifacts/cii-d16b/schema/CrossIndustryInvoice_QualifiedDataType_100pD16B.xsd",
       "fetched_at": "2026-09-13",
-      "used_for": ["qualified leaf types (FormattedDateTimeType, TaxCategoryCodeType, etc.), T-020"]
+      "used_for": [
+        "qualified leaf types (FormattedDateTimeType, TaxCategoryCodeType, etc.) used by the CII serializer"
+      ]
     },
     {
       "id": "cii-d16b-xsd-unqualified-datatype",
@@ -60,7 +62,7 @@
       "vendored_path": "artifacts/cii-d16b/schema/CrossIndustryInvoice_UnqualifiedDataType_100pD16B.xsd",
       "fetched_at": "2026-09-13",
       "used_for": [
-        "leaf types (AmountType/@currencyID, IDType/@schemeID, DateTimeType, QuantityType/@unitCode, IndicatorType) — confirms exact attribute names used by the serializer, T-020"
+        "leaf types (AmountType/@currencyID, IDType/@schemeID, DateTimeType, QuantityType/@unitCode, IndicatorType) — confirms exact attribute names used by the CII serializer"
       ]
     },
     {
@@ -73,7 +75,7 @@
       "vendored_path": "artifacts/cii-d16b/schematron/EN16931-CII-codes.sch",
       "fetched_at": "2026-09-13",
       "used_for": [
-        "einvoice-model codelist generation (T-011): UNCL5305 VAT category, VATEX exemption reason, ISO 4217 currency, ISO 3166-1 country, UNTDID 1001 document type subset, UNTDID 4461 payment means, ISO 6523 ICD, UNTDID 1153/4451/7143/2475 reference qualifiers"
+        "einvoice-model codelist generation: UNCL5305 VAT category, VATEX exemption reason, ISO 4217 currency, ISO 3166-1 country, UNTDID 1001 document type subset, UNTDID 4461 payment means, ISO 6523 ICD, UNTDID 1153/4451/7143/2475 reference qualifiers"
       ]
     },
     {
@@ -87,7 +89,7 @@
       "fetched_at": "2026-09-12",
       "used_for": [
         "L2 KoSIT Schematron validation (XRechnung CIUS)",
-        "spike C / T-040: consumed by the Docker validator image, not committed as source"
+        "consumed by the Docker KoSIT validator image of the conformance suite, not committed as source"
       ]
     },
     {
@@ -99,7 +101,9 @@
       "vendored": false,
       "vendored_path": null,
       "fetched_at": "2026-09-12",
-      "used_for": ["BR-DE-* rules for the German CIUS profile prechecks (plan-v0.1 §4.2)"]
+      "used_for": [
+        "BR-DE-* rules for einvoice-cii's XRechnung profile prechecks (profileViolations) — not implemented yet"
+      ]
     },
     {
       "id": "ubl-2.1-invoice-xsd",
@@ -110,7 +114,7 @@
       "vendored": false,
       "vendored_path": null,
       "fetched_at": "2026-09-12",
-      "used_for": ["einvoice-ubl (v0.2, not v0.1 — M-018)"]
+      "used_for": ["einvoice-ubl (v0.2, not v0.1 — UBL output is deferred to v0.2)"]
     },
     {
       "id": "peppol-bis-billing-3.0",
@@ -121,7 +125,7 @@
       "vendored": false,
       "vendored_path": null,
       "fetched_at": "2026-09-12",
-      "used_for": "reference only — read to derive our own UBL/Peppol mapping notes, do not copy .sch/codelist files verbatim. Out of scope for v0.1 (M-018: UBL/Peppol deferred to v0.2)."
+      "used_for": "reference only — read to derive our own UBL/Peppol mapping notes, do not copy .sch/codelist files verbatim. Out of scope for v0.1 (UBL/Peppol deferred to v0.2)."
     },
     {
       "id": "en16931-codelist-registry",
@@ -143,7 +147,7 @@
       "vendored": false,
       "vendored_path": null,
       "fetched_at": "2026-09-12",
-      "used_for": "not planned to be used directly — plan-v0.1 §4.3 generates CII XML ourselves and embeds it in a PDF/A-3b; FeRD's own schema ZIP is not needed for that. Spike B (T-031) confirms the embedding approach."
+      "used_for": "not used directly — einvoice-pdfa embeds the CII XML we generate ourselves in a PDF/A-3b; FeRD's own schema ZIP is not needed for that. The embedding is checked by veraPDF and Mustang in pnpm conformance:pdfa (docs/pdfa.md)."
     },
     {
       "id": "pdfa-srgb-icc",
@@ -155,7 +159,7 @@
       "vendored_path": "artifacts/pdfa/sRGB2014.icc",
       "fetched_at": "2026-09-14",
       "used_for": [
-        "T-032/T-030: sRGB ICC profile for the PDF/A-3b OutputIntent (einvoice-pdfa) — replaces the unlicensed macOS system profile used during Spike B (D-20)"
+        "sRGB ICC profile for the PDF/A-3b OutputIntent (einvoice-pdfa) — replaces the unlicensed macOS system profile used by the first PDF/A-3b prototype"
       ]
     },
     {
@@ -167,7 +171,7 @@
       "vendored": false,
       "vendored_path": null,
       "used_for": [
-        "T-030: not vendored (we author our own XMP builder, ADR-004 style) — read directly to get real, non-guessed values: the fx:/zf: XMP namespace URNs per profile (XMPSchemaZugferd.java), the exact PDFAExtensionSchema RDF structure required for a custom XMP schema (XMPSchemaPDFAExtensions.java, — this is the ISO 19005-3 Annex E mechanism D-20 flagged as a veraPDF pitfall), and the profile name/URN table confirming our XRechnung 3.0 specificationIdentifier already matches Mustang's own XRECHNUNG profile URN (Profiles.java, Profile.java). File hashes at the pinned commit: XMPSchemaZugferd.java f927d427a632da4dbdac3693f7c10ce45cf05aa228f4e06c80e0ad7911a0214f; XMPSchemaPDFAExtensions.java c8560653422a6e079c10956df68f2f97fc5e3a6503caaba5a60d1bf9ca1c2479; Profiles.java a90a234f5c7d6e7f4ca87279d74f5bab52b4ddb50460a2810c48daa55af609d0; Profile.java 28d8692aa3f4ca77ddf60ed81005be090c8b39ac7a53793056f6a05736868d32."
+        "not vendored (we author our own XMP builder, ADR-004 style) — read directly to get real, non-guessed values: the fx:/zf: XMP namespace URNs per profile (XMPSchemaZugferd.java), the exact PDFAExtensionSchema RDF structure required for a custom XMP schema (XMPSchemaPDFAExtensions.java, — this is the ISO 19005-3 Annex E mechanism the first PDF/A-3b prototype flagged as a veraPDF pitfall), and the profile name/URN table confirming our XRechnung 3.0 specificationIdentifier already matches Mustang's own XRECHNUNG profile URN (Profiles.java, Profile.java). File hashes at the pinned commit: XMPSchemaZugferd.java f927d427a632da4dbdac3693f7c10ce45cf05aa228f4e06c80e0ad7911a0214f; XMPSchemaPDFAExtensions.java c8560653422a6e079c10956df68f2f97fc5e3a6503caaba5a60d1bf9ca1c2479; Profiles.java a90a234f5c7d6e7f4ca87279d74f5bab52b4ddb50460a2810c48daa55af609d0; Profile.java 28d8692aa3f4ca77ddf60ed81005be090c8b39ac7a53793056f6a05736868d32."
       ],
       "fetched_at": "2026-09-14"
     },
@@ -181,7 +185,7 @@
       "vendored_path": "artifacts/fonts/LiberationSans-{Regular,Bold}.ttf",
       "fetched_at": "2026-09-14",
       "used_for": [
-        "T-030 continuation: real embedded/subset font for the visual invoice layout (einvoice-pdfa/src/render-invoice.ts) — replaces the blank, font-free base PDF used until now, closing the 'non-embedded standard font' PDF/A gap Spike B (D-20) diagnosed. Only Regular+Bold are vendored (the layout's only two weights); Italic/BoldItalic from the same release are not used and intentionally not vendored (AGENTS.md §5.1). Per-file sha256: LiberationSans-Regular.ttf 76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8; LiberationSans-Bold.ttf 788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173."
+        "real embedded/subset font for the visual invoice layout (einvoice-pdfa/src/render-invoice.ts) — replaces the blank, font-free base PDF used until now, closing the 'non-embedded standard font' PDF/A gap the first PDF/A-3b prototype diagnosed. Only Regular+Bold are vendored (the layout's only two weights); Italic/BoldItalic from the same release are not used and intentionally not vendored (AGENTS.md §5.1). Per-file sha256: LiberationSans-Regular.ttf 76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8; LiberationSans-Bold.ttf 788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173."
       ]
     },
     {
@@ -194,7 +198,7 @@
       "vendored_path": null,
       "fetched_at": "2026-09-14",
       "used_for": [
-        "T-062: einvoice-commerce/src/leitweg-id.ts — the Leitweg-ID structural grammar (§2.1-2.3) and the ISO/IEC 7064:2003 MOD 97-10 check-digit algorithm (§2.4, including the letter-to-digit mapping A=10..Z=35 and the official worked example '04011000-1234512345' -> '06', reproduced byte-for-byte by this repo's own implementation). Real download URL found via WebSearch and curl-verified before fetching (the memory rule that already caught a 404 for the sRGB ICC profile, D-23/T-032) — read directly with the Read tool, not summarized by WebFetch. Cross-checked against a real third-party validator (consult-sk.com's Leitweg-ID checker) for a letters-containing example, not just self-consistency between this repo's own generator and validator."
+        "einvoice-commerce/src/leitweg-id.ts — the Leitweg-ID structural grammar (§2.1-2.3) and the ISO/IEC 7064:2003 MOD 97-10 check-digit algorithm (§2.4, including the letter-to-digit mapping A=10..Z=35 and the official worked example '04011000-1234512345' -> '06', reproduced byte-for-byte by this repo's own implementation). Real download URL found via WebSearch and curl-verified before fetching (a URL taken from a WebFetch summary had already turned out to be a 404 once, for the sRGB ICC profile) — read directly with the Read tool, not summarized by WebFetch. Cross-checked against a real third-party validator (consult-sk.com's Leitweg-ID checker) for a letters-containing example, not just self-consistency between this repo's own generator and validator."
       ]
     },
     {
@@ -206,7 +210,7 @@
       "vendored": false,
       "vendored_path": null,
       "used_for": [
-        "T-030: not vendored — read to confirm the exact accepted XMP property values (ConformanceLevel/DocumentType/DocumentFileName/Version enumerations) the real Mustang validator (already used in our own Docker conformance suite, T-040) checks for, so our own XMP is built to satisfy the same tool we validate against, not guessed"
+        "not vendored — read to confirm the exact accepted XMP property values (ConformanceLevel/DocumentType/DocumentFileName/Version enumerations) the real Mustang validator (already used in our own Docker conformance suite) checks for, so our own XMP is built to satisfy the same tool we validate against, not guessed"
       ],
       "fetched_at": "2026-09-14"
     }

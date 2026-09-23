@@ -4,8 +4,8 @@ CH seller with no direct EU VAT registration, represented in Germany by a fiscal
 (`sellerTaxRepresentative`, BG-11) for German VAT purposes; goods imported via Germany then dispatched
 onward to an FR B2B buyer (an intra-Community supply, like `de-eu-intracommunity`, but the seller's side of
 the VAT-ID requirement is satisfied through the representative instead of the seller itself). Exercises
-BT-62/63/69 (T-093) — the fields that were missing from `einvoice-model` until the L4 oracle (T-041) found
-the gap.
+BT-62/63/69 — the fields that were missing from `einvoice-model` until the L4 oracle against
+`@e-invoice-eu/core` found the gap.
 
 - **Category:** K (Intra-Community supply), 0%
 - **Applicable BR-\*:** BR-18 (tax representative name, BT-62 — the field this fixture exists to cover),

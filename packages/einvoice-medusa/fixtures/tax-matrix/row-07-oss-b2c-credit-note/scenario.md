@@ -1,6 +1,10 @@
 # row-07-oss-b2c-credit-note
 
-Credit note pairing for `row-07-oss-b2c` — same declared `ossRegistered`/`ossRateOverride` fix on a return.
-See that cell's `scenario.md` for the full history (P-26, closed by **T-136**).
+Credit note (381) for a full return of `row-07-oss-b2c` — the same two declared facts on a return:
+`ossRegistered: true` in `map-options.json` and `order.metadata.oss_rate_override: "21"` in `order.json`.
+See that cell's `scenario.md` for why OSS needs both.
 
-No known bugs remain on this cell as of T-136.
+- **Build axis**: expected **ok**, category **S** (at the declared 21%).
+- **Profile axis**: buyer country NL — expected **ok**, `EN16931`.
+
+No known bug involved.

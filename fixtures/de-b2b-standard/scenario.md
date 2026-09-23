@@ -6,7 +6,8 @@ is a variation on this one. Corresponds to row 1 of [`docs/tax-semantics.md`](..
 - **Category:** S (Standard rated), 19%
 - **Applicable BR-\*:** BR-S-01, BR-S-02, BR-S-08, BR-S-09
 - **Norm source:** UStG §12 Abs. 1
-- **Levels:** L1–L5 once `einvoice-cii` (T-020) and the conformance suite (T-040) exist. Currently: valid
-  against `einvoice-model`'s generated JSON Schema only (`validateModel()`).
+- **Levels:** L1+L2 verified against the real KoSIT validator (`pnpm conformance:fixtures`); L4 and L5 as
+  described in [`fixtures/README.md`](../README.md).
 
-`expected/` is empty until T-020 produces a golden CII XML for this input.
+`expected/` stays empty: this fixture is checked live against the validators rather than compared to a
+committed golden CII XML.

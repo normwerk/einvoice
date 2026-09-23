@@ -1,11 +1,12 @@
 # row-03-intra-eu-goods-credit-note
 
-Credit note pairing for `row-03-intra-eu-goods` — a return of an intra-EU supply, own `selectProfile`
-call site (`credit-note-on-payment-refunded.ts`), own `vat-id-evidence.json`. Same fix as the invoice cell
-(T-079: P-12/P-25/P-19 all closed) — build axis now reaches category K here too.
+Credit note (381) for a full return of `row-03-intra-eu-goods` — an intra-EU supply, with the credit-note
+path's own `selectProfile` call (`src/credit-notes/issue-credit-note.ts`) and its own
+`vat-id-evidence.json` (the credit-note path runs the VIES check before `buildInvoice` too). Everything that
+lets the invoice cell reach category K — the VIES result, the mapped delivery information, the buyer VAT-ID
+on the document — applies here as well, so the build axis reaches category K.
 
 - **Build axis**: expected **ok**, category **K**.
-- **Profile axis**: expected **ok, `EN16931`** — was **P-13** (`UnsupportedCountryError`) until T-066
-  closed it; France is an EU member state.
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**; France is an EU member state.
 
-No known bugs remain on this cell as of T-066.
+No known bug involved.

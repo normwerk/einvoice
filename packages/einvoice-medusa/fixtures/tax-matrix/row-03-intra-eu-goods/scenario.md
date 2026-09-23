@@ -5,22 +5,29 @@
 own convention), `vat-id-evidence.json` scripts a positive VIES check for it, and `billing_address` (no
 separate `shipping_address` on this order) supplies `delivery.deliverToCountryCode`/`actualDeliveryDate`
 (the latter defaults to the invoice's own `issueDate`, `order-to-commerce-invoice-input.ts`'s own doc
-comment on why) — **T-079 closed all three of this cell's build-axis blockers** (P-12, P-25, P-19); the
-build axis now reaches category K for real, through the real, unmocked adapter.
+comment on why). The build axis reaches category K through the real, unmocked adapter.
 
-- **Build axis**: expected **ok**, category **K**. (Was `error`/`TaxRuleError` before T-079 — see
-  `row-03-intra-eu-goods-no-vat-id-evidence/scenario.md` for the mandatory-rejection cell T-079 split out of
-  this one once K became reachable at all.)
-- **Profile axis**: buyer country FR — expected **ok, `EN16931`**. Was `error`, `UnsupportedCountryError`
-  (**P-13**) until **T-066** closed it, untouched by T-079. In the real subscriber pipeline `selectProfile`
-  fires _before_ `buildInvoice`, so before T-066 this masked the (already-working) build axis in production
-  — France is an EU member state, so `selectProfile` now resolves the EN 16931 hybrid profile for it.
+**What the order has to pass to reach K**, in the order the pipeline checks it — each stage must pass
+before the next one can be reached, which is why this cell tests the whole path rather than one guard:
 
-**What T-079 actually closed, in the order the masking chain named them** (see this file's own history for
-the original three-bugs-deep analysis): **P-12** (`EinvoiceModuleOptions.vatIdVerifier` + both subscribers
-calling `.verify()` before `buildInvoice`, ADR-003) → **P-25** (`mapOrderToCommerceInvoiceInput` now maps
-`delivery`, BG-13) → **P-19** (`build-invoice.ts` now guards `BR-IC-02`, buyer VAT-ID on the document itself,
-next to the pre-existing `BR-IC-11`/`BR-IC-12` guard). This cell going green on re-run — not a new one — was
-T-079's own stated acceptance criterion.
+1. **VIES evidence** — `EinvoiceModuleOptions.vatIdVerifier`, whose `.verify()` the invoice subscriber and
+   the credit-note path call before `buildInvoice` (ADR-003: verification is I/O, so it happens outside
+   `einvoice-commerce`). The harness stands in for it with `vat-id-evidence.json`.
+2. **Delivery information** (BG-13) — `mapOrderToCommerceInvoiceInput` maps `delivery` from
+   `shipping_address`, falling back to `billing_address`; `buildInvoice` refuses K without it
+   (`MissingDeliveryInfoForIntraCommunitySupplyError`, `BR-IC-11`/`BR-IC-12`).
+3. **Buyer VAT-ID on the document** — `buildInvoice` guards `BR-IC-02` (`MissingBuyerVatIdError`), next to
+   the `BR-IC-11`/`BR-IC-12` guard: a positive VIES check alone is not enough.
 
-No known bugs remain on this cell as of T-066 (P-12/P-13/P-19/P-25 all closed).
+After these, `buildInvoice` also checks that the goods are delivered to another member state (FR here) and
+that the document's buyer VAT-ID is the one the VIES check was for.
+
+`row-03-intra-eu-goods-no-vat-id-evidence` is the same order without the VIES evidence — the
+mandatory-rejection half of this row.
+
+- **Build axis**: expected **ok**, category **K**.
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**. In the real subscriber pipeline
+  `selectProfile` fires _before_ `buildInvoice`, so a profile-axis refusal here would hide the build axis in
+  production; France is an EU member state, so `selectProfile` resolves the EN 16931 hybrid profile for it.
+
+No known bug involved.

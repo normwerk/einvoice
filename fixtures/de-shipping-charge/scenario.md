@@ -1,6 +1,6 @@
 # de-shipping-charge
 
-DE → DE B2B, one invoice line plus shipping cost modeled as a document-level charge (BG-21) — plan-v0.1 §7's
+DE → DE B2B, one invoice line plus shipping cost modeled as a document-level charge (BG-21) — the
 "delivery as a charge" scenario.
 
 - **What this exercises:** `Invoice.documentLevelCharges` (BG-21) — the mirror image of

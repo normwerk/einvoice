@@ -1,23 +1,17 @@
 # row-03-intra-eu-goods-no-vat-id-evidence
 
 `docs/tax-semantics.md` row 3 — same order as `row-03-intra-eu-goods` (DE→FR B2B, buyer VAT-ID given, goods),
-but with no `vat-id-evidence.json` — the mandatory-rejection twin T-079 split out of `row-03-intra-eu-goods`
-itself.
+but with no `vat-id-evidence.json`: the mandatory-rejection twin of that cell.
 
-Before T-079, `row-03-intra-eu-goods`'s own `scenario.md` doubled this cell into the base one: "there is no
-synthetic order shape that could reach K _with_ evidence through today's real adapter, so a separate
-rejection fixture would be redundant" — category K was unreachable at all (P-12), so every K-shaped order,
-evidence or not, produced the same `TaxRuleError`. T-079 wires `VatIdVerifier` into the adapter
-(`EinvoiceModuleOptions.vatIdVerifier`, both subscribers), closes `MissingDeliveryInfoForIntraCommunitySupplyError`
-(P-25: `delivery` now mapped from `shipping_address`/`billing_address`) and adds the missing `BR-IC-02` guard
-(P-19) — `row-03-intra-eu-goods` itself now reaches category K for real. That made the "no evidence"
-rejection genuinely redundant no longer: this cell is what still proves it.
+`row-03-intra-eu-goods` reaches category K through the real adapter: the configured `VatIdVerifier`
+(`EinvoiceModuleOptions.vatIdVerifier`, called by the invoice subscriber and the credit-note path before
+`buildInvoice`) supplies the VIES result, the mapper supplies `delivery`, and the buyer VAT-ID is on the
+document. With K reachable, this cell proves the other half of the rule: the same order without a positive
+VIES check is still refused.
 
 - **Build axis**: expected **error**, `TaxRuleError` ("needs a positive VIES check") — `decideVatCategory`'s
-  own refusal (`einvoice-commerce`), unchanged by T-079: no `vatIdEvidence` and no
-  `regimeOverride: { kind: "intra-eu-confirmed" }` still means no category K, by design (D-19).
-- **Profile axis**: buyer country FR — expected **ok, `EN16931`**, same fix (**T-066** closed **P-13**) as
-  `row-03-intra-eu-goods`.
+  own refusal (`einvoice-commerce`): no `vatIdEvidence` and no `regimeOverride: { kind: "intra-eu-confirmed" }`
+  means no category K, by design — K is never selected on an unverified VAT-ID.
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**, same as `row-03-intra-eu-goods`.
 
-No known bugs remain on the profile axis as of T-066; the build axis's refusal is spec-correct by design
-(D-19), not a bug.
+No known bug: the build axis's refusal is the documented behaviour, not a bug.

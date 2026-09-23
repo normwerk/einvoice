@@ -1,10 +1,11 @@
 # row-01-domestic-standard-credit-note
 
 `docs/tax-semantics.md` row 10 — credit note (381) for a full return of a domestic S/19% invoice, paired
-with `row-01-domestic-standard`. Exercises `credit-note-on-payment-refunded.ts`'s own `selectProfile` call
-site (textually separate from the invoice subscriber's, though currently the same logic) and `buildInvoice`'s
-`document.kind === "credit-note"` path, which requires `document.correctedInvoice` (T-064,
-`MissingCorrectedInvoiceReferenceError` if absent — already unit-tested directly in
+with `row-01-domestic-standard`. The profile axis mirrors the credit-note path's own `selectProfile` call
+(`src/credit-notes/issue-credit-note.ts`, shared by the refund and cancellation subscribers — separate from
+the invoice subscriber's call, though the same logic today). The build axis goes through `buildInvoice`'s
+`document.kind === "credit-note"` path, which requires `document.correctedInvoice`
+(`MissingCorrectedInvoiceReferenceError` if absent — already unit-tested directly in
 `packages/einvoice-commerce/src/build-invoice.test.ts`, not re-proven here).
 
 Row 10's own caveat — `BR-55` never forces `BT-25` (`correctedInvoice`) presence on a credit note; this

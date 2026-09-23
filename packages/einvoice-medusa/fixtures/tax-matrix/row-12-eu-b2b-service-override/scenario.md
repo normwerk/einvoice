@@ -1,21 +1,21 @@
 # row-12-eu-b2b-service-override
 
 `docs/tax-semantics.md` row 12 — DE→FR B2B, service — same scenario as `row-12-eu-b2b-service`, except this
-order carries `order.metadata.regime_override: { kind: "reverse-charge-cross-border" }` (T-135/P-34).
+order carries `order.metadata.regime_override: { kind: "reverse-charge-cross-border" }`.
 
-`row-12-eu-b2b-service` proved the _default_ behaviour is a correct refusal pending M-006. That refusal used
-to be a dead end: before T-135, no `RegimeOverride` reached AE for a cross-border service at all — row 5's
-`reverse-charge` override explicitly rejects any non-DE buyer (`docs/tax-semantics.md` row 5 is DE→DE only).
-This cell proves the escape hatch the pattern already has for K (row 3's `intra-eu-confirmed` override) now
-also exists for row 12: a merchant who has decided the fact for themselves is not blocked by the code's own
-refusal to guess.
+`row-12-eu-b2b-service` proves the _default_ behaviour is a refusal while the category is not decided.
+Without this override that refusal would be a dead end: row 5's `reverse-charge` override explicitly
+rejects any non-DE buyer (`docs/tax-semantics.md` row 5 is DE→DE only). This cell proves row 12 has the
+same escape hatch K has (row 3's `intra-eu-confirmed` override): a merchant who has decided the fact for
+themselves is not blocked by the code's own refusal to guess.
 
-- **Build axis**: expected **ok, AE** — `decideVatCategory`'s new `reverse-charge-cross-border` branch
-  (`tax-rules.ts`), checked ahead of the default row-12 refusal, returns `VATEX-EU-AE` with `ruleId
-"tax-semantics#12"`. The buyer carries a VAT-ID (`customer.metadata.vat_id`), satisfying `BR-AE-02`
-  (`MissingBuyerIdentifierForReverseChargeError` would otherwise fire the same way it did on `row-05` before
-  its own fixture got one, T-069's follow-up).
-- **Profile axis**: buyer country FR — expected **ok, `EN16931`**, same fix (**T-066** closed **P-13**) every
-  other cross-border cell in this matrix carried before it landed.
+- **Build axis**: expected **ok, AE** — `decideVatCategory`'s `reverse-charge-cross-border` branch
+  (`tax-rules.ts`), checked ahead of the default row-12 refusal, returns `VATEX-EU-AE` with
+  `ruleId: "tax-semantics#12"`. The buyer carries a VAT-ID (`customer.metadata.vat_id`), which
+  `buildInvoice` requires twice over: `BR-AE-02` (`MissingBuyerIdentifierForReverseChargeError` otherwise,
+  as on `row-05` without its buyer VAT-ID) and §14a Abs. 1 UStG, which needs the VAT-ID itself, not only a
+  legal registration identifier (`MissingBuyerVatIdForCrossBorderServiceError`).
+- **Profile axis**: buyer country FR — expected **ok, `EN16931`**, like every other EU buyer in this
+  matrix.
 
-No known bugs remain on this cell as of T-066.
+No known bug involved.

@@ -2,7 +2,7 @@
 
 `CommerceInvoiceInput` for a domestic DE→DE invoice (`docs/tax-semantics.md` row 1) where one line
 carries `hsCode`/`originCountry` (BT-158/BT-159 — an item classification identifier and its country of
-origin) and the other line carries neither. Exercises T-060's continuation (D-19): `buildInvoice` maps
+origin) and the other line carries neither. Exercises the customs-field mapping: `buildInvoice` maps
 both fields into the assembled `Invoice`'s `InvoiceLine`, and `einvoice-cii`'s serialization plan emits
 `ram:SpecifiedTradeProduct/ram:DesignatedProductClassification/ram:ClassCode[@listID='HS']` and
 `ram:SpecifiedTradeProduct/ram:OriginTradeCountry/ram:ID` only for the line that has them — the plain
