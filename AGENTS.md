@@ -76,7 +76,7 @@ When an idea, improvement, edge case, refactor, or feature appears that is **not
 
 Also maintain `ecom docs/roadmap.md`: slot the idea under the release that fits, or under "Не запланировано" with an explicit trigger. Planning only — do not implement. The human marks releases as shipped.
 
-Human-only action items (accounts, API keys, billing, console setup, licenses, legal, outreach) go to `ecom docs/my-tasks.md` as `M-NNN · open · …` with the blocked result named. Mark `blocked(M-NNN)` on the dependent `T-NNN`.
+Human-only action items (accounts, API keys, billing, console setup, licenses, legal, outreach) go to `ecom docs/my-tasks.md` as `M-NNN · open · …` with the blocked result named. Consultations, reviews and audits by lawyers, tax advisors or other outside experts go to `ecom docs/my-tasks-legal.md` in the same format; the `M-NNN` sequence is shared by both files. Mark `blocked(M-NNN)` on the dependent `T-NNN`.
 
 Never store secrets in this repository. Leave a `__________` placeholder and ask the user to put the real value in a secret manager.
 
@@ -273,4 +273,4 @@ The plugin is a demand probe and a reputation carrier (D-09). An abandoned-looki
   which is not built yet. Do not describe it as existing; this line previously did, which is exactly the
   failure §1 of this document forbids.
 - If the project is wound down, archive it **explicitly**: README switches to "looking for maintainer", per the archiving policy (T-002). Never abandon silently.
-- `README.md` carries the "Commercial support" line (contact placeholder until M-012) and a pinned "Who is using this?" issue — these are the probe's measurement instruments (`researches/05`), not decoration. Do not remove them.
+- `README.md` carries the "Commercial support" line (contact `hello@normwerk.dev`) and a pinned "Who is using this?" issue — these are the probe's measurement instruments (`researches/05`), not decoration. Do not remove them.
