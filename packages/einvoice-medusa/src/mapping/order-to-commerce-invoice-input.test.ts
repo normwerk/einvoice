@@ -195,6 +195,53 @@ describe("mapOrderToCommerceInvoiceInput", () => {
     expect(input.taxContext.buyerIsBusiness).toBe(false);
   });
 
+  it("names a guest buyer after the billing address, not the email (a guest has no customer name)", () => {
+    const order = baseOrder({
+      customer: { email: "erika@example.test" },
+      billing_address: {
+        country_code: "DE",
+        city: "Hamburg",
+        postal_code: "20095",
+        first_name: "Erika",
+        last_name: "Musterfrau",
+      },
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.buyer.name).toBe("Erika Musterfrau");
+  });
+
+  it("prefers the billing address's company to the customer's own name and company", () => {
+    const order = baseOrder({
+      customer: { company_name: "Old Name GmbH", first_name: "Max", last_name: "Mustermann" },
+      billing_address: {
+        country_code: "DE",
+        city: "Munich",
+        postal_code: "80331",
+        company: "Musterfirma GmbH",
+        first_name: "Max",
+        last_name: "Mustermann",
+      },
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.buyer.name).toBe("Musterfirma GmbH");
+  });
+
+  it("names the buyer after the shipping address when the order has no billing address", () => {
+    const order = baseOrder({
+      customer: null,
+      billing_address: null,
+      shipping_address: {
+        country_code: "DE",
+        city: "Hamburg",
+        postal_code: "20095",
+        first_name: "Erika",
+        last_name: "Musterfrau",
+      },
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.buyer.name).toBe("Erika Musterfrau");
+  });
+
   it("falls back to the order email when there is no customer name at all", () => {
     const order = baseOrder({
       customer: null,

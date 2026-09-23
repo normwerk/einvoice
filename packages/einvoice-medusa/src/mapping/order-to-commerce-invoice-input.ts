@@ -63,11 +63,15 @@ export const ORDER_QUERY_FIELDS = [
   "billing_address.postal_code",
   "billing_address.address_1",
   "billing_address.company",
+  "billing_address.first_name",
+  "billing_address.last_name",
   "shipping_address.country_code",
   "shipping_address.city",
   "shipping_address.postal_code",
   "shipping_address.address_1",
   "shipping_address.company",
+  "shipping_address.first_name",
+  "shipping_address.last_name",
   "items.title",
   "items.variant_sku",
   "items.unit_price",
@@ -94,6 +98,8 @@ export interface MedusaOrderAddress {
   readonly postal_code?: string | null;
   readonly address_1?: string | null;
   readonly company?: string | null;
+  readonly first_name?: string | null;
+  readonly last_name?: string | null;
 }
 
 export interface MedusaOrderCustomer {
@@ -451,16 +457,30 @@ function resolveOrderSupplyType(
   return kinds.has("services") ? "services" : "goods";
 }
 
-function resolveBuyerName(order: MedusaOrderForInvoice): string {
+function fullName(person: {
+  readonly first_name?: string | null;
+  readonly last_name?: string | null;
+}): string {
+  return [person.first_name, person.last_name].filter(Boolean).join(" ").trim();
+}
+
+/**
+ * BT-44. The address the invoice goes to names the buyer first: a guest checkout has no customer name at
+ * all (Medusa creates the customer from the email alone), so reading only the customer record named every
+ * guest after their email. The customer record is the fallback, the email the last resort.
+ */
+function resolveBuyerName(order: MedusaOrderForInvoice, buyerAddress: MedusaOrderAddress): string {
   const customer = order.customer;
-  if (customer?.company_name) {
-    return customer.company_name;
-  }
-  const fullName = [customer?.first_name, customer?.last_name].filter(Boolean).join(" ").trim();
-  if (fullName !== "") {
-    return fullName;
-  }
-  return order.email ?? customer?.email ?? "Unknown customer";
+  const candidates = [
+    buyerAddress.company,
+    customer?.company_name,
+    fullName(buyerAddress),
+    customer === null || customer === undefined ? "" : fullName(customer),
+  ];
+  const name = candidates.find(
+    (candidate) => candidate !== null && candidate !== undefined && candidate.trim() !== "",
+  );
+  return name ?? order.email ?? customer?.email ?? "Unknown customer";
 }
 
 /**
@@ -506,7 +526,7 @@ export function mapOrderToCommerceInvoiceInput(
     },
     seller: options.seller,
     buyer: {
-      name: resolveBuyerName(order),
+      name: resolveBuyerName(order, buyerAddress),
       countryCode: buyerCountry,
       city: buyerAddress.city ?? "",
       postCode: buyerAddress.postal_code ?? "",
