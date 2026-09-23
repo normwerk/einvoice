@@ -26,11 +26,14 @@ drives it through the real Admin/Store HTTP APIs — a cart, an order, a fulfill
 the e-invoice XML/PDF it produces against the real KoSIT Validator and veraPDF, the same tools
 [`docs/README.md`](README.md#conformance-validators) uses for the fixture suite.
 
-**About 5 minutes** on a laptop (measured across several full runs: best case ~260s, typical ~300-310s),
-most of it a real `npm install` of the Medusa app itself (this stand's own `e2e/docker/Dockerfile` doesn't
-cache that step — see its own comment for why: caching it risked silently testing a stale build of this
-very plugin instead of what you just published). Slower on a slower or more loaded machine — running it
-back-to-back with no pause between runs (as CI does) measurably slows every step.
+**About 3-4 minutes** on a laptop (measured across three full runs, strictly back-to-back with no pause:
+244s / 220s / 193s), most of it a real `npm install` of the Medusa app itself (this stand's own
+`e2e/docker/Dockerfile` doesn't cache that step — see its own comment for why: caching it risked silently
+testing a stale build of this very plugin instead of what you just published). Consecutive runs tend to get
+_faster_, not slower — once a package has been pulled through Verdaccio's own npmjs proxy once, later runs
+hit that local copy instead of the real registry. An earlier version of this note claimed back-to-back runs
+measurably slow down; that was this suite's own flake (see "If it fails" below), not a property of running
+it repeatedly.
 
 ## What you'll see
 
@@ -46,14 +49,22 @@ back-to-back with no pause between runs (as CI does) measurably slows every step
 ✓ src/scenarios/tarball-contents.test.ts     — no test/fixture files leak into any published package
 ```
 
-Every container is torn down automatically when the run finishes, pass or fail — nothing is left behind on
-your machine (`docker ps` should show nothing from this afterward).
+Every container is torn down both before a run starts and after it finishes — pass, fail, or even a
+previous run that got killed outright (closed terminal, `kill -9`, a cancelled CI job) — so `docker ps`
+should show nothing from this stand at any point you're not actively mid-run.
 
 ## If it fails
 
 - **A container never becomes healthy / the run times out**: check `e2e/.artifacts/medusa.log` (and
   `postgres.log`, `verdaccio.log`) — written after every run, not only on failure — for the real container
   output.
+- **`npm install` inside the `medusa` container fails with `ERESOLVE`**: an open-ended peer dependency
+  (`@medusajs/test-utils`, required by `@normwerk/einvoice-medusa`) resolving to a newer Medusa patch than
+  the exact version this app pins (`@medusajs/framework`) — verified against a real run: this app installs
+  fresh from the real npm registry (proxied through the stand's own Verdaccio) on every boot, so a new
+  upstream release can start failing this install with no change on our side. Fixed by pinning
+  `@medusajs/test-utils` to the same version as `@medusajs/framework` in `e2e/app/package.json`; if it
+  recurs after a Medusa release, bump both together.
 - **Port already in use**: this stand uses `55432` (Postgres), `4873` (Verdaccio), and `9500` (Medusa,
   deliberately not `9000`) on the host by default; override with `EINVOICE_E2E_POSTGRES_PORT` /
   `EINVOICE_E2E_VERDACCIO_PORT` / `EINVOICE_E2E_MEDUSA_PORT` if any of those collide with something else

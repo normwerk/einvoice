@@ -39,9 +39,27 @@ async function buildConformanceImages(): Promise<void> {
  * healthchecks) — no extra polling needed here on top of that.
  */
 export default async function setup(): Promise<() => Promise<void>> {
-  await upBase();
-  await Promise.all([publishToVerdaccio(), buildConformanceImages()]);
-  await upMedusa();
+  // Unconditional, not best-effort, and before anything else: whatever the *previous* process left
+  // running — a clean exit, a crash this function's own catch below caught, or a `kill -9`/closed
+  // terminal/CI cancel that skipped both that catch and the teardown it never got to return — this
+  // guarantees every run starts against nothing, never whatever docker still happens to have lying
+  // around. Cleanup at the end (below) is politeness; cleanup at the start is the actual guarantee.
+  await down();
+
+  try {
+    await upBase();
+    await Promise.all([publishToVerdaccio(), buildConformanceImages()]);
+    await upMedusa();
+  } catch (error) {
+    // Vitest only calls the teardown this function returns — if setup itself throws before reaching the
+    // `return` below, there is no teardown to call `down()` for us. Without this, a failed bring-up (e.g.
+    // `upMedusa` timing out) leaves the stand running, and the next `pnpm e2e` silently reuses those
+    // hours-old containers instead of the fresh stand plan-e2e.md §5 rule 2 promises.
+    await down().catch(() => {
+      // Best-effort — the stand may already be partially torn down by whatever just failed.
+    });
+    throw error;
+  }
 
   return async function teardown(): Promise<void> {
     // plan-e2e.md §5 rule 6: "один прогон — один вывод" — captured unconditionally (not just on failure)
