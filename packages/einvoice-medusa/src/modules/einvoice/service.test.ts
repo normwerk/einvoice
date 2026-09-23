@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MedusaError } from "@medusajs/framework/utils";
 import EinvoiceModuleService, { InvalidEinvoiceModuleOptionsError } from "./service.js";
 
 const VALID_SELLER = {
@@ -105,5 +106,59 @@ describe("EinvoiceModuleService", () => {
       standalone: { basePdf },
     });
     expect(service.options.standalone?.basePdf).toBe(basePdf);
+  });
+});
+
+describe("EinvoiceModuleService.recordDocumentIfAbsent (P-49)", () => {
+  const INPUT = {
+    type: "invoice" as const,
+    orderId: "order_01",
+    idempotencyKey: "ful_01",
+    documentNumber: "RE-2026-0001",
+    xmlFileId: "file_xml",
+    pdfFileId: null,
+  };
+
+  function serviceWith(
+    create: () => Promise<unknown>,
+    list: () => Promise<unknown[]>,
+  ): EinvoiceModuleService {
+    const service = new EinvoiceModuleService(FAKE_CONTAINER, {
+      seller: VALID_SELLER,
+      payment: VALID_PAYMENT,
+    });
+    Object.assign(service, { createEinvoiceDocuments: create, listEinvoiceDocuments: list });
+    return service;
+  }
+
+  it("reports a lost race as created: false — for the MedusaError Medusa's own repository turns a unique violation into, not only a raw MikroORM exception", async () => {
+    // What `@medusajs/utils`' dbErrorMapper really throws for a UNIQUE violation: type invalid_data,
+    // name "Error" — the shape an earlier `error.name` check never matched.
+    const mapped = new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      "Einvoice document with type: invoice, idempotency_key: ful_01, already exists.",
+    );
+    const winner = { id: "doc_winner" };
+    const service = serviceWith(
+      async () => {
+        throw mapped;
+      },
+      async () => [winner],
+    );
+    await expect(service.recordDocumentIfAbsent(INPUT)).resolves.toEqual({
+      document: winner,
+      created: false,
+    });
+  });
+
+  it("rethrows the original error when no document exists for the key — the insert failed for another reason", async () => {
+    const failure = new Error("connection reset");
+    const service = serviceWith(
+      async () => {
+        throw failure;
+      },
+      async () => [],
+    );
+    await expect(service.recordDocumentIfAbsent(INPUT)).rejects.toBe(failure);
   });
 });

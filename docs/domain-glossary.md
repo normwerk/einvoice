@@ -177,12 +177,14 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   `@MedusaContext()` (the same real decorator pair `@medusajs/order`'s own module service methods use
   throughout, confirmed by name in its compiled source) to get a transaction-bound knex instance
   (`transactionManager.getTransactionContext() ?? transactionManager.getKnex()`).
-- **A real MikroORM unique-constraint violation is detectable by `error.name === "UniqueConstraintViolationException"`**
-  without adding `@mikro-orm/core` as a new dependency — confirmed from its compiled `exceptions.js`:
-  every exception in that file's hierarchy sets `this.name = this.constructor.name` in a shared
-  `DriverException` base constructor. This plugin's own idempotency guard (`EinvoiceDocument`'s
-  `(type, idempotency_key)` unique index) relies on catching exactly this, duck-typed, rather than a
-  "check, then insert" that would race under concurrent duplicate event delivery.
+- **A unique-constraint violation does not reach a module service as MikroORM's own exception.** Medusa's
+  repository layer (`@medusajs/utils`, `dal/mikro-orm/db-error-mapper.js`) catches MikroORM's
+  `UniqueConstraintViolationException` (or Postgres code `23505`) and rethrows a `MedusaError` of type
+  `invalid_data` with the message "… already exists." — its `name` is plain `"Error"`. Corrected
+  2026-09-23: this entry used to say the violation is detectable by `error.name`, and the idempotency guard
+  relied on that, so its lost-race branch never ran. `EinvoiceModuleService.recordDocumentIfAbsent` now
+  re-reads the `(type, idempotency_key)` key after any failed insert instead: a document there means another
+  delivery won the race; none means a real failure, rethrown unchanged.
 - **Medusa's local event bus (the default, no Redis configured) never retries a subscriber that throws** —
   confirmed from `@medusajs/event-bus-local@2.19.0`'s compiled source: it wraps every subscriber call in a
   try/catch that only logs the error, nothing more. The Redis event bus _can_ retry (BullMQ `attempts`),

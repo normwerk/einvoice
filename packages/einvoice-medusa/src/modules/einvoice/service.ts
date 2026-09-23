@@ -311,11 +311,14 @@ export default class EinvoiceModuleService extends MedusaService({
    * Inserts an `EinvoiceDocument` for `(type, idempotencyKey)` unless one already exists — the actual
    * idempotency guard (`einvoice-document.ts`'s own doc comment). Relies on the table's real Postgres
    * `UNIQUE` index rather than a "does one exist" check beforehand: two concurrent calls for the same key
-   * can both reach the insert, but only one can win it, and the loser's own `UniqueConstraintViolationException`
-   * (real MikroORM exception, `@mikro-orm/core/exceptions.js` — `this.name = this.constructor.name` on its
-   * `DriverException` base, so duck-typing `.name` here is checking the real, stable contract, not
-   * guessing at one) is exactly the "someone else already recorded this" signal — no separate dependency
-   * on `@mikro-orm/core` needed to detect it.
+   * can both reach the insert, but only one can win it.
+   *
+   * The loser is recognised by re-reading the key, not by the error's shape (P-49): Medusa's own repository
+   * layer (`@medusajs/utils` `dbErrorMapper`) turns MikroORM's `UniqueConstraintViolationException` into a
+   * `MedusaError` of type `invalid_data` whose `name` is plain `"Error"`, so an earlier check on
+   * `error.name` never matched a real race. Whatever the insert threw: if a document for this key exists
+   * now, someone else recorded it; if none does, the insert failed for another reason and that error is
+   * rethrown unchanged.
    */
   async recordDocumentIfAbsent(input: RecordDocumentInput): Promise<RecordDocumentResult> {
     try {
@@ -329,18 +332,13 @@ export default class EinvoiceModuleService extends MedusaService({
       })) as EinvoiceDocumentRecord;
       return { document: created, created: true };
     } catch (error) {
-      if (!(error instanceof Error) || error.name !== "UniqueConstraintViolationException") {
-        throw error;
-      }
       const existing = await this.listEinvoiceDocuments({
         type: input.type,
         idempotency_key: input.idempotencyKey,
       });
       const document = existing[0] as EinvoiceDocumentRecord | undefined;
       if (document === undefined) {
-        // The conflict really did come from this (type, idempotency_key) pair — this branch would only
-        // reach here if the row won the race and was deleted again before this re-read, which nothing in
-        // this plugin ever does. Re-throwing is more honest than fabricating a document.
+        // No document for this key: not a lost race, a real failure of this insert.
         throw error;
       }
       return { document, created: false };
