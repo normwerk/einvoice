@@ -90,7 +90,10 @@ export async function embedInvoiceInPdfA3(
     profile,
     ...(options.title !== undefined ? { title: options.title } : {}),
   });
-  const metadataStream = pdfDoc.context.stream(xmpPacket, {
+  // Encoded to UTF-8 bytes here, not passed as a string: pdf-lib turns a string argument into one byte per
+  // UTF-16 code unit (truncating), so the xpacket BOM became 0xFF and any non-ASCII title was corrupted —
+  // an XMP packet that isn't valid UTF-8 (P-42).
+  const metadataStream = pdfDoc.context.stream(new TextEncoder().encode(xmpPacket), {
     Type: "Metadata",
     Subtype: "XML",
   });

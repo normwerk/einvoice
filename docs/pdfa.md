@@ -91,8 +91,16 @@ confirmed deterministic across a real 1.5s gap, not by timing luck.
   the actual Docker veraPDF (L3, PDF/A-3b, `--flavour 3b`) and Mustang validators against it: veraPDF must
   report the file PDF/A-3b compliant, Mustang's own `--action validate` must exit clean (its XMP property
   checks included — this is what "recognizes the profile" means in practice), and `--action extract` must
-  recover the embedded XML byte-for-byte. **14/14 fixtures pass all three, for real** — not simulated
-  (AGENTS.md §8), and now against a real, font-embedded, multi-paragraph page rather than a blank one.
+  recover the embedded XML byte-for-byte. Every fixture is embedded under **both** ZUGFeRD profiles —
+  `XRECHNUNG` and `EN16931` (the one `selectProfile` picks for ordinary B2B invoices and every EU/CH/UK
+  buyer) — and **28/28 fixture/profile pairs pass all three, for real** (2026-09-23) — not simulated
+  (AGENTS.md §8), against a real, font-embedded, multi-paragraph page rather than a blank one.
+- **The XMP stream is UTF-8**, checked by a unit test that decodes it with `fatal: true`: the xpacket
+  `begin` attribute is the UTF-8 byte-order mark `EF BB BF`, and a non-ASCII title survives intact.
+- **The embedded XML always declares the XRechnung 3.0 CIUS** (BT-24), whichever ZUGFeRD profile the PDF
+  carries. Mustang 2.26.0 reads the profile from the XML, not the XMP, and reports both hybrids
+  `status="valid"`. For `EN16931` this is consistent rather than a mismatch: XRechnung is a CIUS of
+  EN 16931, so a document that conforms to it also conforms to EN 16931.
 
 ## What this does _not_ solve yet
 

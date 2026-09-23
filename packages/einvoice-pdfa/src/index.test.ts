@@ -83,6 +83,26 @@ describe("embedInvoiceInPdfA3", () => {
     expect(xmpText).toContain("<pdfaid:part>3</pdfaid:part>");
   });
 
+  it("writes the XMP stream as valid UTF-8, keeping non-ASCII title characters intact (P-42)", async () => {
+    const base = await blankBasePdf();
+    const { pdfBytes } = await embedInvoiceInPdfA3(base, SAMPLE_XML, {
+      profile: "EN16931",
+      title: "Rechnung Müller & Söhne — 12,50 €",
+    });
+    const reloaded = await PDFDocument.load(pdfBytes);
+    const metadata = reloaded.catalog.lookup(PDFName.of("Metadata"), PDFStream);
+    const xmpBytes = decodePDFRawStream(metadata as PDFRawStream).decode();
+    // fatal: a byte sequence that isn't valid UTF-8 throws instead of decoding to U+FFFD silently.
+    const xmpText = new TextDecoder("utf-8", { fatal: true }).decode(xmpBytes);
+    expect(xmpText).toContain("Rechnung Müller &amp; Söhne — 12,50 €");
+    // XMP §7.3.2: the xpacket `begin` attribute is U+FEFF, which UTF-8 encodes as EF BB BF.
+    const begin = new TextEncoder().encode('<?xpacket begin="');
+    const at = xmpBytes.findIndex((_, i) => begin.every((b, j) => xmpBytes[i + j] === b));
+    expect(Array.from(xmpBytes.slice(at + begin.length, at + begin.length + 3))).toEqual([
+      0xef, 0xbb, 0xbf,
+    ]);
+  });
+
   it("embeds the invoice XML byte-for-byte (round-trips through Flate decoding)", async () => {
     const base = await blankBasePdf();
     const { pdfBytes, attachmentFilename } = await embedInvoiceInPdfA3(base, SAMPLE_XML, {

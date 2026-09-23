@@ -35,6 +35,7 @@ const REPO_ROOT = resolve(HERE, "../..");
 const FIXTURES_DIR = resolve(REPO_ROOT, "fixtures");
 const VERAPDF_IMAGE = "einvoice-conformance-verapdf:local";
 const MUSTANG_IMAGE = "einvoice-conformance-mustang:local";
+const PROFILES = ["XRECHNUNG", "EN16931"];
 
 /** @returns {{ok: boolean, stdout: string}} `ok` reflects the container's real exit code — not just "did it run". */
 function runDocker(image, hostDir, args, { readOnly } = { readOnly: true }) {
@@ -133,34 +134,37 @@ async function main() {
     const invoice = JSON.parse(readFileSync(resolve(FIXTURES_DIR, id, "input.json"), "utf-8"));
     const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
     const visualBase = await renderInvoicePdf(invoice);
-    // All 14 fixtures use the XRechnung 3.0 CIUS specificationIdentifier —
-    // XRECHNUNG is the matching ZUGFeRD profile (profiles.ts).
-    const { pdfBytes, attachmentFilename } = await embedInvoiceInPdfA3(visualBase, xml, {
-      profile: "XRECHNUNG",
-      title: invoice.number,
-    });
+    // Both ZUGFeRD profiles, not just XRECHNUNG (P-42): `selectProfile` (einvoice-commerce) picks EN16931
+    // for every ordinary DE B2B invoice and every EU/CH/UK buyer, so that is the hybrid most merchants
+    // actually ship — checking only XRECHNUNG left the product's most common output unvalidated.
+    for (const profile of PROFILES) {
+      const { pdfBytes, attachmentFilename } = await embedInvoiceInPdfA3(visualBase, xml, {
+        profile,
+        title: invoice.number,
+      });
 
-    const fileName = `${id}.pdf`;
-    const extractedName = `${id}.extracted.xml`;
-    writeFileSync(resolve(scratch, fileName), pdfBytes);
+      const fileName = `${id}.${profile}.pdf`;
+      const extractedName = `${id}.${profile}.extracted.xml`;
+      writeFileSync(resolve(scratch, fileName), pdfBytes);
 
-    const veraPdf = validateWithVeraPdf(scratch, fileName);
-    const mustangValidate = validateWithMustang(scratch, fileName);
-    const extraction = extractWithMustang(scratch, fileName, extractedName);
-    const extractedXmlMatches = extraction.ok && extraction.xml === xml;
+      const veraPdf = validateWithVeraPdf(scratch, fileName);
+      const mustangValidate = validateWithMustang(scratch, fileName);
+      const extraction = extractWithMustang(scratch, fileName, extractedName);
+      const extractedXmlMatches = extraction.ok && extraction.xml === xml;
 
-    results.push({
-      id,
-      attachmentFilename,
-      veraPdfValid: veraPdf.valid,
-      veraPdfSummary: veraPdf.summary,
-      veraPdfRaw: veraPdf.raw,
-      mustangValidateOk: mustangValidate.ok,
-      mustangValidateOutput: mustangValidate.stdout,
-      extractedXmlMatches,
-      extractionOutput: extraction.raw,
-      extractedXml: extraction.xml,
-    });
+      results.push({
+        id: `${id} [${profile}]`,
+        attachmentFilename,
+        veraPdfValid: veraPdf.valid,
+        veraPdfSummary: veraPdf.summary,
+        veraPdfRaw: veraPdf.raw,
+        mustangValidateOk: mustangValidate.ok,
+        mustangValidateOutput: mustangValidate.stdout,
+        extractedXmlMatches,
+        extractionOutput: extraction.raw,
+        extractedXml: extraction.xml,
+      });
+    }
   }
 
   let allGood = true;
@@ -188,7 +192,7 @@ async function main() {
   }
   console.log(
     `\n${results.filter((r) => r.veraPdfValid && r.mustangValidateOk && r.extractedXmlMatches).length}/${results.length} ` +
-      `fixtures produce a real veraPDF-green PDF/A-3b, a Mustang-clean validate, and byte-for-byte Mustang-extractable XML.`,
+      `fixture/profile pairs produce a real veraPDF-green PDF/A-3b, a Mustang-clean validate, and byte-for-byte Mustang-extractable XML.`,
   );
   if (!allGood) process.exitCode = 1;
 }
