@@ -4,7 +4,6 @@
     "kind": "credit-note",
     "issueDate": "2026-09-20",
     "correctedInvoice": { "number": "RE-2026-0001", "issueDate": "2026-09-16" },
-    "deRates": { "standard": "19", "reduced": "7" },
     "payment": { "means": "58", "iban": "DE89370400440532013000" }
   }
 }

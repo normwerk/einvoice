@@ -12,6 +12,7 @@
  * or regime logic for a jurisdiction this table was never reviewed against.
  */
 import type { CountryCode } from "@normwerk/einvoice-model";
+import { compareDecimals } from "./decimal.js";
 import type { TaxContext, TaxDecision, TaxDecisionScope, VatIdEvidence } from "./types.js";
 
 /** UStG §12 Abs. 1 — docs/tax-semantics.md row 1. */
@@ -369,6 +370,31 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
         "tax-semantics#7",
       );
     }
+    // P-46: a rate of 0 would put a zero-rated supply under category S, which BR-S-05 rejects; every EU
+    // member state's standard rate is above zero.
+    if (
+      !/^\d+(\.\d+)?$/.test(context.ossRateOverride) ||
+      compareDecimals(context.ossRateOverride, "0") <= 0
+    ) {
+      throw new TaxRuleError(
+        `taxContext.ossRateOverride "${context.ossRateOverride}" is not a VAT rate above zero — an OSS ` +
+          `distance sale is taxed at the destination country's rate (docs/tax-semantics.md row 7).`,
+        "tax-semantics#7",
+      );
+    }
+    // P-46: only a sale of goods moves to the buyer's country. A service to a consumer is, as a rule, taxed
+    // where the seller is (§3a Abs. 1 UStG); only the services §3a Abs. 5 UStG lists (telecommunications,
+    // broadcasting, electronically supplied services) are taxed where the consumer lives, and nothing in
+    // TaxContext tells the two apart. A mixed order never gets here: it is refused above as cross-border.
+    if (context.supplyType !== "goods") {
+      throw new TaxRuleError(
+        `OSS sale of services to a consumer in ${context.buyerCountry} — this package covers OSS distance ` +
+          `sales of goods only. A service to a consumer is taxed in Germany as a rule (§3a Abs. 1 UStG), ` +
+          `and in the consumer's country only for the services §3a Abs. 5 UStG lists; which one this is ` +
+          `cannot be read from the order, so it is refused rather than guessed (docs/tax-semantics.md row 7).`,
+        "tax-semantics#7",
+      );
+    }
     return {
       ruleId: "tax-semantics#7",
       categoryCode: "S",
@@ -401,34 +427,87 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
   );
 }
 
+/** The rate kind a charged rate is, when it is exactly one of Germany's rates. */
+function germanRateKind(rate: string): "standard" | "reduced" | undefined {
+  if (compareDecimals(rate, DE_STANDARD_RATE) === 0) return "standard";
+  if (compareDecimals(rate, DE_REDUCED_RATE) === 0) return "reduced";
+  return undefined;
+}
+
 /**
  * Resolves the per-line rate for a category-S decision (domestic standard/
  * reduced, docs/tax-semantics.md rows 1/2/9, or OSS row 7). Categories that
  * are uniform for the whole transaction (K/G/AE/E/Z) never call this — their
  * rate is always "0", fixed in `decideVatCategory`'s own `TaxDecision`.
+ *
+ * `chargedVatRate` is the rate the shop charged on the line (`CommerceLine.chargedVatRate`). A line is never
+ * invoiced at a rate other than the one it was charged at: a domestic line charged at anything but 19% or 7%,
+ * or classified as one and charged the other, is refused (P-50); so is an OSS line charged at anything but
+ * the declared destination rate, or classified as reduced (P-46) — the one declared rate is the destination's
+ * standard rate, and a reduced destination rate cannot be declared yet.
  */
 export function resolveLineRate(
   decision: TaxDecision,
   context: TaxContext,
   taxRateKind: "standard" | "reduced" | undefined,
+  chargedVatRate?: string | undefined,
 ): string {
   if (decision.categoryCode !== "S") {
     return "0";
   }
+  if (chargedVatRate !== undefined && !/^\d+(\.\d+)?$/.test(chargedVatRate)) {
+    throw new TaxRuleError(
+      `chargedVatRate "${chargedVatRate}" is not a VAT rate (a percentage such as "19").`,
+      decision.ruleId,
+    );
+  }
   if (decision.ruleId === "tax-semantics#7") {
     // OSS: already validated present in decideVatCategory; re-checked here defensively since this
     // function can in principle be called independently of decideVatCategory in a test.
-    if (context.ossRateOverride === undefined) {
+    const ossRate = context.ossRateOverride;
+    if (ossRate === undefined) {
       throw new TaxRuleError("OSS rate missing — see decideVatCategory", "tax-semantics#7");
     }
-    return context.ossRateOverride;
+    if (taxRateKind === "reduced") {
+      throw new TaxRuleError(
+        `An OSS order with a reduced-rate line: taxContext.ossRateOverride declares one rate for the order, ` +
+          `the destination country's standard rate, and a reduced destination rate cannot be declared yet. ` +
+          `Refusing rather than invoicing the line at ${ossRate}%.`,
+        "tax-semantics#7",
+      );
+    }
+    if (chargedVatRate !== undefined && compareDecimals(chargedVatRate, ossRate) !== 0) {
+      throw new TaxRuleError(
+        `An OSS order line was charged ${chargedVatRate}% VAT, not the declared destination rate ` +
+          `${ossRate}% (taxContext.ossRateOverride). Refusing rather than invoicing a rate the buyer was ` +
+          `not charged; a reduced destination rate cannot be declared yet.`,
+        "tax-semantics#7",
+      );
+    }
+    return ossRate;
   }
-  if (taxRateKind === undefined) {
+  const chargedKind = chargedVatRate === undefined ? undefined : germanRateKind(chargedVatRate);
+  if (chargedVatRate !== undefined && chargedKind === undefined) {
     throw new TaxRuleError(
-      "A domestic-standard-rate line needs taxRateKind ('standard' | 'reduced') to resolve its rate — " +
-        "refusing to default to either 19% or 7% silently.",
+      `A domestic line was charged ${chargedVatRate}% VAT, which is neither of Germany's rates (19%, 7%). ` +
+        `Refusing rather than invoicing a rate the buyer was not charged — check the shop's tax settings.`,
       "tax-semantics#1",
     );
   }
-  return taxRateKind === "reduced" ? DE_REDUCED_RATE : DE_STANDARD_RATE;
+  if (taxRateKind !== undefined && chargedKind !== undefined && taxRateKind !== chargedKind) {
+    throw new TaxRuleError(
+      `A domestic line is classified as ${taxRateKind} rate but was charged ${chargedVatRate}% VAT — ` +
+        `refusing to pick one of the two.`,
+      "tax-semantics#1",
+    );
+  }
+  const kind = taxRateKind ?? chargedKind;
+  if (kind === undefined) {
+    throw new TaxRuleError(
+      "A domestic line needs taxRateKind ('standard' | 'reduced') or the rate the shop charged " +
+        "(chargedVatRate) to resolve its rate — refusing to default to either 19% or 7% silently.",
+      "tax-semantics#1",
+    );
+  }
+  return kind === "reduced" ? DE_REDUCED_RATE : DE_STANDARD_RATE;
 }

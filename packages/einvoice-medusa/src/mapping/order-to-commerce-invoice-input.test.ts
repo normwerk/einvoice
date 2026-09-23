@@ -17,7 +17,6 @@ const SELLER = {
   vatIdentifier: "DE123456789",
 };
 
-const DE_RATES = { standard: "19", reduced: "7" };
 const PAYMENT = { means: "58" as const, iban: "DE89370400440532013000" };
 
 function baseOptions(overrides: Partial<MapOrderOptions> = {}): MapOrderOptions {
@@ -25,7 +24,6 @@ function baseOptions(overrides: Partial<MapOrderOptions> = {}): MapOrderOptions 
     seller: SELLER,
     kind: "invoice",
     issueDate: "2026-09-14",
-    deRates: DE_RATES,
     payment: PAYMENT,
     ...overrides,
   };
@@ -90,7 +88,7 @@ describe("mapOrderToCommerceInvoiceInput", () => {
       unitCode: "C62",
       netPrice: "100.0000",
       itemName: "Widget",
-      taxRateKind: "standard",
+      chargedVatRate: "19",
     });
     expect(input.taxContext).toMatchObject({
       sellerCountry: "DE",
@@ -184,20 +182,28 @@ describe("mapOrderToCommerceInvoiceInput", () => {
     expect(input.lines[0]?.netPrice).toBe("42.5000");
   });
 
-  it("infers the reduced rate when the captured rate is closer to 7 than 19", () => {
-    const order = baseOrder({
-      items: [
-        {
-          title: "Book",
-          unit_price: 10,
-          is_tax_inclusive: false,
-          tax_lines: [{ rate: 7 }],
-          detail: { quantity: 1 },
-        },
-      ],
-    });
-    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
-    expect(input.lines[0]?.taxRateKind).toBe("reduced");
+  it("passes on the rate Medusa charged, not a rate kind guessed from it (P-50)", () => {
+    const line = (rates: readonly number[]) =>
+      mapOrderToCommerceInvoiceInput(
+        baseOrder({
+          items: [
+            {
+              title: "Book",
+              unit_price: 10,
+              is_tax_inclusive: false,
+              tax_lines: rates.map((rate) => ({ rate })),
+              detail: { quantity: 1 },
+            },
+          ],
+        }),
+        baseOptions(),
+      ).lines[0];
+    expect(line([7])?.chargedVatRate).toBe("7");
+    expect(line([7])).not.toHaveProperty("taxRateKind");
+    // Snapped to the nearer German rate before — a 0% line became a 7% line on the invoice.
+    expect(line([0])?.chargedVatRate).toBe("0");
+    expect(line([5.5])?.chargedVatRate).toBe("5.5");
+    expect(line([])?.chargedVatRate).toBeUndefined();
   });
 
   it("defaults quantity to 1 when the linked OrderItem.detail is missing", () => {

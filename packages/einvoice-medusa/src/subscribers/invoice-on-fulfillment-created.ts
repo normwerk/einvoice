@@ -108,7 +108,6 @@ export default async function invoiceOnFulfillmentCreated({
     seller: einvoiceService.options.seller,
     kind: "invoice",
     issueDate,
-    deRates: { standard: commerce.DE_STANDARD_RATE, reduced: commerce.DE_REDUCED_RATE },
     payment: einvoiceService.options.payment,
     ossRegistered: einvoiceService.options.ossRegistered,
   });

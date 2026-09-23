@@ -123,7 +123,6 @@ export async function issueCreditNote({
     seller: einvoiceService.options.seller,
     kind: "credit-note",
     issueDate,
-    deRates: { standard: commerce.DE_STANDARD_RATE, reduced: commerce.DE_REDUCED_RATE },
     payment: einvoiceService.options.payment,
     ossRegistered: einvoiceService.options.ossRegistered,
     correctedInvoice: { number: basis.invoice.document_number, issueDate: basis.invoiceIssueDate },
@@ -144,13 +143,19 @@ export async function issueCreditNote({
 
   if (scope.kind === "partial") {
     const decision = commerce.decideVatCategory(input.taxContext, vatIdEvidence);
-    const kinds = [...new Set(input.lines.map((line) => line.taxRateKind))];
-    if (decision.categoryCode === "S" && kinds.length > 1) {
+    const taxContext = input.taxContext;
+    const rates = new Set(
+      input.lines.map((line) =>
+        commerce.resolveLineRate(decision, taxContext, line.taxRateKind, line.chargedVatRate),
+      ),
+    );
+    if (rates.size > 1) {
       throw new PartialCreditAcrossRatesError(order.id);
     }
     input = toPartialCreditNoteInput(input, {
       gross: scope.gross,
-      taxRateKind: kinds[0],
+      taxRateKind: input.lines[0]?.taxRateKind,
+      chargedVatRate: input.lines[0]?.chargedVatRate,
       originalInvoiceNumber: basis.invoice.document_number,
       reason,
     });

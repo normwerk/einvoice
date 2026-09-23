@@ -815,6 +815,9 @@ export const commerceInvoiceInputJsonSchema = {
             "reduced"
           ]
         },
+        "chargedVatRate": {
+          "$ref": "#/definitions/Amount"
+        },
         "supplyType": {
           "type": "string",
           "enum": [

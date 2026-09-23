@@ -1,0 +1,10 @@
+{
+  "specRow": "row-7",
+  "specRequiresRefusal": true,
+  "build": {
+    "kind": "error",
+    "errorClass": "TaxRuleError",
+    "messageIncludes": "§3a Abs. 5 UStG"
+  },
+  "profile": { "kind": "ok", "profile": "EN16931" }
+}

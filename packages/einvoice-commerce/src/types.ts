@@ -141,10 +141,17 @@ export interface CommerceLine {
    * Which of the seller's own product tax classifications this line falls under. Only consulted when the
    * document-level regime resolves to a rate that varies per product (`decideVatCategory`'s domestic/OSS
    * regimes, category S) — ignored for K/G/AE/E/Z, which are uniform for the whole commercial transaction
-   * in this v0.1 rule table (`docs/tax-semantics.md`). Required whenever it's consulted; `buildInvoice`
-   * throws rather than guessing a rate for a line that needs one and doesn't have it.
+   * in this v0.1 rule table (`docs/tax-semantics.md`). When it's consulted, `buildInvoice` needs this or
+   * `chargedVatRate`, and throws rather than guessing a rate for a line that has neither.
    */
   readonly taxRateKind?: "standard" | "reduced" | undefined;
+  /**
+   * The VAT rate the shop charged on this line at checkout, as a percentage ("19", "5.5"), when the platform
+   * records one. Consulted where `taxRateKind` is: a line is never invoiced at a rate it was not charged at.
+   * Domestically it must be 19 or 7, and gives the rate kind when `taxRateKind` is omitted; in an OSS sale it
+   * must equal `TaxContext.ossRateOverride`. Anything else is refused.
+   */
+  readonly chargedVatRate?: Amount | undefined;
   /**
    * T-069/D-50 point 6: forward-compatible groundwork, not yet consumed. `decideVatCategory` still reads
    * only the single whole-order `TaxContext.supplyType` aggregate an adapter derives from all of a

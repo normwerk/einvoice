@@ -28,6 +28,8 @@ vi.mock("@normwerk/einvoice-commerce", () => ({
   selectProfile: mocks.selectProfile,
   buildInvoice: mocks.buildInvoice,
   decideVatCategory: mocks.decideVatCategory,
+  // The rate a line resolves to — here simply the rate it was charged at.
+  resolveLineRate: (_d: unknown, _c: unknown, kind: unknown, charged: unknown) => charged ?? kind,
   SequentialNumberer: class {
     next = vi.fn(async () => "GS-2026-0002");
   },

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compareAmounts,
+  compareDecimals,
   isZeroAmount,
   multiplyToAmount,
   netsOfVatInclusiveParts,
@@ -80,5 +81,11 @@ describe("VAT-inclusive amounts (P-61)", () => {
     expect(unitPriceOf("25.21", "3")).toBe("8.4033");
     expect(unitPriceOf("8.41", "1")).toBe("8.4100");
     expect(unitPriceOf("10.00", "1.5")).toBe("6.6667");
+  });
+
+  it("compareDecimals compares rates of any scale", () => {
+    expect(compareDecimals("19", "19.000")).toBe(0);
+    expect(compareDecimals("5.5", "7")).toBe(-1);
+    expect(compareDecimals("20", "19.99")).toBe(1);
   });
 });

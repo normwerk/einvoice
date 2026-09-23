@@ -1,0 +1,10 @@
+{
+  "specRow": "row-1",
+  "specCategory": "S",
+  "build": {
+    "kind": "error",
+    "errorClass": "TaxRuleError",
+    "messageIncludes": "Line 1: A domestic line was charged 0% VAT"
+  },
+  "profile": { "kind": "ok", "profile": "EN16931" }
+}

@@ -214,6 +214,46 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
     expect(() => decideVatCategory(context)).toThrow(TaxRuleError);
   });
 
+  it("row 7 (P-46): OSS refuses a rate of zero or one that is not a number", () => {
+    const context: TaxContext = {
+      ...BASE,
+      buyerCountry: "FR",
+      buyerIsBusiness: false,
+      ossRegistered: true,
+    };
+    for (const ossRateOverride of ["0", "0.00", "twenty"]) {
+      expect(() => decideVatCategory({ ...context, ossRateOverride })).toThrow(
+        expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#7" }),
+      );
+    }
+  });
+
+  it("row 7 (P-46): OSS refuses services — only §3a Abs. 5 UStG services move to the consumer's country", () => {
+    const context: TaxContext = {
+      ...BASE,
+      buyerCountry: "FR",
+      buyerIsBusiness: false,
+      ossRegistered: true,
+      ossRateOverride: "20",
+      supplyType: "services",
+    };
+    expect(() => decideVatCategory(context)).toThrow(/§3a Abs\. 5 UStG/);
+  });
+
+  it("row 7 (P-46): OSS refuses a reduced-rate line and a line charged at another rate than the declared one", () => {
+    const context: TaxContext = {
+      ...BASE,
+      buyerCountry: "FR",
+      buyerIsBusiness: false,
+      ossRegistered: true,
+      ossRateOverride: "20",
+    };
+    const decision = decideVatCategory(context);
+    expect(() => resolveLineRate(decision, context, "reduced")).toThrow(/reduced-rate line/);
+    expect(() => resolveLineRate(decision, context, undefined, "5.5")).toThrow(/charged 5\.5%/);
+    expect(resolveLineRate(decision, context, "standard", "20.00")).toBe("20");
+  });
+
   it("row 8: zero-rated domestic supply (explicit override) → Z, no exemption text (BR-Z-10)", () => {
     const context: TaxContext = { ...BASE, regimeOverride: { kind: "zero-rated" } };
     const decision = decideVatCategory(context);
@@ -253,6 +293,25 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
   it("a domestic S line without taxRateKind refuses to guess a rate", () => {
     const decision = decideVatCategory(BASE);
     expect(() => resolveLineRate(decision, BASE, undefined)).toThrow(TaxRuleError);
+  });
+
+  it("a domestic S line takes its rate kind from the rate it was charged, and refuses any other rate (P-50)", () => {
+    const decision = decideVatCategory(BASE);
+    expect(resolveLineRate(decision, BASE, undefined, "19")).toBe("19");
+    expect(resolveLineRate(decision, BASE, undefined, "7.0")).toBe("7");
+    expect(resolveLineRate(decision, BASE, "reduced", "7")).toBe("7");
+    // A line charged 0% was invoiced at 7% before: the adapter snapped the rate to the nearer German one.
+    expect(() => resolveLineRate(decision, BASE, undefined, "0")).toThrow(/charged 0% VAT/);
+    expect(() => resolveLineRate(decision, BASE, undefined, "16")).toThrow(/charged 16% VAT/);
+    expect(() => resolveLineRate(decision, BASE, "standard", "7")).toThrow(
+      /classified as standard/,
+    );
+    expect(() => resolveLineRate(decision, BASE, undefined, "19%")).toThrow(/not a VAT rate/);
+  });
+
+  it("the charged rate is not consulted for a category that is uniform for the whole document", () => {
+    const context: TaxContext = { ...BASE, regimeOverride: { kind: "zero-rated" } };
+    expect(resolveLineRate(decideVatCategory(context), context, undefined, "19")).toBe("0");
   });
 
   it("refuses a seller outside v0.1 scope (Germany only)", () => {

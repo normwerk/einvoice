@@ -93,6 +93,7 @@ describe("toPartialCreditNoteInput (P-41)", () => {
     const result = toPartialCreditNoteInput(INPUT, {
       gross: "10.00",
       taxRateKind: "standard",
+      chargedVatRate: undefined,
       originalInvoiceNumber: "RE-2026-0007",
     });
     expect(result.lines).toEqual([
@@ -103,6 +104,7 @@ describe("toPartialCreditNoteInput (P-41)", () => {
         priceInclVat: "10.00",
         itemName: "Teilerstattung / Partial refund — Rechnung RE-2026-0007",
         taxRateKind: "standard",
+        chargedVatRate: undefined,
         supplyType: "goods",
       },
     ]);

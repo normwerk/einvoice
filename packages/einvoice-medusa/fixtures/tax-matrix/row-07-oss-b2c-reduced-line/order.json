@@ -1,0 +1,37 @@
+{
+  "id": "order_tax_matrix_07_reduced",
+  "display_id": 1019,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "metadata": { "oss_rate_override": "21" },
+  "customer": {
+    "first_name": "Anke",
+    "last_name": "Voorbeeld",
+    "email": "buyer@example.test"
+  },
+  "billing_address": {
+    "country_code": "nl",
+    "city": "Amsterdam",
+    "postal_code": "1011AB",
+    "address_1": "Voorbeeldstraat 1"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Widget",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 21 }],
+      "detail": { "quantity": 1 }
+    },
+    {
+      "title": "Book",
+      "variant_sku": "BOOK-1",
+      "unit_price": 20,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 9 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

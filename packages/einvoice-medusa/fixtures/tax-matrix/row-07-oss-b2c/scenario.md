@@ -22,9 +22,10 @@ not a way around it.
 
 - **Build axis**: expected **ok, `S`** — `decideVatCategory`'s row-7 branch matches (seller DE, buyer NL
   inside the EU, B2C, `ossRegistered: true`) and resolves the line at the declared 21% rate
-  (`resolveLineRate` returns `ossRateOverride` verbatim for `ruleId: "tax-semantics#7"`, ignoring the line's
-  own captured `tax_lines[].rate`/`taxRateKind`).
+  (`resolveLineRate` returns `ossRateOverride` for `ruleId: "tax-semantics#7"` after checking that the rate
+  Medusa charged on the line, `tax_lines[].rate`, is that same 21%).
 - **Profile axis**: buyer country NL — expected **ok, `EN16931`**; the Netherlands is an EU member state.
 
-No known bug involved. The mandatory-rejection half ("OSS without `ossRateOverride`") has its own fixture,
-`row-07-oss-b2c-no-rate-override`.
+No known bug involved. The mandatory rejections have their own cells: `row-07-oss-b2c-no-rate-override`
+(no declared rate), `row-07-oss-b2c-reduced-line` (a line charged at another rate) and
+`row-07-oss-b2c-service` (a service).

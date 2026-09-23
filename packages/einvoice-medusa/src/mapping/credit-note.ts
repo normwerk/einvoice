@@ -70,8 +70,9 @@ export function decideCreditScope(input: CreditScopeInput): CreditScope {
 export interface PartialCreditNoteLine {
   /** The credited gross sum — passed on VAT-inclusive, so the credit note totals exactly this (P-61). */
   readonly gross: Amount;
-  /** The rate kind every line of the order carries (a partial credit note over mixed rates is refused). */
+  /** The rate facts every line of the order shares (a partial credit note over mixed rates is refused). */
   readonly taxRateKind: "standard" | "reduced" | undefined;
+  readonly chargedVatRate: Amount | undefined;
   readonly originalInvoiceNumber: string;
   /** Names the line: a partial refund, or the rest of an invoice cancelled after part of it was credited. */
   readonly reason?: "refund" | "cancellation";
@@ -103,6 +104,7 @@ export function toPartialCreditNoteInput(
         priceInclVat: line.gross,
         itemName: `${label} — Rechnung ${line.originalInvoiceNumber}`,
         taxRateKind: line.taxRateKind,
+        chargedVatRate: line.chargedVatRate,
         supplyType,
       },
     ],

@@ -36,6 +36,7 @@ import type {
   BuildResult,
   BuildWarning,
   CommerceInvoiceInput,
+  CommerceLine,
   CommerceParty,
   TaxDecision,
   VatIdEvidence,
@@ -293,6 +294,23 @@ function assertTaxFactsMatchDocument(decision: TaxDecision, input: CommerceInvoi
   }
 }
 
+/** `resolveLineRate` for one line, with a refusal naming the line it is about. */
+function lineRate(
+  decision: TaxDecision,
+  input: CommerceInvoiceInput,
+  identifier: string,
+  line: CommerceLine,
+): string {
+  try {
+    return resolveLineRate(decision, input.taxContext, line.taxRateKind, line.chargedVatRate);
+  } catch (error) {
+    if (error instanceof TaxRuleError) {
+      throw new TaxRuleError(`Line ${identifier}: ${error.message}`, error.ruleId);
+    }
+    throw error;
+  }
+}
+
 export function buildInvoice(
   input: CommerceInvoiceInput,
   options: BuildInvoiceOptions = {},
@@ -409,7 +427,7 @@ export function buildInvoice(
       identifier,
       basis: price.basis,
       amount: subtractAmounts(amountBeforeAllowances, sumOfLineAllowances),
-      rate: resolveLineRate(regimeDecision, input.taxContext, line.taxRateKind),
+      rate: lineRate(regimeDecision, input, identifier, line),
       line,
     };
   });

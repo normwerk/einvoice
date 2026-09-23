@@ -97,6 +97,17 @@ export function compareAmounts(a: string, b: string): -1 | 0 | 1 {
   return diff < 0n ? -1 : 1;
 }
 
+/** Compares two decimals of any scale — a VAT rate such as "5.5" or "19.000", not only a 2-decimal `Amount`. */
+export function compareDecimals(a: string, b: string): -1 | 0 | 1 {
+  const x = parseDecimal(a);
+  const y = parseDecimal(b);
+  const scale = Math.max(x.scale, y.scale);
+  const diff =
+    x.unscaled * 10n ** BigInt(scale - x.scale) - y.unscaled * 10n ** BigInt(scale - y.scale);
+  if (diff === 0n) return 0;
+  return diff < 0n ? -1 : 1;
+}
+
 /**
  * P-61: the VAT contained in a VAT-inclusive amount — `gross × percent / (100 + percent)`, rounded to 2dp
  * the way `percentOfAmount` rounds. This is how German practice states the tax of a gross price (the net

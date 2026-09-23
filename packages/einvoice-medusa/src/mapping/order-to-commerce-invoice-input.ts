@@ -26,9 +26,7 @@
  * `require` export condition), while this plugin compiles to CommonJS (T-070's own verified finding), so a
  * static *value* import here would compile to a `require()` that crashes at runtime
  * (`ERR_REQUIRE_ESM`) — subscribers (T-071) load `einvoice-commerce`/`einvoice-cii`'s actual functions via
- * `await import(...)` instead, and pass the two things this file needs at runtime (Germany's standard/
- * reduced VAT rates) in as plain string parameters rather than this file importing
- * `DE_STANDARD_RATE`/`DE_REDUCED_RATE` as values itself.
+ * `await import(...)` instead.
  */
 import type {
   CommerceInvoiceInput,
@@ -195,10 +193,6 @@ export interface MapOrderOptions {
   /** BT-25/26 — required by `buildInvoice` when `kind === "credit-note"` (T-064); the caller (the
    * `payment.refunded` subscriber) resolves which original invoice this corrects before calling here. */
   readonly correctedInvoice?: { readonly number: string; readonly issueDate: IsoDate };
-  /** Germany's standard/reduced VAT rate, as plain decimal-string percentages ("19"/"7") — the caller
-   * passes `einvoice-commerce`'s own `DE_STANDARD_RATE`/`DE_REDUCED_RATE` (dynamically imported, see this
-   * file's own doc comment on why) rather than this file importing them itself. */
-  readonly deRates: { readonly standard: string; readonly reduced: string };
   /** BG-16 (payment instructions) — merchant-level bank details (`EinvoiceModuleOptions.payment`,
    * `service.ts`), not order data: found mandatory by a real KoSIT rejection (BR-DE-1, T-071's own e2e
    * proof) regardless of which e-invoice profile `selectProfile` resolves — `buildInvoice`'s
@@ -231,23 +225,18 @@ export function resolveB2gBuyerReference(order: MedusaOrderForInvoice): string |
 }
 
 /**
- * Best-effort inference of whether a line's captured tax rate is DE's reduced or standard rate — only ever
- * consulted by `buildInvoice` for category S (domestic), matching `CommerceLine.taxRateKind`'s own doc
- * comment ("ignored for K/G/AE/E/Z"). Falls back to "standard" when no tax line is present at all (e.g. a
- * not-yet-priced draft synced early) rather than guessing reduced.
+ * P-50: the VAT rate Medusa charged on a line — the sum of its tax lines, as a decimal-string percentage — or
+ * `undefined` when it has none. Passed on as a fact: which rate the invoice uses, and whether this one is
+ * acceptable, is `buildInvoice`'s decision. This file used to snap the rate to the nearer of Germany's two,
+ * which turned a line Medusa taxed at 0% into a 7% line on the invoice.
  */
-function inferTaxRateKind(
-  item: MedusaOrderLineItem,
-  deRates: MapOrderOptions["deRates"],
-): "standard" | "reduced" {
-  const rate = item.tax_lines?.[0]?.rate;
-  if (rate === undefined) {
-    return "standard";
+function chargedVatRate(item: MedusaOrderLineItem): Amount | undefined {
+  const taxLines = item.tax_lines ?? [];
+  if (taxLines.length === 0) {
+    return undefined;
   }
-  const rateNumber = Number(rate);
-  const distanceToReduced = Math.abs(rateNumber - Number(deRates.reduced));
-  const distanceToStandard = Math.abs(rateNumber - Number(deRates.standard));
-  return distanceToReduced < distanceToStandard ? "reduced" : "standard";
+  const sum = taxLines.reduce((total, line) => total + Number(line.rate), 0);
+  return sum.toFixed(4).replace(/\.?0+$/, "");
 }
 
 /**
@@ -557,7 +546,7 @@ export function mapOrderToCommerceInvoiceInput(
       unitCode: "C62",
       ...unitPrice(item),
       itemName: item.title,
-      taxRateKind: inferTaxRateKind(item, options.deRates),
+      chargedVatRate: chargedVatRate(item),
       supplyType: resolveLineSupplyType(item),
       allowances: resolveLineAllowances(item),
     })),

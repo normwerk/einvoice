@@ -205,6 +205,22 @@ describe("buildInvoice — shipping/discounts take the rate of the supply they b
       expect.objectContaining({ taxableAmount: "110.00", taxAmount: "22.00", rate: "20" }),
     ]);
   });
+
+  it("a line charged at a rate it cannot be invoiced at is refused, naming the line (P-50)", () => {
+    const input = domesticInput({
+      lines: [
+        {
+          quantity: "1",
+          unitCode: "C62",
+          netPrice: "10.00",
+          itemName: "Book",
+          chargedVatRate: "7",
+        },
+        { quantity: "1", unitCode: "C62", netPrice: "10.00", itemName: "Mug", chargedVatRate: "0" },
+      ],
+    });
+    expect(() => buildInvoice(input)).toThrow(/^Line 2: A domestic line was charged 0% VAT/);
+  });
 });
 
 describe("buildInvoice — intra-EU supply (row 3), needs vatIdEvidence", () => {
