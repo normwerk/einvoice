@@ -15,7 +15,7 @@
  *   docker compose -f docker/compose.conformance.yml build
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname, basename, resolve, extname } from "node:path";
 // Explicit .js extension: this file is run directly with `node dist/cli.js`
 // (not through vitest/a bundler), so Node's ESM resolver needs it even
@@ -68,15 +68,24 @@ function runDocker(
 function validateXml(filePath: string): ValidationResult {
   const dir = dirname(filePath);
   const name = basename(filePath);
+  // The validator writes `<name>-report.xml` next to the input in the same
+  // mounted (read-write) directory. A report left there by an earlier run is
+  // removed first (P-53): otherwise a run whose container never started — a
+  // missing image, a stopped Docker daemon — would silently hand back that
+  // earlier run's verdict as this one's.
+  const reportPath = resolve(dir, `${name.replace(/\.xml$/i, "")}-report.xml`);
+  rmSync(reportPath, { force: true });
   const started = Date.now();
   // The report file is what we actually parse; stdout is just the
   // human-readable console summary.
-  runDocker(KOSIT_IMAGE, dir, ["-h", `/data/${name}`], { readOnly: false });
+  const stdout = runDocker(KOSIT_IMAGE, dir, ["-h", `/data/${name}`], { readOnly: false });
   const durationMs = Date.now() - started;
 
-  // The validator writes `<name>-report.xml` next to the input in the same
-  // mounted (read-write) directory.
-  const reportPath = resolve(dir, `${name.replace(/\.xml$/i, "")}-report.xml`);
+  if (!existsSync(reportPath)) {
+    throw new Error(
+      `KoSIT produced no report for ${filePath} — the validator did not run. Its output:\n${stdout}`,
+    );
+  }
   const reportXml = readFileSync(reportPath, "utf-8");
   const { valid, accepted, messages } = parseKositReport(reportXml);
 
