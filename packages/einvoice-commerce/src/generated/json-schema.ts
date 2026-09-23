@@ -94,6 +94,9 @@ export const commerceInvoiceInputJsonSchema = {
           "type": "string"
         }
       },
+      "required": [
+        "means"
+      ],
       "additionalProperties": false
     },
     "references": {

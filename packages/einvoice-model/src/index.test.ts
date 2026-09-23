@@ -68,6 +68,12 @@ describe("validateModel", () => {
     expect(result.valid).toBe(false);
   });
 
+  it("types BT-81 as mandatory inside payment instructions — BR-49 (P-43)", () => {
+    // @ts-expect-error -- deliberate: BG-16 without BT-81 must not type-check (BR-49 "shall specify").
+    const withoutMeans: NonNullable<Invoice["paymentInstructions"]> = { accountIdentifier: "DE89" };
+    expect(withoutMeans.accountIdentifier).toBe("DE89");
+  });
+
   it("rejects a non-object", () => {
     expect(validateModel(null).valid).toBe(false);
     expect(validateModel("not an invoice").valid).toBe(false);

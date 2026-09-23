@@ -114,6 +114,34 @@ describe("serializeCii", () => {
     expect(xml).toContain("<ram:ApplicableHeaderTradeDelivery/>");
   });
 
+  it("omits URIUniversalCommunication entirely when a party has no electronic address — an empty one fails BR-62/BR-63 (P-43)", () => {
+    const base = loadFixture("de-b2b-standard");
+    const invoice: Invoice = {
+      ...base,
+      buyer: { ...base.buyer, electronicAddress: undefined, electronicAddressScheme: undefined },
+    };
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    expect(xml).not.toContain("<ram:URIUniversalCommunication/>");
+    const buyer = xml.slice(
+      xml.indexOf("<ram:BuyerTradeParty>"),
+      xml.indexOf("</ram:BuyerTradeParty>"),
+    );
+    expect(buyer).not.toContain("URIUniversalCommunication");
+    // The seller still has one, and keeps its schemeID.
+    expect(xml).toMatch(/<ram:URIUniversalCommunication><ram:URIID schemeID="[^"]+">/);
+  });
+
+  it("omits ShipToTradeParty when delivery has a date but no country — an empty PostalTradeAddress fails BR-57 (P-43)", () => {
+    const invoice: Invoice = {
+      ...loadFixture("de-b2b-standard"),
+      delivery: { actualDeliveryDate: "2026-09-10" },
+    };
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    expect(xml).not.toContain("ShipToTradeParty");
+    expect(xml).not.toContain("<ram:PostalTradeAddress/>");
+    expect(xml).toContain("<ram:ActualDeliverySupplyChainEvent>");
+  });
+
   it("omits FormattedIssueDateTime entirely (not empty) when a preceding invoice reference has no issue date", () => {
     // DateTimeString is required *within* FormattedIssueDateTime (XSD), so
     // an empty self-closing element there would be invalid — unlike

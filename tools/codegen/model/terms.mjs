@@ -491,7 +491,10 @@ export const terms = [
     name: "Payment means type code",
     kind: "BT",
     tsType: "PaymentMeansCode",
-    required: false,
+    // BR-49: "A Payment instruction (BG-16) shall specify the Payment means type code (BT-81)" — required
+    // within BG-16 (which itself stays optional). Was `false`, so `paymentInstructions: {}` type-checked
+    // and serialized to an empty SpecifiedTradeSettlementPaymentMeans (P-43).
+    required: true,
     repeats: false,
     group: "PaymentInstructions",
     verified: "extraction",

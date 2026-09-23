@@ -301,14 +301,14 @@ export const invoicePlan: PlanNode = {
           name: ram("ApplicableHeaderTradeDelivery"),
           children: [
             {
-              // Gated on the whole `delivery` object (a simplification: BR-IC-12
-              // strictly only requires deliverToCountryCode, but every one of
-              // our 6 fixtures that sets delivery sets it alongside
-              // deliverToCountryCode, so gating one level up is equivalent
-              // here and lets the children below use plain relative paths).
+              // Descends into `delivery` so the children use plain relative paths, and renders only when
+              // it carries a country: BR-57 requires BT-80 in every deliver-to address, so a delivery that
+              // only has a date (BT-72) must not produce an empty ShipToTradeParty/PostalTradeAddress — it
+              // did before `when` existed (P-43). Post code and city without a country are dropped with it.
               kind: "element",
               name: ram("ShipToTradeParty"),
               from: "delivery",
+              when: "deliverToCountryCode",
               children: [
                 {
                   // TradeAddressType sequence: ..., PostcodeCode, ...,
@@ -407,15 +407,14 @@ function sellerPartyNode(): PlanNode {
         ],
       },
       {
-        // No `from` gate on the wrapper: the wrapper self-closes when
-        // `electronicAddress` is absent (same as any other optional
-        // container, e.g. ApplicableHeaderTradeDelivery). Keeping context
-        // at the party level (not descending into the address string
-        // first) is what lets `schemeID` read `electronicAddressScheme` as
-        // a sibling field, not a property of the address string itself —
-        // an earlier draft descended first and broke exactly this.
+        // Gated with `when`, not `from`: keeping context at the party level (not descending into the
+        // address string first) is what lets `schemeID` read `electronicAddressScheme` as a sibling field,
+        // not a property of the address string itself — an earlier draft descended first and broke exactly
+        // this. Without any gate the wrapper self-closed when `electronicAddress` was absent, and an empty
+        // URIUniversalCommunication fails BR-62/BR-63 (P-43).
         kind: "element",
         name: ram("URIUniversalCommunication"),
+        when: "electronicAddress",
         children: [
           {
             kind: "value",
@@ -465,8 +464,10 @@ function buyerPartyNode(): PlanNode {
         ],
       },
       {
+        // Same `when` gate as the seller's (BT-34) — see sellerPartyNode.
         kind: "element",
         name: ram("URIUniversalCommunication"),
+        when: "electronicAddress",
         children: [
           {
             kind: "value",

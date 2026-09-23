@@ -261,7 +261,7 @@ export interface LineVat {
 /** BG-16 Payment instruction */
 export interface PaymentInstructions {
   /** BT-81 Payment means type code */
-  readonly meansTypeCode?: PaymentMeansCode | undefined;
+  readonly meansTypeCode: PaymentMeansCode;
   /** BT-84 Payment account identifier */
   readonly accountIdentifier?: string | undefined;
 }

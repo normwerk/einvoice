@@ -324,7 +324,7 @@ describe("buildInvoice — input validation", () => {
 
   it("surfaces unmapped-field warnings rather than silently dropping them", () => {
     const input = domesticInput({
-      payment: { terms: "Net 30" },
+      payment: { means: "58", terms: "Net 30" },
       references: { orderReference: "PO-1", contractReference: "CT-1" },
       customs: { incoterm: "DAP" },
     });

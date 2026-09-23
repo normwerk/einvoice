@@ -51,6 +51,15 @@ describe("validateCommerceInvoiceInput", () => {
     expect(result.errors.some((e) => e.includes("lines"))).toBe(true);
   });
 
+  it("rejects payment details without a payment means code — BR-49 makes BT-81 mandatory in BG-16 (P-43)", () => {
+    const result = validateCommerceInvoiceInput({
+      ...validInput,
+      payment: { iban: "DE89370400440532013000" },
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("means"))).toBe(true);
+  });
+
   it("rejects an unknown top-level property (additionalProperties: false)", () => {
     const result = validateCommerceInvoiceInput({ ...validInput, notAField: true });
     expect(result.valid).toBe(false);

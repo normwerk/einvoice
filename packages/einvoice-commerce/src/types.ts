@@ -47,7 +47,8 @@ export interface CommerceInvoiceInput {
   readonly discounts?: readonly CommerceCharge[] | undefined;
   readonly payment?:
     | {
-        readonly means?: PaymentMeansCode | undefined;
+        /** BT-81 — mandatory whenever `payment` is given: BR-49 requires it in every payment instruction. */
+        readonly means: PaymentMeansCode;
         readonly terms?: string | undefined;
         readonly iban?: string | undefined;
       }

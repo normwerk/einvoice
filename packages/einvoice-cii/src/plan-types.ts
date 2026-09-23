@@ -37,6 +37,14 @@ export interface ElementNode {
    * ApplicableHeaderTradeDelivery) using the *same* context as the parent.
    */
   readonly from?: string;
+  /**
+   * If set, the element (and its subtree) is rendered only when `when` resolves to a present value in this
+   * element's own context (after `from`, if any) — without descending into it. For an optional container
+   * whose children need sibling fields of the gating one (URIUniversalCommunication reads
+   * `electronicAddressScheme` next to `electronicAddress`): without it such a container rendered as an empty
+   * `<…/>` whenever its data was absent, which BR-57/BR-62/BR-63 reject.
+   */
+  readonly when?: string;
   readonly attributes?: readonly AttributeNode[];
   readonly children?: readonly PlanNode[];
 }

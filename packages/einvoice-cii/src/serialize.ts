@@ -87,6 +87,10 @@ function renderNode(node: PlanNode, context: unknown, out: string[]): void {
   if (node.kind === "element") {
     const childContext = node.from === undefined ? context : resolve(context, node.from);
     if (node.from !== undefined && (childContext === undefined || childContext === null)) return;
+    if (node.when !== undefined) {
+      const gate = resolve(childContext, node.when);
+      if (gate === undefined || gate === null || gate === "") return;
+    }
     const tag = qname(node.name);
     const attrs = renderAttributes(node.attributes, childContext);
     if (!node.children || node.children.length === 0) {
