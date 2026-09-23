@@ -166,6 +166,11 @@ what Medusa charged (`order.total`) and logs a warning when they differ by more 
 cause is Medusa's tax settings: if your tax regions charge no VAT, or charge VAT on an order the invoice
 treats as tax-free (an intra-EU supply, an export), the invoice is correct and the payment is not.
 
+With tax-inclusive prices the two can also differ by a cent, without a warning. The invoice is built from
+net amounts: each line's net amount is rounded to the cent and VAT is computed on their sum, as EN 16931
+requires, while Medusa charges the gross prices as shown. A T-shirt at EUR 10.00 and shipping at EUR 10.00,
+both including 19% VAT, are charged as 20.00 and invoiced as 19.99 (8.40 + 8.40 net, 3.19 VAT).
+
 ## Downloading a document yourself
 
 - **Admin**: the order page's own "E-Invoices" widget, or `GET /admin/orders/:id/einvoice` for the raw list.
