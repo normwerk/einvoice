@@ -186,6 +186,28 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
     expect(decision.exemptionReasonText).toBeUndefined();
   });
 
+  it("rows 6/8 (P-45): the exempt and zero-rated overrides refuse outside a domestic supply", () => {
+    const frGoods: TaxContext = { ...BASE, buyerCountry: "FR", buyerVatId: "FR12345678901" };
+    const frService: TaxContext = { ...frGoods, supplyType: "services" };
+    const usService: TaxContext = { ...BASE, buyerCountry: "US", supplyType: "services" };
+    const exempt = { kind: "exempt", reasonText: "Steuerfrei nach §4 Nr. 21 UStG" } as const;
+
+    for (const context of [frGoods, frService, usService]) {
+      expect(() =>
+        decideVatCategory({ ...context, regimeOverride: { kind: "zero-rated" } }),
+      ).toThrow(expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#8" }));
+      expect(() => decideVatCategory({ ...context, regimeOverride: exempt })).toThrow(
+        expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#6" }),
+      );
+    }
+    // A consumer operator of a photovoltaic installation is inside §12 Abs. 3 UStG — the boundary is the
+    // place of supply, not whether the buyer is a business.
+    expect(
+      decideVatCategory({ ...BASE, buyerIsBusiness: false, regimeOverride: { kind: "zero-rated" } })
+        .categoryCode,
+    ).toBe("Z");
+  });
+
   it("row 9 (mixed rates) is not a distinct regime: two S lines can independently resolve to 19% and 7%", () => {
     const decision = decideVatCategory(BASE);
     expect(resolveLineRate(decision, BASE, "standard")).toBe("19");

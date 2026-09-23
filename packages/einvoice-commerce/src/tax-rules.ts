@@ -117,6 +117,24 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
 
   const override = context.regimeOverride;
 
+  // Rows 6 and 8 are domestic regimes: §12 Abs. 3 UStG (the only German zero rate) and the §4 UStG
+  // exemptions this table documents apply to a supply taxable in Germany. Without this guard the two
+  // overrides — checked ahead of every other branch — let a merchant stamp E or Z on a cross-border order
+  // and skip the VIES gate (row 3) and the row 12/13 refusals entirely (P-45), the same scope the
+  // reverse-charge overrides below already enforce.
+  if (
+    (override?.kind === "zero-rated" || override?.kind === "exempt") &&
+    context.buyerCountry !== "DE"
+  ) {
+    const row = override.kind === "zero-rated" ? 8 : 6;
+    throw new TaxRuleError(
+      `${override.kind} override given for a buyer in ${context.buyerCountry} — docs/tax-semantics.md row ` +
+        `${row} covers a domestic (DE → DE) supply only. A cross-border order takes its category from the ` +
+        `intra-EU, export, OSS or reverse-charge rows instead.`,
+      `tax-semantics#${row}`,
+    );
+  }
+
   // Row 8: zero-rated — always an explicit override (rare in DE; RegimeOverride's
   // "zero-rated" variant carries no reason text/code field, so BR-Z-10's "no
   // exemption text on a Z line" is enforced at the type level, not here).
