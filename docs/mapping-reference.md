@@ -4,13 +4,10 @@ GENERATED from `packages/einvoice-cii/src/generated/plan.ts` by
 `tools/codegen/cii/generate-mapping-reference.mjs` (AGENTS.md §9 — do not hand-edit).
 Re-run after any plan change: `node tools/codegen/cii/generate-mapping-reference.mjs`.
 
-Only fields the serializer actually emits appear here. Known gaps, not yet in the plan (T-020
-continuation): payment means/account (BG-16), item attributes (BG-32), additional supporting documents
-(BG-24), full postal address beyond country code (street/city/postcode — BT-35/36/37/38/39 etc.), seller
-contact (BG-6), buyer/seller electronic address (EAS), and business process type (BT-23). The last five were
-found by running these fixtures through the real KoSIT validator (`docker/`) — they are XRechnung-profile
-(`BR-DE-*`) or shared EN 16931 (`PEPPOL-EN16931-*`) requirements the base CII binding above doesn't need,
-but a XRechnung-conformant document does.
+Only fields the serializer actually emits appear here. Fields the model has but the plan does not serialize
+yet — dropped, not rejected: VAT accounting currency (BT-6), value added tax point date and code (BT-7,
+BT-8), total VAT in accounting currency (BT-111), invoice line period (BG-26), item attributes (BG-32) and
+additional supporting documents (BG-24). Street lines (BT-35/36, BT-50/51) are not in the model at all yet.
 
 | BT/BG  | Model path (relative to `Invoice`, or to the current line/breakdown/reference item) | CII XPath (relative to `rsm:CrossIndustryInvoice`)                                                                                                                                                      |
 | ------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -125,6 +125,41 @@ Neither has a first-class Medusa field — set them on the order's customer, und
   the plugin choose the XRechnung profile automatically for that order (a Leitweg-ID buyer always gets
   XRECHNUNG, regardless of `defaultProfile`).
 
+## EU business buyers: VAT-ID verification
+
+An order from a business in another EU member state with a VAT-ID is an intra-Community supply (category K,
+0%) — but only once that VAT-ID has been confirmed. Without the `vatIdVerifier` option such an order is
+refused (`TaxRuleError`) rather than invoiced on an unverified number. The plugin does not ship a VIES client;
+you provide one that implements `VatIdVerifier` from `@normwerk/einvoice-commerce`:
+
+```ts
+vatIdVerifier: {
+  async verify(vatId: string, now: Date) {
+    // Call the EU's VIES service here (or your own cached copy of its answers).
+    return {
+      vatId,
+      status: "valid", // "valid" | "invalid" | "unavailable"
+      checkedAt: now.toISOString().slice(0, 10),
+      consultationNumber: "…", // VIES's own reference for the check, keep it as evidence
+    };
+  },
+},
+```
+
+If VIES is unavailable, the order can still be invoiced as K when you confirmed the number another way:
+set `order.metadata.regime_override` to `{ "kind": "intra-eu-confirmed", "evidenceNote": "…" }`. The same
+field declares the other regimes the plugin never infers on its own (reverse charge, exempt, zero-rated —
+see [`docs/tax-semantics.md`](tax-semantics.md)). For OSS distance sales, set the plugin option
+`ossRegistered: true` and, per order, `order.metadata.oss_rate_override` to the destination country's rate.
+
+## Shipping, promotions, and what Medusa charged
+
+Shipping methods appear on the invoice as one document-level charge, and a promotion on an item as a
+discount on that item's line — both as Medusa computed them. The plugin also compares the invoice total with
+what Medusa charged (`order.total`) and logs a warning when they differ by more than rounding. The usual
+cause is Medusa's tax settings: if your tax regions charge no VAT, or charge VAT on an order the invoice
+treats as tax-free (an intra-EU supply, an export), the invoice is correct and the payment is not.
+
 ## Downloading a document yourself
 
 - **Admin**: the order page's own "E-Invoices" widget, or `GET /admin/orders/:id/einvoice` for the raw list.

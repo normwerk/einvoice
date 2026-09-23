@@ -69,3 +69,19 @@ or genericode file without spelunking.
 - **Buying a commercial XSD/schema tool** — rejected: cost aside, it doesn't touch the actual constraint
   (D-19: build the binding without purchasing or redistributing the paid CEN standards) — the free
   artifacts already cover CII/XRechnung end to end (`docs/sources.md`).
+
+## Implementation status (2026-09-23)
+
+Recorded after a review of the code against this decision; the decision itself is unchanged.
+
+- **Generated today:** the model types, code lists and JSON Schema (`tools/codegen/model`, from the vendored
+  Schematron and XSD text), the `CommerceInvoiceInput` JSON Schema, the PDF/A font and ICC modules, and
+  `docs/mapping-reference.md`.
+- **Not generated yet:** the CII serialization plan, `packages/einvoice-cii/src/generated/plan.ts`. It is
+  written by hand in the shape a generator would produce ("GENERATED-STYLE FILE" in its header), each path
+  looked up in the vendored XSD and Schematron. Its element order is checked indirectly — by KoSIT's XSD
+  step on every fixture — not by a generator. `.gitattributes` still marks it `linguist-generated`, which
+  hides a hand-written file from GitHub's diff view.
+- **Code lists** come from the `BR-CL-*` rules of the vendored Schematron, not from genericode files, and
+  the module name carries no version. The tools are `.mjs` scripts using regular expressions, not
+  TypeScript with an XML parser. Generated files name their source artifact by path, not by version.

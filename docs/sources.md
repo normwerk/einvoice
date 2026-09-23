@@ -1,8 +1,10 @@
 # Artifact sources and licensing
 
 Every official artifact used to generate or validate code in this repository is recorded here and in
-[`artifacts/MANIFEST.json`](../artifacts/MANIFEST.json), per `AGENTS.md` §5.1 and §9. No artifact is used
-before it has an entry with a URL, version, hash, and licence.
+[`artifacts/MANIFEST.json`](../artifacts/MANIFEST.json), per `AGENTS.md` §5.1 and §9. Every entry has a URL,
+version and licence; every vendored artifact also has a SHA-256 hash. Five entries for sources that are
+read but not vendored (the XRechnung Schematron, Peppol BIS Billing 3.0, the EN 16931 code list registry, the
+ZUGFeRD/Factur-X specification and Mustang's XMP writer) have no hash recorded yet.
 
 **Why this document exists.** EN 16931-1 (the semantic data model) and EN 16931-3-2 / -3-3 (the UBL/CII
 syntax binding tables) are paid CEN standards sold by national bodies (DIN/Beuth, NEN, SFS, …). This
@@ -66,8 +68,7 @@ pipeline.
 - `artifacts/pdfa/sRGB2014.icc` — sRGB ICC v2 profile for the PDF/A-3b `OutputIntent` (`einvoice-pdfa`,
   T-030/T-032). Copyright International Color Consortium; licensed for unrestricted copying, distribution,
   and embedding (see `artifacts/LICENSES/ICC-sRGB2014.txt` for the verbatim terms and real, curl-verified
-  download URL — an earlier WebFetch-reported URL for this file 404'd, caught before committing it; see
-  memory: verify-urls-before-committing). Replaces the unlicensed macOS system sRGB profile spike B (D-20)
+  download URL — an earlier URL for this file returned 404 and was caught before committing it). Replaces the unlicensed macOS system sRGB profile spike B (D-20)
   used for local experimentation only.
 
 Two further sources for T-030 are recorded in the manifest but not vendored: real, Apache-2.0-licensed

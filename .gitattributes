@@ -1,3 +1,7 @@
 # Generated code is committed for reviewable diffs but excluded from
 # manual-review noise (AGENTS.md §9). Populated by tools/codegen/*.
 packages/*/src/generated/** linguist-generated
+
+# The CII serialization plan lives under generated/ but is written by hand (its own header; ADR-002
+# "Implementation status") — the most review-critical file in the serializer must show up in diffs.
+packages/einvoice-cii/src/generated/plan.ts -linguist-generated

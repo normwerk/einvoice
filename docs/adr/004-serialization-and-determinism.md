@@ -61,3 +61,20 @@ whitespace — is a failing test, not something to eyeball and wave through.
 - **JS `number` for amounts, with careful rounding at output time** — rejected: BR-CO-\* rules compare
   amounts computed at different points in the pipeline; float error compounds across a real invoice's line
   count in ways that are expensive to debug and easy to reintroduce.
+
+## Implementation status (2026-09-23)
+
+Recorded after a review of the code against this decision; the decision itself is unchanged.
+
+- **Byte stability holds:** no clock, randomness or locale-dependent formatting in the format layer; the
+  model codegen and every generator reproduce their output byte for byte (checked in CI).
+- **No golden files yet.** There is no `fixtures/expected/` directory; the CII unit tests check for the
+  presence of specific elements, not whole documents byte for byte. The L4 oracle compares canonicalised
+  output with two third-party generators instead (ADR-005).
+- **No `indent` or per-profile output.** `serializeCii` accepts `profile` and `indent` options and ignores
+  both: the output is always the same single-line document, and the XML always declares the XRechnung 3.0
+  CIUS (BT-24), whichever ZUGFeRD profile the PDF carries.
+- **No `decimal.js`.** `einvoice-commerce` does exact decimal arithmetic with its own `decimal.ts`
+  (BigInt cents).
+- **Empty optional containers:** the plan format gained `when` (2026-09-23) so an optional container whose
+  data is absent is left out instead of rendered empty — an empty one broke BR-57/BR-62/BR-63.

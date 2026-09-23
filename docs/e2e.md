@@ -28,12 +28,12 @@ the e-invoice XML/PDF it produces against the real KoSIT Validator and veraPDF, 
 
 **About 3-4 minutes** on a laptop (measured across three full runs, strictly back-to-back with no pause:
 244s / 220s / 193s), most of it a real `npm install` of the Medusa app itself (this stand's own
-`e2e/docker/Dockerfile` doesn't cache that step — see its own comment for why: caching it risked silently
-testing a stale build of this very plugin instead of what you just published). Consecutive runs tend to get
-_faster_, not slower — once a package has been pulled through Verdaccio's own npmjs proxy once, later runs
-hit that local copy instead of the real registry. An earlier version of this note claimed back-to-back runs
-measurably slow down; that was this suite's own flake (see "If it fails" below), not a property of running
-it repeatedly.
+`e2e/docker/medusa/Dockerfile` doesn't cache that step — see its own comment for why: caching it risked
+silently testing a stale build of this very plugin instead of what you just published). Back-to-back runs
+did not get slower. Why the three runs differ is not established — it is not a registry cache: Verdaccio's
+storage is a tmpfs, wiped with the stand after every run. An earlier version of this note claimed back-to-back
+runs measurably slow down; that was this suite's own flake (see "If it fails" below), not a property of
+running it repeatedly.
 
 ## What you'll see
 

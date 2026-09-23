@@ -1,8 +1,8 @@
 # eInvoice
 
-MIT-licensed TypeScript core for structured e-invoices ([EN 16931](https://en.wikipedia.org/wiki/CEN/TC_434)), with thin adapters for [Medusa](https://medusajs.com/) v2 and [Vendure](https://www.vendure.io/).
+MIT-licensed TypeScript core for structured e-invoices ([EN 16931](https://en.wikipedia.org/wiki/CEN/TC_434)), with a thin adapter for [Medusa](https://medusajs.com/) v2. An adapter for [Vendure](https://www.vendure.io/) is planned.
 
-**Status: pre-alpha.** The monorepo is being scaffolded; no package is published or usable yet. See [`docs/README.md`](docs/README.md) for the documentation index and current state.
+**Status: pre-release.** The packages below are implemented and tested, but not yet published to npm. See [`docs/README.md`](docs/README.md) for the documentation index and current state.
 
 ## Country roadmap
 
@@ -28,23 +28,23 @@ changelog is authoritative.
 | 🇮🇹 🇵🇱 Italy, Poland                       | —                                                                                                                                | SDI / KSeF are clearance systems with their own XML — no EN 16931 document can serve them                | Not supported      | —                      | —                                                                                                    |
 | 🇪🇸 Spain                                  | —                                                                                                                                | Verifactu / Facturae — different model                                                                   | Not supported      | —                      | —                                                                                                    |
 
-Legend: **In development** — code exists and passes the official validators in CI, not yet released ·
+Legend: **In development** — code exists and its fixtures pass the official validators, not yet released ·
 **Planned** — scheduled with a target date · **On request** — the core supports it technically; the
 country's rules are added when a paying implementation asks for them · **Not supported** — out of scope by
 design.
 
 **Not tax advice.** What this project verifies is that the documents it produces pass the official
-validators (KoSIT, Mustang, veraPDF) — that runs in CI on every change. The VAT rules it applies are
-documented in [`docs/tax-semantics.md`](docs/tax-semantics.md), one scenario per row with its legal source,
-and every decision the software makes records the rule it applied. Verify those rules with your own tax
+validators (KoSIT, Mustang, veraPDF), run against every fixture. The VAT rules it applies are documented in
+[`docs/tax-semantics.md`](docs/tax-semantics.md), one scenario per row with its legal source, and every
+category decision the core makes names the rule it applied. Verify those rules with your own tax
 advisor before relying on them; you remain responsible for your invoices. Provided "as is" under the MIT
 licence.
 
-A merchant configured with an unsupported seller country will be refused at startup with a clear message
-rather than failing on the first order. Want a country moved up? Open an issue — that is exactly the
+A merchant whose seller country is not supported gets a clear refusal instead of an invoice built on
+another country's rules. Want a country moved up? Open an issue — that is exactly the
 signal that decides what comes next.
 
-## Packages (planned)
+## Packages
 
 | Package                          | Purpose                                                         |
 | -------------------------------- | --------------------------------------------------------------- |
