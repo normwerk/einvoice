@@ -1,8 +1,8 @@
 # ADR-003: `CommerceInvoiceInput` contract
 
-**Status:** Accepted — 2026-09-13. Written ahead of its implementation (the adapter-facing task is later,
-W9) because Sprint 0 closes out the core ADRs on paper first — the same reasoning as drafting the tax rules
-table (`docs/tax-semantics.md`) before any commerce code exists.
+**Status:** Accepted — 2026-09-13. Written ahead of its implementation, which came later, because the core
+ADRs were settled on paper first — the same reasoning as drafting the tax rules table
+(`docs/tax-semantics.md`) before any commerce code exists.
 
 ## Context
 
@@ -44,14 +44,14 @@ export interface CommerceInvoiceInput {
 }
 ```
 
-(`CommerceParty`, `CommerceLine`, `CommerceCharge`, `TaxContext` as drafted in plan-v0.1 §4.4 — reproduced
-in the package's own types when T-060 implements this, not duplicated here.)
+(`CommerceParty`, `CommerceLine`, `CommerceCharge`, `TaxContext` are defined in the package's own types,
+`packages/einvoice-commerce/src/types.ts` — not duplicated here.)
 
 **Mandatory vs. optional** follows one rule: a field is mandatory if `einvoice-commerce` cannot compute a
 correct `TaxDecision` or a valid EN 16931 document without it (`document`, `seller`, `buyer`, `lines`,
 `taxContext`); everything else — an external plugin's own numbering, shipping, discounts, payment detail,
 free-text references — is optional because a valid invoice can exist without it, or a specific adapter mode
-(standalone vs. on top of a PDF plugin, plan-v0.1 §4.6) legitimately won't have it.
+(standalone vs. on top of a PDF plugin) legitimately won't have it.
 
 **`taxContext` is supplied, not derived.** Whoever builds `CommerceInvoiceInput` (an adapter, or a
 hand-written integration) states the seller/buyer VAT registration facts honestly; `einvoice-commerce`
@@ -62,8 +62,8 @@ be an I/O side effect this pure layer (ADR-001) doesn't have.
 **Versioning: an explicit `schemaVersion` field.** `buildInvoice()` checks it first and throws a specific,
 named error for a version it doesn't support, rather than failing on an unrelated missing-field error deep
 inside tax logic. This costs one mandatory field and one runtime check. The alternative — relying on the
-npm package's own semver and TypeScript types alone — is invisible to exactly the audience this project is
-trying to attract as a demand probe: someone building their own adapter (a Vendure integration, an
+npm package's own semver and TypeScript types alone — is invisible to exactly the audience this contract
+is for: someone building their own adapter (a Vendure integration, an
 in-house one) who may construct the object by hand or from a different language's tooling, without going
 through our `.d.ts` files at all. `schemaVersion` gives that caller a self-describing contract and this
 package a clear, early failure instead of a confusing one.
@@ -81,7 +81,7 @@ change and does not need a bump.
   supports both versions for a deprecation window or only the latest — that decision is deferred to
   whenever it's actually needed, not pre-answered here.
 
-## Addendum (2026-09-14, T-060/W9 implementation)
+## Addendum (2026-09-14, implementation)
 
 Implementation added one field this ADR's original shape did not anticipate: an optional `delivery` block
 (`actualDeliveryDate`, `deliverToCountryCode`, `deliverToCity`, `deliverToPostCode` — BG-13). Found by
@@ -93,10 +93,10 @@ category is K; every other regime leaves `delivery` optional, consistent with th
 `buildInvoice` cannot produce a valid document without it" rule — this is that rule actually firing, not an
 exception to it.
 
-## Addendum (2026-09-14, T-060 — JSON Schema)
+## Addendum (2026-09-14, JSON Schema)
 
 This ADR's own acceptance criterion named three deliverables: the ADR, the types, and a JSON Schema. The
-first two closed with the W9 implementation above; the schema did not — closed now.
+first two closed with the implementation above; the schema did not — closed now.
 
 Generated (`packages/einvoice-commerce/src/generated/json-schema.ts`) via `ts-json-schema-generator`,
 reading `types.ts`'s `CommerceInvoiceInput` (and everything it references — `CommerceParty`, `CommerceLine`,
@@ -125,13 +125,14 @@ this, such a caller's malformed payload (e.g. a currency code outside ISO 4217, 
 `"ZZZ"`) reached `InvalidAssembledInvoiceError` deep inside tax logic, or a raw `TypeError`, rather than a
 named, listable error at the door.
 
-## Addendum (2026-09-14, T-060 continuation — BT-158/BT-159)
+## Addendum (2026-09-14, BT-158/BT-159)
 
-D-19's own addendum to T-060 named a second, still-open acceptance item beyond the JSON Schema above:
+The decision that added optional customs fields to this contract named a second, still-open acceptance
+item beyond the JSON Schema above:
 `lines[].hsCode`/`originCountry` mapped into the assembled `Invoice` (BT-158/BT-159), with a fixture proving
 it through real KoSIT L1+L2. Closed now.
 
-`hsCode`/`originCountry` were already on `CommerceLine` since the W9 implementation — only the mapping was
+`hsCode`/`originCountry` were already on `CommerceLine` since the first implementation — only the mapping was
 missing (`buildInvoice` warned `customs-not-mapped` and dropped them). New `einvoice-model` terms (BT-158
 "Item classification identifier", BT-159 "Item country of origin" — the latter's real name traced to
 `@e-invoice-eu/core`'s own embedded EN 16931 JSON Schema and independently cross-checked against
@@ -141,22 +142,22 @@ see `docs/sources.md`), a new `einvoice-cii` serialization plan node
 `ram:SpecifiedTradeProduct/ram:OriginTradeCountry/ram:ID`, sequence order and attribute name read directly
 from the vendored CII D16B XSD's `TradeProductType`/`ProductClassificationType`/`CodeType`, not recalled),
 and a one-line change to `buildInvoice`'s `lines:` assembly. The scheme identifier is a fixed literal `"HS"`
-— this repo's v0.1 scope is HS only (D-19's own wording), not a caller-supplied scheme, so there is no new
+— this repo's v0.1 scope is the HS scheme only, not a caller-supplied scheme, so there is no new
 field to get wrong.
 
 `input.customs` (the document-level `incoterm`/`sellerEori`/`buyerEori`/`iossNumber` block) remains
-genuinely unmapped — a distinct, still-open D-19 item; `customs-not-mapped`'s warning text was corrected to
+genuinely unmapped — a separate item, still open; `customs-not-mapped`'s warning text was corrected to
 say so precisely, instead of the now-stale "BT-158/159 and related."
 
 New fixture `packages/einvoice-commerce/fixtures/commerce-customs-hs-origin` (one line with
-`hsCode`/`originCountry`, one without) passes real KoSIT L1+L2 — D-19's own acceptance wording, verified for
+`hsCode`/`originCountry`, one without) passes real KoSIT L1+L2 — the acceptance item as worded, verified for
 real, not asserted from the plan node alone: the generated XML was inspected directly and shows
 `DesignatedProductClassification`/`OriginTradeCountry` present only on the line that set them.
 
 ## Alternatives considered
 
 - **npm semver only, no runtime field** — rejected: invisible to a hand-built or non-TypeScript payload,
-  which is precisely the case a demand-probe project should expect and support gracefully rather than fail
+  which is precisely the case a contract meant for other people's adapters should expect and support gracefully rather than fail
   confusingly on.
 - **A TypeScript discriminated union type name as the only version marker** (e.g. `CommerceInvoiceInputV1`,
   no runtime field) — rejected for the same reason: compile-time safety for our own code, nothing for

@@ -43,11 +43,11 @@ import EinvoiceDocument from "./models/einvoice-document.js";
 
 export interface EinvoiceModuleOptions {
   /**
-   * The merchant's own party details — every invoice this plugin builds uses this as `seller`
-   * (`CommerceInvoiceInput.seller`). Includes `vatIdentifier` (BT-31); there is no separate
-   * top-level "VAT-ID" field even though the task description names it alongside "seller" —
-   * `CommerceParty` already carries it, and a second field would just be a second place for the
-   * same fact to go stale.
+   * The merchant's own party details — every invoice this plugin builds uses them as the seller
+   * (`CommerceInvoiceInput.seller`). Besides the name, country, city and post code, the plugin refuses to
+   * start without the seller's VAT-ID (`vatIdentifier`, BT-31), street (`addressLine1` — the street and
+   * house number, or a PO box), electronic address with its scheme (`electronicAddress`,
+   * `electronicAddressScheme`) and contact (`contact`: name, telephone, email).
    */
   readonly seller: CommerceParty;
   /**
@@ -58,13 +58,11 @@ export interface EinvoiceModuleOptions {
    */
   readonly defaultProfile?: EInvoiceProfileName;
   /**
-   * BG-16 (payment instructions) — how the buyer should pay the seller (bank transfer details), the same
-   * way `seller` itself is merchant-level config rather than something read off an order. Found mandatory
-   * for every invoice this plugin builds by a real KoSIT rejection (BR-DE-1, T-071's own e2e proof) — not
-   * anticipated when T-070 first scoped this module's options, since `buildInvoice`'s own
-   * `specificationIdentifier` always targets the XRechnung 3.0 CIUS regardless of which profile
-   * `selectProfile` resolves, so BG-16 is never actually optional the way it looks from
-   * `CommerceInvoiceInput.payment`'s own type (`?:`) alone.
+   * T-070/T-071: BG-16, payment instructions — how the buyer pays the seller: a payment means code and,
+   * for a bank transfer, an IBAN. Required: every document this plugin builds declares the XRechnung 3.0
+   * CIUS, whose BR-DE-1 makes payment instructions mandatory whichever profile `selectProfile` resolves,
+   * even though `CommerceInvoiceInput.payment` is optional in its own type. `terms` (BT-20) is not in the
+   * data model yet; `buildInvoice` reports it as a warning rather than dropping it silently.
    */
   readonly payment: {
     readonly means: PaymentMeansCode;
@@ -72,39 +70,30 @@ export interface EinvoiceModuleOptions {
     readonly terms?: string;
   };
   /**
-   * T-072: opt into "on top of a PDF plugin" mode (plan-v0.1 §4.6) instead of this plugin's own standalone
-   * numbering. `"webbers"` is the one plan-v0.1 names by product (`@webbers/invoices-medusa`) — when set,
-   * subscribers reuse *their* invoice's own `display_id` as this plugin's own document number instead of
-   * allocating one via `NumberingStore`/`EinvoiceCounter` ("не дублировать нумерацию"), and embed this
-   * plugin's XML into their PDF as PDF/A-3 when one is available (`integrations/webbers.ts`). Omitted
-   * (the default) keeps T-071's standalone behavior unchanged — this plugin still works with no PDF
-   * plugin installed at all, matching plan-v0.1's own "Standalone" mode.
+   * T-072: work on top of the `@webbers/invoices-medusa` PDF plugin instead of numbering documents
+   * yourself. With `kind: "webbers"`, each invoice and credit note takes the number of the Webbers
+   * document for the same order or refund (their `display_id`) instead of one from this plugin's own
+   * counter, and this plugin's XML is embedded into their PDF as PDF/A-3 when they produce one
+   * (`integrations/webbers.ts`). Omitted (the default), the plugin works standalone, with no PDF plugin
+   * installed at all.
    */
   readonly integration?: {
     readonly kind: "webbers";
-    /** How long a subscriber waits for their invoice to appear before giving up, ms — real, necessary
-     * because their own workflow defines no `createHook()` (`integrations/webbers.ts`'s own doc comment).
-     * Defaults to `waitForWebbersInvoice`'s own default (10s) when omitted. */
+    /** How long a subscriber waits for their invoice to appear before giving up, ms — their workflow
+     * offers no hook to wait on (`integrations/webbers.ts`). Defaults to `waitForWebbersInvoice`'s own
+     * default (10s) when omitted. */
     readonly waitForInvoiceMs?: number;
     readonly pollIntervalMs?: number;
   };
   /**
-   * T-073: standalone mode's own way to satisfy plan-v0.1 §4.6's second bullet ("XML + PDF/A-3 из
-   * переданного PDF") when `integration` is omitted entirely — Webbers mode has its own PDF source
-   * (`integrations/webbers.ts`), but standalone mode has no third-party workflow to poll, so the merchant
-   * supplies a base PDF themselves, generated however they already generate invoice PDFs today (their own
-   * template renderer, a different plugin, `@normwerk/einvoice-pdfa`'s own `renderInvoicePdf` when they
-   * have none). Called once per document with the *built* `Invoice` (same object `serializeCii` itself
-   * serializes) rather than the raw Medusa order, so a real implementation can render exactly what BT-1
-   * (`Invoice.number`) etc. the XML will actually carry, not a value it would otherwise have to
-   * re-derive. Returning `undefined` (the default when this whole option is omitted) keeps this plugin's
-   * original standalone behavior — pure XML, no PDF at all.
+   * T-073: in standalone mode (no `integration`), a PDF to embed the XML into. The plugin calls `basePdf`
+   * once per document with the built `Invoice` — the same object it serializes to XML — so the PDF can
+   * show exactly the number (BT-1) and amounts the XML carries; the result is embedded as PDF/A-3
+   * (`embedInvoiceInPdfA3`). Use your own invoice template, another plugin, or `renderInvoicePdf` from
+   * `@normwerk/einvoice-pdfa`. Returning `undefined` — or omitting the option — produces XML only.
    *
-   * Ignored entirely when `integration` is set. Same as Webbers mode (T-072, its own e2e proof), the PDF
-   * this returns is embedded as-is by `embedInvoiceInPdfA3` (T-030) — it does not repair a PDF that isn't
-   * already PDF/A-eligible (e.g. one using non-embedded standard fonts); that is `embedInvoiceInPdfA3`'s
-   * own already-documented limitation (D-20 "Path 2"/`render-invoice.ts`'s own doc comment), not something
-   * this option works around.
+   * Ignored when `integration` is set. The PDF is embedded as it is: `embedInvoiceInPdfA3` does not repair
+   * a PDF that isn't PDF/A-eligible, such as one whose fonts are not embedded (see `render-invoice.ts`).
    */
   readonly standalone?: {
     readonly basePdf?: (
@@ -112,34 +101,27 @@ export interface EinvoiceModuleOptions {
     ) => Promise<Uint8Array | undefined> | Uint8Array | undefined;
   };
   /**
-   * T-079/P-12: the one thing standing between this plugin and category K (intra-EU supply) —
-   * `buildInvoice` (`@normwerk/einvoice-commerce`) refuses that category without a positive VIES check, and
-   * `VatIdVerifier` (public API since T-061) had no way in until this option. Both subscribers call
-   * `.verify()` themselves before `buildInvoice` (ADR-003: I/O happens before that call, never inside it)
-   * and pass the result on as `vatIdEvidence`. Omitted (the default) keeps today's behavior unchanged —
-   * category K stays unreachable, the same honest v0.1 default `@normwerk/einvoice-commerce` itself
-   * documents (a real VIES-backed implementation is deferred to v0.2); this is not a misconfiguration
-   * `assertValidOptions` needs to reject, the same way `integration`/`standalone` above aren't either.
+   * T-079/P-12: checks a buyer's VAT-ID, typically against the EU's VIES service. `buildInvoice` refuses
+   * category K (an intra-EU supply) without a positive check; the subscribers call `verify()` before
+   * building the document (ADR-003: I/O happens before `buildInvoice`, never inside it) and pass the result
+   * on as its evidence. The plugin ships no VIES client — implement `VatIdVerifier` from
+   * `@normwerk/einvoice-commerce` (see `docs/quickstart-medusa.md`). Omitted, an order that would be
+   * category K is refused, unless the merchant declares on the order that the VAT-ID was confirmed another
+   * way (`order.metadata.regime_override`, kind `intra-eu-confirmed`).
    */
   readonly vatIdVerifier?: VatIdVerifier;
   /**
-   * T-136/P-26: whether this merchant is registered for the EU's OSS one-stop-shop scheme
-   * (`docs/tax-semantics.md` row 7) — a standing fact about the seller, true for every order, the same tier
-   * as `seller`/`payment` above, not something read off an individual order. `decideVatCategory`
-   * (`@normwerk/einvoice-commerce`) still refuses row 7's category S without a per-order
-   * `taxContext.ossRateOverride` too (`order.metadata.oss_rate_override`,
-   * `order-to-commerce-invoice-input.ts`'s own doc comment) — this option only satisfies the *registration*
-   * half of that guard, never bypasses it. Omitted (the default, `false`) keeps today's behavior unchanged;
-   * not a misconfiguration `assertValidOptions` needs to reject, the same way `vatIdVerifier` above isn't.
+   * T-136/P-26: whether the merchant is registered for the EU's OSS (one-stop shop) scheme — a fact about
+   * the seller that holds for every order (`docs/tax-semantics.md` row 7). For a distance sale to a
+   * consumer in another EU country, `decideVatCategory` also needs the destination country's rate on the
+   * order (`order.metadata.oss_rate_override`); this option covers only the registration and never
+   * bypasses that check. Defaults to `false`.
    */
   readonly ossRegistered?: boolean;
   /**
-   * T-078: the clock both subscribers use for a document's issue date and for `vatIdVerifier.verify`'s own
-   * `now` argument — real Medusa events call `new Date()` directly with no other way to override it, which
-   * is exactly what the e2e stand (a real Medusa instance, not a fixture) needs to pin down for a
-   * deterministic invoice date instead of "whatever day CI happened to run." Omitted (the default) keeps
-   * today's behavior unchanged (`() => new Date()`); not a misconfiguration `assertValidOptions` needs to
-   * reject, the same tier as `vatIdVerifier`/`ossRegistered` above.
+   * T-078: the clock for a document's issue date and for `vatIdVerifier.verify()`'s `now` argument.
+   * Defaults to `() => new Date()`. Meant for tests: the e2e stand fixes it so every document carries the
+   * same date on every run.
    */
   readonly now?: () => Date;
 }

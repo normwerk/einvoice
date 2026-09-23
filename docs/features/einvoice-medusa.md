@@ -1,22 +1,21 @@
-# `einvoice-medusa` — File Module storage, admin widget, Store API (T-074)
+# `einvoice-medusa` — File Module storage, admin widget, Store API
 
-Back to [`docs/README.md`](../README.md). Covers the third piece of W10's own acceptance criterion
-("хранение в File Module (private); admin-виджет и Store API endpoint") — subscribers/idempotency are
-T-071, the two numbering/PDF modes are T-072 (Webbers)/T-073 (standalone); this page is about what happens
-to a document _after_ it's generated.
+Back to [`docs/README.md`](../README.md). Covers private storage in the File Module, the admin widget, and
+the Store API endpoint — what happens to a document _after_ it's generated. Generating it (the subscribers,
+idempotency, and the two numbering/PDF modes, Webbers and standalone) is not covered on this page.
 
 ## Storage: real File Module files, not inline columns
 
-Through T-071–T-073, `EinvoiceDocument` stored the XML as a Postgres `text` column and the PDF as a
-base64-encoded `text` column — both doc comments flagged this as a deliberate, temporary stopgap. T-074
-replaces both with real files: `storage.ts`'s `storeEinvoiceFiles` uploads the XML (always) and the PDF
+Originally, `EinvoiceDocument` stored the XML as a Postgres `text` column and the PDF as a base64-encoded
+`text` column — both doc comments flagged this as a deliberate, temporary stopgap. Both are now replaced
+with real files: `storage.ts`'s `storeEinvoiceFiles` uploads the XML (always) and the PDF
 (when one was produced) through `Modules.FILE`'s own `createFiles`, `access: "private"` — an e-invoice
 carries the same buyer name/address/VAT-ID class of data a merchant would not want publicly listable.
 `EinvoiceDocument` now stores `xml_file_id`/`pdf_file_id` (a file id each), not the content.
 
 Both subscribers upload before the idempotency-guarding insert (there's no other order — the insert needs
 the ids already). This means the pre-existing "two literally concurrent deliveries of the same event"
-edge case (`recordDocumentIfAbsent`'s own doc comment, T-071) now also orphans a just-uploaded file for
+edge case (`recordDocumentIfAbsent`'s own doc comment) now also orphans a just-uploaded file for
 whichever delivery loses the database `UNIQUE` insert — `deleteEinvoiceFiles` cleans those up, best-effort,
 when `recordDocumentIfAbsent` reports `created: false`.
 
@@ -24,7 +23,7 @@ when `recordDocumentIfAbsent` reports `created: false`.
 
 `src/admin/widgets/order-einvoice.tsx` — a widget in the `order.details.side.after` zone (the same side
 column `@webbers/invoices-medusa`'s own real invoice widget uses one zone over, `order.details.side.before`,
-confirmed by reading their published admin bundle directly, T-072). Lists every e-invoice document for the
+confirmed by reading their published admin bundle directly). Lists every e-invoice document for the
 order with a download icon for XML and, when one exists, PDF.
 
 Verified live against a real running dashboard (`create-medusa-app@2.19.0`, this task's own e2e harness):
@@ -76,10 +75,11 @@ different, otherwise-authorized order.
 
 ## What this deliberately does not do
 
-- No `defineLink` between `order` and `EinvoiceDocument` — `EinvoiceDocument.order_id` (a plain field,
-  T-071) already answers every query this plugin itself needs; adding a module link on top would create a
+- No `defineLink` between `order` and `EinvoiceDocument` — `EinvoiceDocument.order_id` (a plain field)
+  already answers every query this plugin itself needs; adding a module link on top would create a
   second, parallel way to express the same relationship for no real gain, and risks the two disagreeing.
-  `@webbers/invoices-medusa`'s own `invoice_order` link (T-072) is a different case: their `Invoice` model
+  `@webbers/invoices-medusa`'s own `invoice_order` link is a different case: their `Invoice` model
   has no order-identifying field at all, so a link is the _only_ mechanism available to them.
-- No migration path preserves the old `xml`/`pdf` columns' content — same "pre-release, no real deployment
-  history to preserve" reasoning T-072 already used for its own migration replacement.
+- No migration path preserves the old `xml`/`pdf` columns' content — the same "pre-release, no real
+  deployment history to preserve" reasoning an earlier migration replacement already used (see
+  `docs/domain-glossary.md`).

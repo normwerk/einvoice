@@ -12,7 +12,7 @@ that satisfy it live.
 ## Decision
 
 **The serialization plan is data, not code.** A generated (ADR-002) tree of `PlanNode`s (element / value /
-attribute / repeat, plan-v0.1 §4.2) carries element order, model paths, and value formats. The serializer
+attribute / repeat) carries element order, model paths, and value formats. The serializer
 is a single interpreter (~200 lines) that walks this tree; it does not change when a profile is added — a
 new profile is a new plan plus its own prechecks, never a new branch in the interpreter.
 

@@ -4,11 +4,11 @@
 
 ## Context
 
-Decision D-17 (see `HOW-WE-GOT-HERE.md` in the private planning log) rules out third-party e-invoicing
-libraries in runtime code: serializers are ours, generated from official artifacts. Spike A (T-013)
-confirmed which artifacts that can actually mean without buying or redistributing the paid CEN standards
-(`docs/sources.md`). This ADR draws the line between what a generator produces and what a person writes,
-and how regeneration stays trustworthy.
+This project rules out third-party e-invoicing libraries in runtime code: serializers are ours, generated
+from official artifacts. A survey of the official artifacts and their licences (`docs/sources.md`)
+confirmed which artifacts that can actually mean without buying or redistributing the paid CEN standards.
+This ADR draws the line between what a generator produces and what a person writes, and how regeneration
+stays trustworthy.
 
 ## Decision
 
@@ -17,7 +17,7 @@ and how regeneration stays trustworthy.
 - BT/BG TypeScript types with JSDoc naming the official term number, in `einvoice-model`
 - Code list union types, from genericode sources, versioned in the module name
 - JSON Schema for `validateModel()`
-- The CII serialization plan (element order, paths, value formats — plan-v0.1 §4.2's `PlanNode` tree),
+- The CII serialization plan (element order, paths, value formats — a tree of `PlanNode`s, ADR-004),
   derived from the vendored XSD and Schematron
 - BR-\* rule id lists used in profile precheck error messages
 - `docs/mapping-reference.md` (BT → serialization path), generated as a side effect of building the plan
@@ -35,14 +35,14 @@ and how regeneration stays trustworthy.
 general-purpose XML parser (`fast-xml-parser`, MIT) as a devDependency of the codegen tool only — never a
 runtime dependency of anything shipped. No off-the-shelf "XSD-to-TypeScript" generator is used: every one
 surveyed produces types and nothing else, while this project's actual output is a serialization _plan_
-carrying BT numbers end to end (so `docs/mapping-reference.md` falls out of the plan for free, plan-v0.1
-§4.2) — a generic tool would cover a fraction of the job and still need the bespoke plan-builder written
+carrying BT numbers end to end (so `docs/mapping-reference.md` falls out of the plan for free) — a
+generic tool would cover a fraction of the job and still need the bespoke plan-builder written
 around it.
 
 **Determinism.** Same artifacts in (pinned by hash in `artifacts/MANIFEST.json`) → byte-identical files
-out. `pnpm codegen` run twice on a clean tree produces a zero diff — this is a stated W4 acceptance
-criterion, not just a nice property. A regeneration that produces a spurious diff is a generator bug, full
-stop, never something to "just re-commit."
+out. `pnpm codegen` run twice on a clean tree produces a zero diff — this is a stated acceptance criterion
+of the model generator, not just a nice property. A regeneration that produces a spurious diff is a
+generator bug, full stop, never something to "just re-commit."
 
 **Provenance.** Every generated file's header names the generator script and the source artifact id(s) +
 version from `MANIFEST.json` — enough to trace "why does this field have this type" back to a specific XSD
@@ -55,7 +55,7 @@ or genericode file without spelunking.
 ## Consequences
 
 - Codegen scripts are judged by their output's correctness (does the generated code match the artifact?),
-  the same way a compiler is — but once T-011 starts writing them, they get the same test discipline as
+  the same way a compiler is — but once they exist, they get the same test discipline as
   any other production code (`AGENTS.md` §11); "it's just a generator" is not an exemption.
 - A contributor who wants to fix a wrong type or a misordered element must find the generator or the
   source artifact, not the generated file — the generated file is where the bug _shows up_, not where it
@@ -67,7 +67,7 @@ or genericode file without spelunking.
   serialization plan, JSDoc BT numbers, or mapping-reference docs this project actually needs, so at best
   it replaces a fraction of `tools/codegen/model` and adds a dependency for that fraction.
 - **Buying a commercial XSD/schema tool** — rejected: cost aside, it doesn't touch the actual constraint
-  (D-19: build the binding without purchasing or redistributing the paid CEN standards) — the free
+  (the binding is built without purchasing or redistributing the paid CEN standards) — the free
   artifacts already cover CII/XRechnung end to end (`docs/sources.md`).
 
 ## Implementation status (2026-09-23)

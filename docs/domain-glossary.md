@@ -12,7 +12,7 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   date / invoicing period) is emitted at `level="information"` on an otherwise fully compliant invoice — the
   top-level `rep:report/@valid` attribute (or the top-level `summary/@status` in Mustang's report) is the
   actual verdict; counting "any message present" as failure produces false negatives. Verified against a
-  real KoSIT Validator 1.6.3 run (spike C, T-044).
+  real KoSIT Validator 1.6.3 run.
 - **The KoSIT Validator writes its report next to the input file**, not to stdout
   (`<input>-report.xml` and `.html`, same directory) — a read-only mount of the input directory makes the
   validator fail to write the report, not just skip it silently.
@@ -22,7 +22,7 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
 - **veraPDF's JSON output nests `validationSummary` under `report.batchSummary`**, not at the top level of
   `report` — easy to miswire when parsing the CLI's `--format json` output.
 - **A summarized fetch of a BT reference page can simply be wrong, even when the page itself is real.**
-  While building `einvoice-model` (T-011), a summarized read of a Peppol postal-address page claimed
+  While building `einvoice-model`, a summarized read of a Peppol postal-address page claimed
   BT-40 = "Seller country subdivision" and BT-41 = "Seller country code" — both wrong. Our own vendored
   Schematron directly asserts BR-09: "The Seller postal address (BG-5) shall contain a Seller country code
   (BT-40)", and a raw (non-summarized) fetch of the same Peppol page confirmed BT-41 = "Seller contact
@@ -33,14 +33,14 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
 - **`currencyID` may only be set on `ram:TaxTotalAmount`, never on any other `ram:*Amount` element**, under
   the XRechnung CII profile (`CII-DT-031`, in `XRechnung-CII-validation.xsl`, KoSIT/Apache-2.0) — base
   UN/CEFACT CII allows it everywhere, so this is an XRechnung-specific tightening, not obvious from the CII
-  XSD alone. Found by running our own serializer output through the real KoSIT validator (T-020).
+  XSD alone. Found by running our own serializer output through the real KoSIT validator.
 - **CII caps "Preceding Invoice reference" (BG-3) at one occurrence**, even though the EN 16931 semantic
   model phrases the rule as "**Each** Preceding Invoice reference (BG-3) shall contain..." implying it can
   repeat. `HeaderTradeSettlementType`'s `InvoiceReferencedDocument` element has no
   `maxOccurs="unbounded"` in the CII D16B XSD — a genuine binding limitation of the CII syntax, not
   something the UBL binding necessarily shares. A credit note referencing multiple prior invoices needs a
   different mechanism (out of scope for v0.1's single-reference credit-note scenario).
-- **The XRechnung CII profile requires far more than the base EN 16931 rule set** (T-021): a seller contact
+- **The XRechnung CII profile requires far more than the base EN 16931 rule set**: a seller contact
   with name, phone, and email (BG-6/BT-41/42/43); seller **and** buyer city/postcode, not just country
   (BT-37/38/52/53); payment instructions (BG-16) on every invoice, not just ones with a bank transfer;
   seller and buyer electronic addresses with an EAS scheme (BT-34/49, `@schemeID` from the CEF EAS code
@@ -54,23 +54,22 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   because `BR-S-02`-style rules for other categories only ever check the seller.
 - **`BR-IC-02` (intra-EU supply, category K) has the exact same both-parties trap as `BR-AE-02` above**, not
   just the seller's VAT-ID: seller **and** buyer VAT-ID, `flag="fatal"` (verbatim-verified against the
-  vendored Schematron, `researches/08-vat-rules-de.md` §1a/B12). `build-invoice.ts` guards the neighbouring
-  `BR-IC-11`/`BR-IC-12` (delivery date/country) right at the K-category check but has no equivalent guard
-  for `BR-IC-02` itself (P-19, T-117/T-079) — a real, currently-live gap this bullet exists specifically so
-  the next person adding a K-category guard doesn't repeat the BR-AE-02 mistake of only checking the seller.
+  vendored Schematron). `buildInvoice` guards it together with the neighbouring `BR-IC-11`/`BR-IC-12`
+  (delivery date/country): a K-category document without the buyer's VAT-ID is refused
+  (`MissingBuyerVatIdError`), not just one without a positive VIES check.
 - **`BR-DE-16` (seller VAT/tax identifier) is fatal; `BR-DE-17` (allowed XRechnung document-type codes) and
   `BR-DE-26` (`BT-25` preceding-invoice reference recommended on a corrected invoice, type 384) are only
   `flag="warning"`** — don't "fix" a warning-only rule as if it were a rejection. This also means KoSIT's own
   top-level `valid` attribute is not the business verdict here: a document can be `valid="false"` from a
   `BR-DE-26` warning alone while `<rep:assessment><rep:accept>` still accepts it — see `kosit-report.ts`'s
-  `accepted` field (T-052) rather than reading `valid` alone for these two rules specifically.
+  `accepted` field rather than reading `valid` alone for these two rules specifically.
 - **An allowance/charge's base amount can't be set without a percentage.** `PEPPOL-EN16931-R042`:
   "Allowance/charge percentage MUST be provided when allowance/charge base amount is provided" — CII's
   `TradeAllowanceChargeType` puts `CalculationPercent` right before `BasisAmount` in its sequence, and
-  supplying one without the other is rejected. `einvoice-model` doesn't model the percentage yet
-  (BT-94/101/138/143), so fixtures with a discount/charge (T-022) simply omit `baseAmount` rather than
-  half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
-- **"Gutschrift" ≠ credit note (P-04, T-034).** In UStG terms it is a self-billed invoice (389). Use
+  supplying one without the other is rejected. `einvoice-model` carries both (`baseAmount` and
+  `calculationPercent`: BT-93/94 for a document allowance, BT-100/101 for a charge, BT-137/138 and
+  BT-142/143 on a line); set both or neither — the `de-document-discount` fixture sets both.
+- **"Gutschrift" ≠ credit note.** In UStG terms it is a self-billed invoice (389). Use
   "Rechnungskorrektur" for 381 in anything a human reads; keep code 381 in XML.
 - **`BR-CO-17` and `BR-S-09` accept a group VAT that is off by less than 1.** Their Schematron tests compare
   BT-117 with round(BT-116 × rate) within ±1 (a whole currency unit, not a cent). That is what lets an
@@ -85,33 +84,32 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   `TradeAddressType`'s sequence. No rule in the vendored Schematron names BT-35/36/50/51/75/76; their names
   were taken from `@e-invoice-eu/core`'s schema and confirmed on each element's docs.peppol.eu page.
 
-## Medusa v2 (`einvoice-medusa`, T-070/T-071/T-072/T-073/T-074, W10)
+## Medusa v2 (`einvoice-medusa`)
 
-Per plan-v0.1 §4.6's own warning, none of the following is taken from documentation by memory — every item
-was read directly from a real, freshly-created `create-medusa-app@latest --plugin`/full app (v2.19.0/2.21.0
-at the time) or a real installed `@medusajs/*` package's compiled source.
+None of the following is taken from documentation by memory — every item was read directly from a real,
+freshly-created `create-medusa-app@latest --plugin`/full app (v2.19.0/2.21.0 at the time) or a real
+installed `@medusajs/*` package's compiled source.
 
 - **The real fulfillment-created event is `order.fulfillment_created`** (`OrderWorkflowEvents.FULFILLMENT_CREATED`,
   `@medusajs/utils/dist/core-flows/events.js`), payload `{ order_id, fulfillment_id, no_notification }`.
-  Matches plan-v0.1's own expectation exactly. There is no separate "shipment created" event at the order
-  level for this purpose (that name, `FulfillmentWorkflowEvents.SHIPMENT_CREATED` = `"shipment.created"`, is
-  a different, lower-level fulfillment-module event, not what a subscriber wanting "an order got a
-  fulfillment" should use).
+  There is no separate "shipment created" event at the order level for this purpose (that name,
+  `FulfillmentWorkflowEvents.SHIPMENT_CREATED` = `"shipment.created"`, is a different, lower-level
+  fulfillment-module event, not what a subscriber wanting "an order got a fulfillment" should use).
 - **There is no `order.refund_created` event.** A refund is a payment-module concept in Medusa v2:
   `PaymentEvents.REFUNDED` = `"payment.refunded"`, payload **only** `{ id }` — the _payment's_ id, not the
   order's. A subscriber must resolve the order from the payment id itself (e.g. via a remote query
   following the payment↔order module link) before it can build a `CommerceInvoiceInput` for a credit note
-  — T-071's own design has to account for this, it cannot assume an `order_id` arrives with the event the
-  way `order.fulfillment_created` provides one.
+  — the refund subscriber's design has to account for this, it cannot assume an `order_id` arrives with
+  the event the way `order.fulfillment_created` provides one.
 - **A custom Medusa module's service constructor receives `(container, options)`**, `options` being
   exactly what `medusa-config.ts`'s `plugins: [{ resolve, options }]` declared for that plugin. Verified
   against a real compiled module provider (`@medusajs/notification-local@2.19.0`'s
   `LocalNotificationService`, `constructor({ logger }, options)`), not the (accurate but non-concrete)
   prose in the plugin scaffold's own `src/modules/README.md`.
-- **A real, currently-published Medusa v2 plugin matching plan-v0.1's own named integration target**
+- **A real, currently-published Medusa v2 invoicing plugin, the one this adapter integrates with,**
   exists and was inspected directly: `@webbers/invoices-medusa@1.0.6` (npm, MIT). It defines its own
   `invoice` module (`INVOICE_MODULE = "invoice"`) with a data model carrying `display_id` (autoincrement —
-  the human-readable invoice number plan-v0.1 wants T-072 to read), `resource_id`, `type`
+  the human-readable invoice number the Webbers integration reads), `resource_id`, `type`
   (`"debit" | "credit" | "void"`), `pdf_url` (nullable), `parent_invoice` (self-referential, links a credit
   invoice to what it corrects). It links its own `invoice` module to `order` via a `defineLink` (isList,
   table `invoice_order`) — one order can have many invoices (original + corrections). Its own
@@ -120,15 +118,15 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
 - **`@webbers/invoices-medusa`'s own `createInvoiceWorkflow` defines no `createHook()`** — Medusa v2
   workflows can expose named extension points for other plugins to hook into, but this one doesn't, so
   there is no clean "Webbers finished creating its invoice" signal to subscribe to instead of the raw
-  platform event. **Open question for T-072, not resolved here**: whether a second subscriber on the same
-  `order.fulfillment_created` event (querying Webbers' own `invoice_order` link, retrying briefly if not
-  yet present) is safe against subscriber-ordering/timing, or whether some other mechanism is needed —
-  genuinely unverified, flagged rather than guessed.
+  platform event. **Open question for the Webbers integration, not resolved here**: whether a second
+  subscriber on the same `order.fulfillment_created` event (querying Webbers' own `invoice_order` link,
+  retrying briefly if not yet present) is safe against subscriber-ordering/timing, or whether some other
+  mechanism is needed — genuinely unverified, flagged rather than guessed.
 - **`create-medusa-app@latest` (current, v2.21.0) scaffolds a Turborepo-style monorepo by default**
   (`apps/backend/`, a root `turbo.json`/`pnpm-workspace.yaml`), not the single-root layout older
   tutorials/screenshots show — `medusa-config.ts` lives at `apps/backend/medusa-config.ts`, not the repo
-  root. Matters for T-075's quickstart doc: a "put this in `medusa-config.ts`" instruction needs that path
-  spelled out or a new developer will look in the wrong place.
+  root. Matters for the [Medusa quickstart](quickstart-medusa.md): a "put this in `medusa-config.ts`"
+  instruction needs that path spelled out or a new developer will look in the wrong place.
 - **A Medusa v2 plugin package needs its own, self-contained `tsconfig.json`**, not extending a shared base
   the way every other package in this monorepo does: `target: "ES2021"`, `module`/`moduleResolution:
 "Node16"`, `emitDecoratorMetadata`/`experimentalDecorators: true`, no `"type": "module"` in
@@ -147,7 +145,7 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   fetch that dependency from the real npm registry and 404. This is not just a yalc quirk: it means
   `@normwerk/einvoice-model` and `@normwerk/einvoice-commerce` must themselves be published to npm before
   `@normwerk/einvoice-medusa` can be a normally-installable plugin for anyone outside this repo — relevant
-  to T-076 ("Публикация в npm"), not previously an explicit finding.
+  to publishing on npm, not previously an explicit finding.
 - **Cancelling an order refunds its captured payments without a `payment.refunded` event.**
   `cancelOrderWorkflow` refunds through `refundCapturedPaymentsWorkflow`, which emits nothing a refund
   subscriber hears; the only signal is `order.canceled` (`OrderWorkflowEvents.CANCELED`, payload `{ id }`,
@@ -177,12 +175,12 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   country with `provider_id` only; the system tax provider then charges 0 on every order shipped there.
   The e2e stand's own seed had exactly that until an invoice total was compared with `order.total`.
 
-### T-071 (subscribers, idempotency, W10)
+### Subscribers and idempotency
 
 - **A CommonJS-mode Medusa plugin cannot statically `import` a value from one of this repo's own ESM
   packages** (`@normwerk/einvoice-commerce`/`@normwerk/einvoice-cii`, both `"type": "module"` with no
   `require` export condition) — that compiles to a `require()` that throws `ERR_REQUIRE_ESM` at runtime.
-  This is a _different_ problem from the one T-070's `resolution-mode: "import"` fixed: that attribute only
+  This is a _different_ problem from the one `resolution-mode: "import"` (above) fixed: that attribute only
   ever changes how TypeScript resolves _types_, never how Node resolves a _value_ at runtime. The real,
   necessary fix for a subscriber that needs to actually _call_ `buildInvoice`/`selectProfile`/
   `SequentialNumberer`/`serializeCii` is a dynamic `import()` inside the (already-async) subscriber
@@ -210,7 +208,7 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   one real first-party precedent for an _application-level_ concurrency-sensitive counter,
   `@medusajs/promotion`'s `registerUsage` (compiled source), takes an explicit `SELECT ... FOR UPDATE`
   row lock inside a transaction (needed there because it also enforces a budget/usage-limit check, not a
-  pure increment). This plugin's own `EinvoiceCounter` (T-071) needs no limit check, so a single atomic
+  pure increment). This plugin's own `EinvoiceCounter` needs no limit check, so a single atomic
   `INSERT ... ON CONFLICT (series) DO UPDATE SET value = value + 1 RETURNING value` is the simpler, still
   fully race-safe mechanism for that narrower case — reached via `@InjectTransactionManager()` +
   `@MedusaContext()` (the same real decorator pair `@medusajs/order`'s own module service methods use
@@ -229,12 +227,13 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   try/catch that only logs the error, nothing more. The Redis event bus _can_ retry (BullMQ `attempts`),
   but its own default job options set `attempts: 1` — so even with Redis configured, a genuine automatic
   retry only happens if whoever emits the event explicitly opts in with a higher `attempts` value. This
-  matters for T-071's idempotency design: a "redelivered" `order.fulfillment_created`/`payment.refunded` in
-  practice means a manual replay, not an automatic retry storm — informed how strict the idempotency check
-  needs to be (checked up front, before allocating a document number, to keep `SequentialNumberer`'s
-  gap-free guarantee under the realistic case) versus how strict it only needs to be as a backstop (the
-  database-level unique constraint, for the truly-concurrent case the local event bus can't even produce).
-- **`payment.refunded`'s payload-only-carries-`{id}` gap (flagged unresolved in T-070's own entry above)
+  matters for the subscribers' idempotency design: a "redelivered"
+  `order.fulfillment_created`/`payment.refunded` in practice means a manual replay, not an automatic retry
+  storm — informed how strict the idempotency check needs to be (checked up front, before allocating a
+  document number, to keep `SequentialNumberer`'s gap-free guarantee under the realistic case) versus how
+  strict it only needs to be as a backstop (the database-level unique constraint, for the truly-concurrent
+  case the local event bus can't even produce).
+- **`payment.refunded`'s payload-only-carries-`{id}` gap (flagged unresolved in the refund entry above)
   needs two `query.graph` calls, not one, and the working filter shape is a nested object, not a dotted
   string.** A `query.graph({ entity: "order", filters: { "payment_collections.payments.id": paymentId } })`
   — the same dot-notation path `@medusajs/core-flows`' `refundCapturedPaymentsWorkflow` reads in its own
@@ -251,7 +250,7 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   filter. Neither of these two facts (two-hop paths need two queries; a cross-module link filter needs the
   nested-object form) is visible from reading `@medusajs/core-flows`' own source, which never filters by a
   linked field at all in any bundled workflow — found only by running the real query against a real instance
-  and reading its actual SQL error (T-071).
+  and reading its actual SQL error.
 - **The admin API's own `"*relation"` wildcard-prefix field syntax (`api/admin/orders/query-config.js`)
   silently returns nothing when passed directly to `query.graph()` from a subscriber** — no error, the
   relation is just absent from the result, easy to mistake for "this order really has no customer/address"
@@ -285,15 +284,15 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
     (`{ means, iban?, terms? }`); `service.ts`'s `assertValidOptions` refuses to construct the module
     without it, the same way it already refused a seller missing `vatIdentifier`.
     All three were found by actually running the plugin's own output through the real KoSIT Validator inside
-    this task's e2e proof (not anticipated from reading `build-invoice.ts` or the base Schematron alone) —
+    the plugin's e2e proof (not anticipated from reading `build-invoice.ts` or the base Schematron alone) —
     each fix was verified by re-running the same validator until it returned `ACCEPTABLE`, not just by making
     the error message go away.
 
-### T-072 (`@webbers/invoices-medusa` integration, W10)
+### `@webbers/invoices-medusa` integration
 
 - **`@webbers/invoices-medusa@1.0.6`'s own `package.json` declares two more broken export subpaths**, the
-  same class of gap T-072's own research first found for `"./links"` (that file simply doesn't exist in the
-  published tarball): `"./workflows"` (`.medusa/server/src/workflows/index.js`) is ALSO missing — only the
+  same class of gap first found for `"./links"` (that file simply doesn't exist in the published tarball):
+  `"./workflows"` (`.medusa/server/src/workflows/index.js`) is ALSO missing — only the
   individual workflow files (`create-invoice.js`, `create-credit-invoice.js`, …) exist, no barrel. The
   wildcard `"./*"` subpath still resolves a direct file path (`@webbers/invoices-medusa/workflows/create-invoice`,
   `@webbers/invoices-medusa/links/invoice-order`) — confirmed by actually hitting `Cannot find module
@@ -301,25 +300,25 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   not assumed from reading the export map alone.
 - **Dynamically `import()`-ing another CommonJS package (not an ESM one) from this plugin double-wraps the
   default export** — a genuinely different case from this plugin's own established "dynamic-import an
-  ESM-only package from CJS" pattern (T-070/T-071, needed because the _target_ is ESM-only). Here, both
+  ESM-only package from CJS" pattern (needed because the _target_ is ESM-only). Here, both
   this plugin and `@webbers/invoices-medusa` are CommonJS; going through Node's ESM `import()` loader to
   reach a CJS module still triggers CJS/ESM interop, which sets the synthetic namespace's `.default` to the
   _whole_ `module.exports` object (`{ __esModule: true, default: <real value> }`), not to
   `module.exports.default` directly — so the real value ends up at `mod.default.default`, not `mod.default`.
-  Confirmed empirically with a temporary debug route logging the actual awaited value during this task's
-  own e2e run (it printed `{ default: { entryPoint: "invoice_order", ... } }`), not assumed from Node's
+  Confirmed empirically with a temporary debug route logging the actual awaited value during the Webbers
+  e2e run (it printed `{ default: { entryPoint: "invoice_order", ... } }`), not assumed from Node's
   interop documentation. Real, load-bearing consequence: `waitForWebbersInvoice`'s own link-loading code
   unwraps one extra level, defensively falling back to the un-nested shape too (`integrations/webbers.ts`).
 - **Medusa's local event bus really does start every subscriber of the same event without waiting for any
-  of them** (T-070/T-071 flagged this as the reason no ordering guarantee exists between this plugin's own
-  subscriber and `@webbers/invoices-medusa`'s; T-072 is where it was actually exercised for real) —
+  of them** (flagged above as the reason no ordering guarantee exists between this plugin's own subscriber
+  and `@webbers/invoices-medusa`'s; the Webbers integration is where it was actually exercised for real) —
   confirmed by observing both subscribers' log lines interleave (`Processing order.fulfillment_created
 which has 2 subscribers`) and by the poll/wait mechanism (`waitForWebbersInvoice`) genuinely being
   necessary rather than decorative: a plain, un-delayed read of their `invoice_order` link immediately after
   the event fires reliably finds nothing yet.
 - **`@webbers/invoices-medusa@1.0.6`'s own `createInvoiceWorkflow` has a real, reproducible bug**: PDF
   generation (`core/classes/pdf-generator/templates/invoice-content.ts`) threw `Cannot read properties of
-undefined (reading 'toString')` on every real order this task's e2e harness threw at it (a plain
+undefined (reading 'toString')` on every real order the e2e harness threw at it (a plain
   `create-medusa-app` default-seeded product, DE billing/shipping address, no discounts) — their own
   workflow's compensation logic then marks the invoice `type: "void"` (a real, documented behavior: "Voided
   invoices … preserve their sequence number to avoid gaps", their own README) and soft-deletes the
@@ -327,7 +326,7 @@ undefined (reading 'toString')` on every real order this task's e2e harness thre
   directly from a debug route and reading the full stack trace their own subscriber's `catch` block
   discards (it only logs `error.message`): the throw site is `invoice.display_id.toString()`, where
   `invoice = order.invoices.find(i => i.type === "debit")` from _their own_ `query.graph` call using a
-  `"invoices.*"` wildcard field — the same class of wildcard-field gap this repo's own T-071 entry above
+  `"invoices.*"` wildcard field — the same class of wildcard-field gap the subscriber section above
   independently found (a `"*relation"`-style field silently failing to hydrate outside certain calling
   contexts). This is an external, confirmed defect in their published package, not caused by anything in
   this plugin — `waitForWebbersInvoice`'s own timeout-and-throw behavior (`WebbersInvoiceNotFoundError`) is
@@ -338,30 +337,31 @@ undefined (reading 'toString')` on every real order this task's e2e harness thre
   the real `display_id` as its own document number, and embedded its XML into the real downloaded PDF — the
   part of the acceptance criterion actually owned by this plugin, proven against their real schema and File
   Module semantics, with their own workflow's bug clearly separated out as an external, reported limitation
-  rather than something this task's own code either caused or silently worked around.
+  rather than something this plugin's own code either caused or silently worked around.
 - **`pdf_url` on their `Invoice` model is a File Module file id, not a URL** (confirmed directly from their
   compiled `upload-invoice-pdf-step.js`: `invoiceModule.updateInvoices({ id, pdf_url: file.id })`) —
   `fileModuleService.retrieveFile(id)` returns `{ id, url }`, where `url` is itself a presigned download URL
   that still needs a real `fetch()` to get bytes (`fetchWebbersPdfBytes`, `integrations/webbers.ts`).
 - **A PDF produced by `pdfmake` with only the built-in standard fonts (their own `pdf-generator/index.js`:
   `pdfmake.addFonts({ Helvetica: { normal: "Helvetica", … } })`, never a real embedded font file) is not
-  PDF/A-3-eligible** — real veraPDF output on a PDF embedded via `embedInvoiceInPdfA3` (T-030) using exactly
-  this kind of base PDF: `"The font program is not embedded" … "compliant": false` (ISO 19005-3:2012
-  §6.2.11.4.1). This is not a new gap T-072 introduces — `embedInvoiceInPdfA3`'s own doc comment already
-  scopes this out ("does not attempt to fix a PDF that isn't already PDF/A-eligible … that repair step
-  (Ghostscript, D-20's "Path 2") is a documented follow-up, not implemented here") — but it means, concretely,
-  that `@webbers/invoices-medusa`'s own _default_ configuration (no custom embedded font supplied via its
-  `header`/`footer`/`addressInfo` options) produces PDFs this plugin's Webbers-integration mode cannot turn
-  into a genuinely valid PDF/A-3 hybrid without that still-unimplemented repair step — real, useful context
-  for T-076 (documenting this integration mode's actual limits) rather than a silent assumption that "if
-  their PDF exists, embedding it always yields a compliant PDF/A-3."
+  PDF/A-3-eligible** — real veraPDF output on a PDF embedded via `embedInvoiceInPdfA3` using exactly this
+  kind of base PDF: `"The font program is not embedded" … "compliant": false` (ISO 19005-3:2012
+  §6.2.11.4.1). This is not a new gap the Webbers integration introduces — `embedInvoiceInPdfA3`'s own doc
+  comment already scopes this out: it does not attempt to fix a PDF that isn't already PDF/A-eligible, and
+  that repair step (re-embedding the fonts with Ghostscript) is a documented follow-up, not implemented. But
+  it means, concretely, that `@webbers/invoices-medusa`'s own _default_ configuration (no custom embedded
+  font supplied via its `header`/`footer`/`addressInfo` options) produces PDFs this plugin's
+  Webbers-integration mode cannot turn into a genuinely valid PDF/A-3 hybrid without that
+  still-unimplemented repair step — real, useful context for documenting this integration mode's actual
+  limits, rather than a silent assumption that "if their PDF exists, embedding it always yields a
+  compliant PDF/A-3."
 - **`@webbers/invoices-medusa`'s own module requires configuration** (`addressInfo.companyName/address/
 cocNumber/vatNumber/iban/email`, all mandatory per its own README) — registering it as a bare string
   plugin entry (`plugins: ["@webbers/invoices-medusa"]`, no `options`) fails module loading outright
   (`Invalid options: {"addressInfo":["Invalid input: expected object, received undefined"]}`), confirmed by
   hitting this for real before supplying the options their README documents.
 
-### T-073 (standalone mode's own PDF source, W10)
+### Standalone mode's own PDF source
 
 - **`options.standalone.basePdf(invoice)` is called with the already-_built_ `Invoice`
   (`@normwerk/einvoice-model`), not the raw Medusa order** — a deliberate design choice, not the only
@@ -369,11 +369,11 @@ cocNumber/vatNumber/iban/email`, all mandatory per its own README) — registeri
   breakdown the XML will actually carry (the same object `serializeCii` itself serializes), rather than
   re-deriving them from the order independently and risking the PDF and XML disagreeing. The cost is that
   the hook necessarily runs _after_ numbering is resolved and `buildInvoice` has already run — both
-  subscribers call it in that order, mirrored from Webbers mode's own PDF-after-numbering sequencing
-  (T-072), not a new sequencing invented for this task.
-- **`@normwerk/einvoice-pdfa`'s own `renderInvoicePdf` (T-030 continuation) was test-only until this task**
+  subscribers call it in that order, mirrored from Webbers mode's own PDF-after-numbering sequencing, not a
+  new sequencing invented for standalone mode.
+- **`@normwerk/einvoice-pdfa`'s own `renderInvoicePdf` was test-only until standalone mode needed it**
   — no `exports` entry beyond `"."`, and `index.ts` never re-exported it, so nothing outside the package's
-  own test suite could reach it. Re-exported here (`index.ts`) because it is the one concrete, real
+  own test suite could reach it. Re-exported (`index.ts`) because it is the one concrete, real
   `standalone.basePdf` implementation this plugin's own e2e proof needed, and — genuinely, not just for the
   test — it is exactly what a merchant with no PDF renderer of their own would reach for: a real,
   font-embedded, PDF/A-eligible base PDF, for free, instead of nothing.
@@ -383,26 +383,25 @@ cocNumber/vatNumber/iban/email`, all mandatory per its own README) — registeri
   the dev server crashed with a real `ERR_MODULE_NOT_FOUND` for `pdf-lib` (imported from inside
   `@normwerk/einvoice-pdfa/dist/index.js`) until a plain `npm install` in the host app's root resolved the
   linked package's own dependency tree — the same class of "yalc surfaces a packaging gap a normal npm
-  install wouldn't" finding T-071/T-072 both already logged, this time in the harness itself rather than in
-  a third-party package.
+  install wouldn't" finding already logged above, this time in the harness itself rather than in a
+  third-party package.
 - **`create-medusa-app@2.19.0` now scaffolds a turborepo-style monorepo** (`apps/backend`, root
-  `package.json` with a `workspaces` field), not a flat single-app directory the way T-070/T-071/T-072's own
-  harnesses were — confirmed by actually running it fresh for this task, not assumed unchanged from
+  `package.json` with a `workspaces` field), not a flat single-app directory the way the earlier harnesses
+  were — confirmed by actually running it fresh for the standalone e2e run, not assumed unchanged from
   before. Functionally inert for this plugin (Node module resolution still finds a yalc-linked package
   hoisted to the workspace root's `node_modules` from `apps/backend`), but real, since a future e2e run
   should expect this layout rather than be surprised by it.
 - **The same already-documented `embedInvoiceInPdfA3` limitation (non-embedded-font base PDF isn't
-  PDF/A-eligible, D-20 "Path 2", first hit for real by T-072 against Webbers' own default PDF) reproduces
-  identically for a standalone-supplied PDF** — proven, not assumed, by configuring `standalone.basePdf` to
-  return a plain `pdf-lib` page using `StandardFonts.Helvetica` (no embedded font) and observing a real
-  veraPDF `FAIL … 6.2.11.4.1-1` on the result, the same rule class T-072 hit. This confirms the gap is a
-  property of `embedInvoiceInPdfA3` itself, not something specific to Webbers' PDF generator — relevant for
-  T-076's own documentation of this option's actual limits.
+  PDF/A-eligible without the unimplemented Ghostscript repair step, first hit for real against Webbers' own
+  default PDF) reproduces identically for a standalone-supplied PDF** — proven, not assumed, by configuring
+  `standalone.basePdf` to return a plain `pdf-lib` page using `StandardFonts.Helvetica` (no embedded font)
+  and observing a real veraPDF `FAIL … 6.2.11.4.1-1` on the result, the same rule class the Webbers PDF
+  hit. This confirms the gap is a property of `embedInvoiceInPdfA3` itself, not something specific to
+  Webbers' PDF generator — relevant for documenting this option's actual limits.
 - **Two partial refunds on the same payment, through the standalone path, produced two distinct credit
   notes** (`GS-2026-0001`/`GS-2026-0002`, keyed by `ref_...` id) — a direct re-exercise of the per-refund
-  idempotency fix T-072 made to `credit-note-on-payment-refunded.ts` (originally a T-071 bug, found and
-  fixed under T-072 since it was directly related), confirming that fix holds under this task's own
-  restructuring of the same subscriber, not just under Webbers mode.
+  idempotency fix made to `credit-note-on-payment-refunded.ts` during the Webbers integration, confirming
+  that fix holds after standalone mode restructured the same subscriber, not just under Webbers mode.
 - **Full real e2e proof, both document types, both PDF outcomes**: a `create-medusa-app@2.19.0` instance
   (Docker Postgres) with `@normwerk/einvoice-medusa` configured with no `integration` at all and
   `standalone.basePdf` set to `renderInvoicePdf` — a real order → fulfillment produced an invoice
@@ -411,18 +410,18 @@ cocNumber/vatNumber/iban/email`, all mandatory per its own README) — registeri
   XML passed the real KoSIT Validator ("Validation successful!", the same pre-known informational
   BR-DE-TMP-32 message) and both distinct PDFs (one invoice, one credit note) passed real veraPDF
   `--flavour 3b`.** Separately, `standalone.basePdf` omitted entirely still produced a pure-XML document
-  (`pdf: NULL` in `einvoice_document`) — T-071's original standalone behavior, unchanged.
+  (`pdf: NULL` in `einvoice_document`) — the subscribers' original standalone behavior, unchanged.
 
-### T-074 (File Module storage, admin widget, Store API, W10)
+### File Module storage, admin widget, Store API
 
 - **`IFileModuleService.createFiles`'s real signature** (`@medusajs/types`, confirmed against the actually
   installed `2.19.0` type declarations, not guessed): `{ filename, mimeType, content: <base64 string>,
 access?: "public" | "private" }`, defaulting to `"private"` when `access` is omitted — the same default
-  Webbers' own upload step already relied on (T-072's own finding that their PDF was readable via
-  `retrieveFile` despite never setting `access` explicitly). `getAsBuffer`/`getDownloadStream` exist too but
-  only `@since 2.8.0` — this plugin's own peerDependencies claim `>=2.4.0`, so file read-back still goes
-  through the older, always-available `retrieveFile` + `fetch` two-step (already established in T-072's
-  `fetchWebbersPdfBytes`, now shared as `storage.ts`'s own `fetchFileBytes`) rather than the newer method.
+  Webbers' own upload step already relied on (their PDF was readable via `retrieveFile` despite never
+  setting `access` explicitly). `getAsBuffer`/`getDownloadStream` exist too but only `@since 2.8.0` — this
+  plugin's own peerDependencies claim `>=2.4.0`, so file read-back still goes through the older,
+  always-available `retrieveFile` + `fetch` two-step (already established in `fetchWebbersPdfBytes`, now
+  shared as `storage.ts`'s own `fetchFileBytes`) rather than the newer method.
 - **`create-medusa-app@2.19.0`'s scaffolded local File Module provider names a file id as
   `private-<epoch-ms>-<filename>`** and serves it from `apps/backend/static/` — confirmed by generating a
   real document and finding the exact file on disk with that name, not assumed from the module's own
@@ -432,14 +431,15 @@ access?: "public" | "private" }`, defaulting to `"private"` when `access` is omi
   running `plugin:db:generate` directly inside the plugin package's own directory (outside any host app)
   fails with a real `Cannot find module './service.js'` (the package's own Node16-module-resolution TypeScript
   source assumes a build/host context this bare invocation doesn't provide). The already-established
-  workflow (T-071/T-072: generate inside a real scratch app, copy the output file back into the plugin's
+  workflow (generate inside a real scratch app, copy the output file back into the plugin's
   own `src/.../migrations/`) is the one that actually works, not a shortcut run from the package itself.
-- **A second migration for an already-existing table is silently useless, again** — same root cause T-072's
-  own finding #16 already named (a `create table if not exists` migration for a table an earlier migration
-  already created is a real no-op, so new columns never actually land) — T-074 hit the identical class of
-  problem for the same reason (adding `xml_file_id`/`pdf_file_id`, dropping `xml`/`pdf`) and used the same
-  fix: delete the old migration file entirely, commit the freshly generated one as the sole baseline
-  (pre-release, no real deployment history to preserve — T-072's own justification, not a new one).
+- **A second migration for an already-existing table is silently useless, again** — the same root cause
+  already hit during the Webbers integration (a `create table if not exists` migration for a table an
+  earlier migration already created is a real no-op, so new columns never actually land). Adding
+  `xml_file_id`/`pdf_file_id` and dropping `xml`/`pdf` hit the identical class of problem for the same
+  reason and used the same fix: delete the old migration file entirely, commit the freshly generated one as
+  the sole baseline (pre-release, no real deployment history to preserve — the same justification as
+  before, not a new one).
 - **Medusa's own real, compiled `GET /store/orders/:id` (`@medusajs/medusa@2.19.0`) has no ownership check
   at all** — its source literally reads `// TODO: Do we want to apply some sort of authentication here?`,
   confirmed by reading the compiled route file directly, not assumed from documentation. This plugin's own
@@ -451,20 +451,21 @@ access?: "public" | "private" }`, defaulting to `"private"` when `access` is omi
 - **`DetailWidgetProps<HttpTypes.AdminOrder>` (`@medusajs/types`) is the real, documented prop type for an
   order-detail-zone admin widget** — confirmed directly in the package's own `.d.ts` doc comment/example,
   not inferred from a third-party plugin's compiled output alone (though `@webbers/invoices-medusa`'s own
-  real, published widget, inspected directly in T-072, independently confirms the `{ data: order }` shape
-  and the adjacent `order.details.side.before` zone).
+  real, published widget, inspected directly, independently confirms the `{ data: order }` shape and the
+  adjacent `order.details.side.before` zone).
 - **A plain same-origin `fetch(url, { credentials: "include" })` from an admin widget authenticates via the
   dashboard's own session cookie**, without needing `@medusajs/js-sdk`'s configured client the way
   Webbers' own widget does it — confirmed by actually clicking a download link in a real logged-in admin
   session and observing a real `200 OK` on `GET /admin/orders/:id/einvoice/:documentId/xml` in the browser's
   own network log, not assumed from the two approaches being "probably equivalent".
 - **No `defineLink` was added between `order` and `EinvoiceDocument`**, despite `@webbers/invoices-medusa`'s
-  own real `invoice_order` link (T-072) being the obvious analogy — a deliberate scope decision, not an
-  oversight: `EinvoiceDocument.order_id` (a plain field since T-071) already answers every query this
+  own real `invoice_order` link being the obvious analogy — a deliberate scope decision, not an
+  oversight: `EinvoiceDocument.order_id` (a plain field since the subscribers were first built) already
+  answers every query this
   plugin needs, and Webbers needs a link only because their own `Invoice` model carries no order-identifying
   field at all (confirmed by reading it directly — no redundant mechanism to choose between, unlike here).
 
-### T-076 (npm publish prep, W11 — partial, publish itself not yet done)
+### npm publish preparation
 
 - **`pnpm pack`/`pnpm publish` rewrite a `workspace:*` dependency to the real resolved version; a plain
   `npm pack`/`npm publish` does not** — confirmed empirically (not assumed from either tool's docs) by
@@ -487,29 +488,30 @@ publish` honor it — confirmed empirically, not assumed from partial/ambiguous 
   dependency) physically removes compiled `*.test.*` output from the build directory before every pack/
   publish, regardless of which tool does the packing — confirmed working for all five packages via `pnpm
 pack`, including the one case the negation pattern alone didn't cover.
-- **The `repository` URL committed on `@normwerk/einvoice-medusa` since T-070
+- **The `repository` URL committed on `@normwerk/einvoice-medusa` since the plugin was scaffolded
   (`https://github.com/eInvoice`, no `directory`) was a real, confirmed 404 at the time** — the GitHub repo
-  didn't exist yet, unrelated to its casing (caught by T-076 actually fetching it, not treating it as a
-  plausible placeholder — the project's own "verify URLs before committing" rule catching a gap from
-  _before_ it was consistently applied). **P-09 (2026-09-15) then "corrected" the casing to lowercase
-  `github.com/normwerk/einvoice`** — based on `git remote -v` echoing back whatever casing was typed into
-  `git remote add`, not GitHub's own canonical casing, which that command has no way to reveal on its own.
+  didn't exist yet, unrelated to its casing (caught by actually fetching it during publish preparation, not
+  treating it as a plausible placeholder — the project's own "verify URLs before committing" rule catching
+  a gap from _before_ it was consistently applied). **A change on 2026-09-15 then "corrected" the casing to
+  lowercase `github.com/normwerk/einvoice`** — based on `git remote -v` echoing back whatever casing was
+  typed into `git remote add`, not GitHub's own canonical casing, which that command has no way to reveal on
+  its own.
   **Settled 2026-09-16, empirically:** a real `git push` to the lowercase remote succeeded but GitHub
   replied with `remote: This repository moved. Please use the new location:
 git@github.com:Normwerk/eInvoice.git` — GitHub's own redirect response is the actual source of truth here,
   not a guess either way. So at that moment canonical was `github.com/Normwerk/eInvoice` (capital N, capital
-  I): the _original_ T-070 casing, and P-09's "fix" was itself the bug. **Then superseded the same day by a
-  founder decision (P-10): one register for the name everywhere, all lowercase** — not a correction of the
+  I): the _original_ casing, and the 2026-09-15 "fix" was itself the bug. **Then superseded the same day by
+  a founder decision: one register for the name everywhere, all lowercase** — not a correction of the
   finding above but a rename on top of it. Two of the four spellings can't be capitalised at all (npm
   package names, the `normwerk.dev` domain), and Docker image names forbid uppercase, so `ghcr.io/Normwerk/…`
-  would not have built once M-020 starts pushing validator images. The organisation and repository were
+  would not have built once validator images are pushed there. The organisation and repository were
   to be renamed to `normwerk/einvoice`; GitHub treats those slugs case-insensitively, so the rename only
   changes display — old links, clones and redirects keep working and the old name is not released. **Half
-  done as of the P-10 push (commit `14eb492`, 2026-09-16):** GitHub answered that push with `remote: This
+  done as of the rename push (commit `14eb492`, 2026-09-16):** GitHub answered that push with `remote: This
 repository moved. Please use the new location: git@github.com:Normwerk/einvoice.git` — the _repository_
-  is lowercase `einvoice` now, the _organisation_ is still `Normwerk`. Canonical is therefore
-  `github.com/Normwerk/einvoice` until the org itself is renamed; every committed URL already says
-  `normwerk/einvoice` and resolves through the redirect meanwhile. **Second half of the lesson, learned the
+  is lowercase `einvoice` now, the _organisation_ was still `Normwerk`. By 2026-09-23 the organisation was
+  renamed too: GitHub's API returns its canonical login as `normwerk`, so every committed
+  `normwerk/einvoice` URL is now the exact canonical spelling. **Second half of the lesson, learned the
   same way:** `git ls-remote` is silent about redirects too — it returned refs against the lowercase remote
   with no `moved` line, which reads exactly like confirmation and is not. Only a push says. Still not a
   public API fetch,
@@ -526,21 +528,21 @@ repository moved. Please use the new location: git@github.com:Normwerk/einvoice.
   categories (analytics/auth/cms/notification/payment/search/shipping), confirmed present alongside the
   other two on several real, currently-listed npm packages (e.g. `@jytextiles/medusa-plugin-etsy-sync`,
   `@alphabite/medusa-wishlist`). `einvoice-medusa`'s own `keywords` already had the first two (copied from
-  the official plugin scaffold, T-070) but was missing the third until this task added it.
+  the official plugin scaffold) but was missing the third until publish preparation added it.
 - **The Medusa integrations page has no known, documented per-package icon field** — `medusajs.com/
 integrations` itself states the list "is curated from npm," and its own visible icons (Stripe, Mailchimp,
   etc.) are plausibly curated/assigned by Medusa's own team for well-known brands, not something a
-  `package.json` field controls. Real, honest finding: plan-v0.1's own "иконка" (icon) as a T-076 metadata
-  deliverable does not correspond to any confirmed real mechanism — not invented here, flagged instead.
+  `package.json` field controls. Real, honest finding: a package icon as a publish-metadata deliverable
+  does not correspond to any confirmed real mechanism — not invented here, flagged instead.
 
-### T-069 (`regimeOverride`/`supplyType` wired through the adapter, W12)
+### `regimeOverride`/`supplyType` wired through the adapter
 
 - **`OrderLineItem.requires_shipping` is a real, first-class boolean on `@medusajs/order`'s own line-item
   model** — confirmed directly against `node_modules/@medusajs/order/dist/types/line-item.d.ts` (the
   compiled package this monorepo actually depends on, not documentation or assumption), the same tier as
-  `is_tax_inclusive`/`unit_price` (T-071's own already-documented findings above), not a wildcard relation
-  path this section's T-070 entry already warns `query.graph` can silently drop. This is the one signal
+  `is_tax_inclusive`/`unit_price` (already documented in the subscriber section above), not a wildcard
+  relation path that section already warns `query.graph` can silently drop. This is the one signal
   `mapOrderToCommerceInvoiceInput` derives `supplyType` from (`false` → a service line): a production-grade
-  verification would still confirm it against a real running instance the way T-070 did for `ORDER_QUERY_FIELDS`
-  generally, but the type-level check is strong enough evidence for a first-class model column, not a
+  verification would still confirm it against a real running instance the way `ORDER_QUERY_FIELDS` was
+  checked above, but the type-level check is strong enough evidence for a first-class model column, not a
   computed/admin-only field, to build on without that heavier step.

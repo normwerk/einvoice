@@ -13,7 +13,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 
 - `src/index.test.ts` — `validateModel`: structural validation of an `Invoice` against the generated JSON
   Schema, and that BG-16 without BT-81 does not type-check (BR-49).
-- `src/fixtures.test.ts` — every fixture in `fixtures/` (T-050/T-022) validates against that same generated
+- `src/fixtures.test.ts` — every fixture in `fixtures/` validates against that same generated
   schema — the model-level counterpart to the conformance suite's real KoSIT run below.
 
 ### `einvoice-commerce` (119 tests)
@@ -22,12 +22,11 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
   decided by where the goods go (row 4), domestic and cross-border reverse charge (rows 5 and 12, the latter
   needing BT-48), shipping/discount rates following the lines' rate, line-level discounts (BG-27), credit
-  notes (row 10, T-064), Leitweg-ID validation (T-062), input validation, BT-158/BT-159 customs fields (T-060
-  continuation), the parties' address lines (a seller without a street refused, a buyer without one
-  warned about above EUR 250), prices including VAT (each rate group's VAT taken out of its gross total, so
-  the invoice totals the gross amounts; both a net and a VAT-inclusive amount, or neither, refused), and
-  defensive behavior against a malformed non-TypeScript caller (ADR-003,
-  T-060).
+  notes (row 10), Leitweg-ID validation, input validation, BT-158/BT-159 customs fields, the parties'
+  address lines (a seller without a street refused, a buyer without one warned about above EUR 250), prices
+  including VAT (each rate group's VAT taken out of its gross total, so the invoice totals the gross amounts;
+  both a net and a VAT-inclusive amount, or neither, refused), and defensive behavior against a malformed
+  non-TypeScript caller (ADR-003).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany).
@@ -37,13 +36,13 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/leitweg-id.test.ts` — `validateLeitwegId` against the real KoSIT Leitweg-ID Format-Spezifikation
   v2.0.2, plus `looksLikeLeitwegId`.
 - `src/numbering.test.ts` — `SequentialNumberer`, and `InMemoryNumberingStore`'s own concurrency behavior
-  (T-063 acceptance: no duplicate or skipped numbers under concurrent calls within one process).
-- `src/profile.test.ts` — `selectProfile`: the ZUGFeRD/Factur-X profile by recipient geography (T-066),
+  (no duplicate or skipped numbers under concurrent calls within one process).
+- `src/profile.test.ts` — `selectProfile`: the ZUGFeRD/Factur-X profile by recipient geography,
   including the refusal of clearance-model countries (IT, PL).
 - `src/validate.test.ts` — `validateCommerceInvoiceInput` against the generated `CommerceInvoiceInput` JSON
-  Schema (T-060).
+  Schema.
 - `src/vat-id-verifier.test.ts` — `StaticVatIdVerifier` (the three real VIES outcomes: valid, invalid,
-  service unavailable — D-19 acceptance) and `MapVatIdVerifier`.
+  service unavailable) and `MapVatIdVerifier`.
 
 ### `einvoice-cii` (19 tests)
 
@@ -73,7 +72,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   tax-inclusive prices, discounts and shipping passed on VAT-inclusive, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
   methods as one document-level charge and promotions as line allowances), `describeOrderTotalMismatch`
   (invoice total vs `order.total`) and `issueDateInSellerTimeZone` (the invoice date in Berlin, not UTC).
-- `src/tax-matrix/tax-matrix.test.ts` (T-117/T-133, 57 tests) — the tax-scenario fixture matrix: every
+- `src/tax-matrix/tax-matrix.test.ts` (57 tests) — the tax-scenario fixture matrix: every
   `packages/einvoice-medusa/fixtures/tax-matrix/*` cell driven through the real, unmocked
   `mapOrderToCommerceInvoiceInput` → `buildInvoice`/`selectProfile` (two independent axes, not the
   subscribers' own early-exit chaining — see `src/tax-matrix/types.ts`'s doc comment for why), asserted
@@ -82,8 +81,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   half, that a cell expected to validate really passes the real KoSIT validator. Full matrix inventory and
   result: [`packages/einvoice-medusa/fixtures/tax-matrix/README.md`](../packages/einvoice-medusa/fixtures/tax-matrix/README.md).
 - `src/modules/einvoice/service.test.ts` — `EinvoiceModuleService`'s constructor-time option validation
-  (`assertValidOptions`): every field a real KoSIT rejection found mandatory (T-071), seller contact
-  and street included, and that `standalone.basePdf` passes through unchanged (T-073); and `recordDocumentIfAbsent`
+  (`assertValidOptions`): every field a real KoSIT rejection found mandatory, seller contact
+  and street included, and that `standalone.basePdf` passes through unchanged; and `recordDocumentIfAbsent`
   telling a lost idempotency race (the key exists after a failed insert) from a real failure.
 - `src/mapping/credit-note.test.ts` — `decideCreditScope` (a refund credits at most what is still
   outstanding on the invoice; the whole order is restated only when nothing was credited before),
@@ -111,8 +110,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `einvoice-conformance/src/kosit-report.test.ts` — `parseKositReport`: real KoSIT XML report parsing,
   including the `BR-DE-TMP-32`-is-informational-not-a-failure distinction
   (`docs/domain-glossary.md`). `src/index.test.ts` is a scaffold smoke test.
-- `einvoice-ubl/src/index.test.ts` — scaffold smoke test only; UBL serialization itself is v0.2 scope
-  (T-080, not yet implemented).
+- `einvoice-ubl/src/index.test.ts` — scaffold smoke test only; UBL serialization itself is v0.2 scope,
+  not yet implemented.
 
 ## Tooling tests (`node:test`, not part of any package)
 
@@ -120,15 +119,15 @@ Run together: `node --test tools/codegen/model/*.test.mjs tools/conformance/orac
 (exactly the line `.github/workflows/ci.yml` runs).
 
 - `tools/codegen/model/extract-codelists.test.mjs`, `extract-term-names.test.mjs` — the EN 16931 artifact
-  parsers `codegen:model` is built on (T-011).
+  parsers `codegen:model` is built on.
 - `tools/conformance/oracle-e-invoice-eu/canonicalize.test.mjs`, `map-to-ubl.test.mjs` — the L4 differential
-  oracle's own XML canonicalization and `Invoice` → `@e-invoice-eu/core` input mapping (T-041).
+  oracle's own XML canonicalization and `Invoice` → `@e-invoice-eu/core` input mapping.
 - `tools/conformance/oracle-stackforge-facturx/map-to-facturx-input.test.mjs` — the second L4 oracle's own
-  mapping (T-042).
-- `tools/license-scan/license-policy.test.mjs` — the license allow-list logic itself (T-003): SPDX
+  mapping.
+- `tools/license-scan/license-policy.test.mjs` — the license allow-list logic itself: SPDX
   expression normalization (plain string, `(X AND Y)`, `(X OR Y)`, the legacy `licenses` array form), and
-  that the runtime/dev allow-lists actually reject a real copyleft license and accept the plan's own two
-  named dev-only exceptions (`WTFPL`, `EUPL-1.2`).
+  that the runtime/dev allow-lists actually reject a real copyleft license and accept the two dev-only
+  exceptions named in `AGENTS.md` §5.1 (`WTFPL`, `EUPL-1.2`).
 
 ## Conformance suite (Docker-based, the official validators — not a stub)
 
@@ -140,7 +139,7 @@ completeness since it's as much a "test suite" as the vitest ones above, just on
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
 | L1+L2 | Real KoSIT Validator (XSD + Schematron, incl. `BR-DE-*`)                                                                                    | `pnpm conformance:fixtures`       | 14/14, `fixtures/`                                                                                 |
 | L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)                                         | `pnpm conformance:commerce`       | 6/6, `packages/einvoice-commerce/fixtures/`                                                        |
-| L1+L2 | Same, starting from a synthetic Medusa order through the real adapter (T-117/T-133); 3× per run for determinism                             | `pnpm conformance:tax-matrix`     | 20/20 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
+| L1+L2 | Same, starting from a synthetic Medusa order through the real adapter; 3× per run for determinism                                           | `pnpm conformance:tax-matrix`     | 20/20 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
 | L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance), both ZUGFeRD profiles                                         | `pnpm conformance:pdfa`           | 28/28 (14 fixtures × `XRECHNUNG`, `EN16931`)                                                       |
 | L4    | Differential oracle vs. `@e-invoice-eu/core`                                                                                                | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |
 | L4    | Differential oracle vs. `@stackforge-eu/factur-x`                                                                                           | `pnpm conformance:oracle-facturx` | 14 (13 classified, 1 unmappable, 0 unreviewed)                                                     |
@@ -148,10 +147,10 @@ completeness since it's as much a "test suite" as the vitest ones above, just on
 
 `AGENTS.md` §8 governs what each level actually proves and what it's forbidden to claim — none of the above
 is ever asserted from memory of a previous run; every task that touches serialization re-runs the relevant
-level for real (see `docs/domain-glossary.md` and the private planning log for the specific runs behind
-each "Validation successful"/"PASS" claimed in a commit message).
+level for real (see `docs/domain-glossary.md` and the commit history for the specific runs behind each
+"Validation successful"/"PASS" claimed in a commit message).
 
-## End-to-end suite (T-078)
+## End-to-end suite
 
 Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same completeness reason as the
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
@@ -168,7 +167,7 @@ invoice totals what Medusa charged (`order.total`) — the stand's German tax re
 ## CI wiring
 
 `.github/workflows/ci.yml` runs, across six jobs: the full vitest suite, the `node --test` tooling suite,
-`pnpm license-scan` (T-003), two codegen-determinism checks (`einvoice-model`, `einvoice-pdfa`'s ICC/font
+`pnpm license-scan`, two codegen-determinism checks (`einvoice-model`, `einvoice-pdfa`'s ICC/font
 generation) and two L4-oracle-report-is-up-to-date checks (all four "must give a zero diff on a clean tree"
 gates, ADR-002), a Docker smoke test against a vendored KoSIT test document, and the four fixture-based
 conformance jobs above (`conformance-fixtures`, `conformance-commerce`, `conformance-tax-matrix`,
@@ -176,7 +175,7 @@ conformance jobs above (`conformance-fixtures`, `conformance-commerce`, `conform
 also been run and passed locally, on the same commands CI itself invokes, not merely written and assumed
 correct.
 
-`.github/workflows/e2e.yml` (T-078) runs the end-to-end suite above separately — nightly and on
+`.github/workflows/e2e.yml` runs the end-to-end suite above separately — nightly and on
 `workflow_dispatch`, not on every push/PR, since a full Docker Compose stand boot is minutes of work per
 run and the integration surface it covers changes slowly. Run and passed locally against the same command
 (`pnpm e2e`).

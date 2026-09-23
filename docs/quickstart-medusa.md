@@ -121,7 +121,8 @@ integration: { kind: "webbers" },
 
 This plugin then reuses _their_ invoice's own number instead of allocating its own, and embeds this
 plugin's XML into their PDF. See
-[`docs/domain-glossary.md`](domain-glossary.md)'s own T-072 section for real, tested caveats with their
+[`docs/domain-glossary.md`](domain-glossary.md)'s `@webbers/invoices-medusa` integration section for real,
+tested caveats with their
 package (some genuine bugs in their `1.0.6` release, worked around or documented there).
 
 ## Buyer VAT-ID and B2G references
@@ -193,8 +194,8 @@ the invoice's lines add up to the rest. A T-shirt at EUR 10.00 and shipping at E
 This exact sequence was run against a real, freshly scaffolded `create-medusa-app@2.19.0` project (Docker
 Postgres), start to finish, and timed: **environment setup (steps 1–3) took under 10 minutes**, and a
 fulfilled order produced a real, KoSIT-validated invoice within seconds of step 4. `@normwerk/einvoice-*`
-aren't published to npm yet (that's T-076's own job) — this run substituted `yalc` for step 1's `npm
-install`, `medusa-config.ts` was edited exactly as shown, and every other step ran unmodified. Once T-076
-publishes these packages for real, this quickstart should be re-run once against the actual npm registry
+aren't published to npm yet — this run substituted `yalc` for step 1's `npm install`, `medusa-config.ts`
+was edited exactly as shown, and every other step ran unmodified. Once these packages are published to npm
+for real, this quickstart should be re-run once against the actual npm registry
 before being called final — a `yalc`-substituted install is a faithful stand-in for module resolution, but
 not for npm's own package resolution/version constraints.

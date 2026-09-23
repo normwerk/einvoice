@@ -1,7 +1,7 @@
 {
   "name": "@normwerk/einvoice-ubl",
   "version": "0.0.0",
-  "description": "OASIS UBL 2.1 serializer. Scaffold only; implementation is planned for a later release (plan-v0.1 §14, M-018).",
+  "description": "OASIS UBL 2.1 serializer. Scaffold only; not implemented yet.",
   "private": true,
   "type": "module",
   "license": "MIT",

@@ -34,7 +34,7 @@ object literals are the DI.
 `import`, not something shipped to a browser — there is nothing to bundle. `tsc -p tsconfig.json` per
 workspace package (already how the scaffold builds) keeps the toolchain to one thing: the TypeScript
 compiler, configured once in `tsconfig.base.json`. TypeScript **project references** are enabled
-(`composite: true` on every package) so that once one package imports another (starting at T-011/T-020,
+(`composite: true` on every package) so that once one package imports another (the first case being
 `einvoice-cii` depending on `einvoice-model`), `tsc` type-checks against the dependency's already-built
 declaration files instead of re-parsing its source — and `pnpm -r build` already builds packages in
 dependency order via pnpm's own topological sort, so no separate reference-graph tooling is needed.
@@ -42,8 +42,8 @@ dependency order via pnpm's own topological sort, so no separate reference-graph
 **Module format: ESM only.** `"type": "module"`, `moduleResolution: "Bundler"`. Medusa v2's plugin system
 is ESM-native, and a dual CJS+ESM build (a second `tsc` pass, or switching to `tsup`) would double the
 build and `exports` map surface for a consumer that doesn't need CJS. Revisit if the Medusa/Vendure
-compatibility work (adapter task, W10) turns up an actual CJS requirement — check the installed version
-rather than assume, the same caution the plan already applies to Medusa event names.
+adapter compatibility work turns up an actual CJS requirement — check the installed version rather than
+assume, the same caution this project already applies to Medusa event names.
 
 ## Consequences
 
