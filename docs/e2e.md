@@ -58,13 +58,14 @@ should show nothing from this stand at any point you're not actively mid-run.
 - **A container never becomes healthy / the run times out**: check `e2e/.artifacts/medusa.log` (and
   `postgres.log`, `verdaccio.log`) — written after every run, not only on failure — for the real container
   output.
-- **`npm install` inside the `medusa` container fails with `ERESOLVE`**: an open-ended peer dependency
-  (`@medusajs/test-utils`, required by `@normwerk/einvoice-medusa`) resolving to a newer Medusa patch than
-  the exact version this app pins (`@medusajs/framework`) — verified against a real run: this app installs
+- **`npm install` inside the `medusa` container fails with `ERESOLVE`**: some `@medusajs/*` package resolving
+  to a newer Medusa patch than the exact version this app pins (`@medusajs/framework`) — this app installs
   fresh from the real npm registry (proxied through the stand's own Verdaccio) on every boot, so a new
-  upstream release can start failing this install with no change on our side. Fixed by pinning
-  `@medusajs/test-utils` to the same version as `@medusajs/framework` in `e2e/app/package.json`; if it
-  recurs after a Medusa release, bump both together.
+  upstream release can start failing this install with no change on our side. It was first seen through
+  `@medusajs/test-utils`, which `@normwerk/einvoice-medusa` used to declare as a required peer dependency;
+  the plugin no longer does (it is a test tool, not something a shop needs), and `e2e/app/package.json` pins
+  it to the same version as `@medusajs/framework`. If it recurs after a Medusa release, bump the pinned
+  `@medusajs/*` versions together.
 - **Port already in use**: this stand uses `55432` (Postgres), `4873` (Verdaccio), and `9500` (Medusa,
   deliberately not `9000`) on the host by default; override with `EINVOICE_E2E_POSTGRES_PORT` /
   `EINVOICE_E2E_VERDACCIO_PORT` / `EINVOICE_E2E_MEDUSA_PORT` if any of those collide with something else

@@ -6,15 +6,13 @@
  *
  * Two separately-scoped closures, not one flat scan of the whole workspace:
  *
- * 1. **Runtime**: the actual `dependencies` field (never `devDependencies`) of each of this monorepo's five
- *    *published* packages (`einvoice-model`, `einvoice-commerce`, `einvoice-cii`, `einvoice-pdfa`,
- *    `einvoice-medusa`), walked transitively through every dependency's own `dependencies` field in turn —
+ * 1. **Runtime**: the actual `dependencies` field (never `devDependencies`) of each of this monorepo's
+ *    *published* packages (every `packages/*` without `"private": true`, `PUBLISHED_PACKAGES` below), walked
+ *    transitively through every dependency's own `dependencies` field in turn —
  *    this is the real, precise definition of "what ships inside a consumer's own `node_modules` when they
  *    install one of our packages," which is what the release checklist's own "только MIT/Apache-2.0/BSD/
- *    ISC" wording is actually about. `einvoice-conformance`/`einvoice-ubl` are deliberately excluded from
- *    this closure — both are `"private": true` and never published (`einvoice-conformance`'s own package.json
- *    description: "Never a runtime dependency of anything shipped"); their own dependencies are dev-tier
- *    tooling from an external consumer's point of view, not runtime.
+ *    ISC" wording is actually about. A `"private": true` package (today `einvoice-ubl`) is never published,
+ *    so its dependencies are dev-tier from an external consumer's point of view, not runtime.
  *
  *    `pnpm licenses list --prod` (tried first, T-003's own research) does *not* give this: run at the
  *    workspace root it also walks into every *devDependency*'s own transitive prod dependencies (e.g.
@@ -46,17 +44,20 @@ import {
 } from "./license-policy.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const PUBLISHED_PACKAGES = [
-  "einvoice-model",
-  "einvoice-commerce",
-  "einvoice-cii",
-  "einvoice-pdfa",
-  "einvoice-medusa",
-];
-
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf-8"));
 }
+
+/**
+ * Every workspace package without `"private": true` — the same field `pnpm -r publish` itself decides by,
+ * so this list cannot drift from what is actually published. It used to be a hand-kept list that missed
+ * `einvoice-conformance` after that package became publishable, which would have checked its runtime
+ * dependencies against the wider dev allow-list (P-52).
+ */
+const PUBLISHED_PACKAGES = readdirSync(join(REPO_ROOT, "packages"))
+  .filter((name) => existsSync(join(REPO_ROOT, "packages", name, "package.json")))
+  .filter((name) => readJson(join(REPO_ROOT, "packages", name, "package.json")).private !== true)
+  .sort();
 
 function listWorkspacePackageDirs() {
   const packagesDir = join(REPO_ROOT, "packages");

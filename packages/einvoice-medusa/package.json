@@ -86,7 +86,6 @@
     "@medusajs/framework": ">=2.4.0",
     "@medusajs/icons": ">=2.4.0",
     "@medusajs/medusa": ">=2.4.0",
-    "@medusajs/test-utils": ">=2.4.0",
     "@medusajs/ui": ">=4.0.0",
     "@webbers/invoices-medusa": ">=1.0.0"
   },
