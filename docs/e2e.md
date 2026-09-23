@@ -48,6 +48,7 @@ running it repeatedly.
 ✓ src/scenarios/s7-promotion.test.ts         — a promotion code becomes a line discount named after it
 ✓ src/scenarios/s8-service-reverse-charge.test.ts — a services-only order to an EU business, category AE
 ✓ src/scenarios/s9-b2c-guest.test.ts         — a private guest buyer, named from the billing address
+✓ src/scenarios/s10-prices-incl-vat.test.ts  — prices including VAT: the invoice totals what was charged
 ✓ src/scenarios/idempotency.test.ts          — redelivering an event never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot with a missing required option

@@ -88,8 +88,11 @@ export const ORDER_QUERY_FIELDS = [
   // arithmetic itself. `total` is also read back, for `describeOrderTotalMismatch`.
   "total",
   "items.discount_subtotal",
+  "items.discount_total",
   "items.adjustments.code",
   "shipping_methods.name",
+  "shipping_methods.is_tax_inclusive",
+  "shipping_methods.total",
   "shipping_methods.subtotal",
   "shipping_methods.discount_subtotal",
 ] as const;
@@ -137,6 +140,8 @@ export interface MedusaOrderLineItem {
    * (`@medusajs/utils` `getLineItemTotals`: already prorated to the current quantity and already net of tax
    * for a tax-inclusive adjustment). A `BigNumber` at runtime, read through `Number()` like `unit_price`. */
   readonly discount_subtotal?: number | string | null;
+  /** P-61: the same discounts including tax — the allowance of a tax-inclusive line. */
+  readonly discount_total?: number | string | null;
   /** P-39: only read for the promotion `code`s, which name the line allowance (BT-139). */
   readonly adjustments?: readonly { readonly code?: string | null }[] | null;
 }
@@ -144,6 +149,10 @@ export interface MedusaOrderLineItem {
 /** P-39: `OrderShippingMethod` with Medusa's own computed totals (see `ORDER_QUERY_FIELDS`). */
 export interface MedusaOrderShippingMethod {
   readonly name?: string | null;
+  /** P-61: whether the method's price includes tax — then its `total` is what the buyer was charged. */
+  readonly is_tax_inclusive?: boolean | null;
+  /** Including tax, after the method's own discounts. */
+  readonly total?: number | string | null;
   /** Net of tax, before the shipping method's own discounts. */
   readonly subtotal?: number | string | null;
   /** The shipping method's own discounts, net of tax. */
@@ -242,28 +251,13 @@ function inferTaxRateKind(
 }
 
 /**
- * `OrderLineItem.unit_price` can be tax-inclusive or exclusive per line (`is_tax_inclusive`, a real field
- * on the model — not every store prices ex-tax). `CommerceLine.netPrice` is always ex-tax (`buildInvoice`
- * computes tax itself from `TaxContext`/the resolved category), so a tax-inclusive line needs backing the
- * rate out here. This is a one-time input conversion, not one of `einvoice-commerce`'s own BR-CO-*
- * summations (`decimal.ts`'s no-floating-point rule targets those) — ordinary `Number` division is
- * accurate to far more than the 2-4 decimal places any real unit price needs, and the result re-enters the
- * core as a plain decimal string that `buildInvoice`'s own bigint arithmetic takes over from there.
+ * P-61: a line's unit price as Medusa stores it, net or tax-inclusive (`is_tax_inclusive`, per line). A
+ * tax-inclusive price is passed on as `priceInclVat`, not backed out here: `buildInvoice` takes the VAT out
+ * of each rate group's gross total at the rate it decides, so the invoice totals what Medusa charged.
  */
-function computeNetUnitPrice(item: MedusaOrderLineItem): string {
-  const gross = Number(item.unit_price ?? 0);
-  if (!item.is_tax_inclusive) {
-    return gross.toFixed(4);
-  }
-  const rate = item.tax_lines?.[0]?.rate;
-  if (rate === undefined) {
-    // Tax-inclusive with no captured rate is a genuine data gap (e.g. an order synced before tax
-    // calculation ran) — treating the gross price as net would silently overcharge tax on top of tax
-    // already included, so surface the gross price unchanged rather than guess a rate to back out.
-    return gross.toFixed(4);
-  }
-  const net = gross / (1 + Number(rate) / 100);
-  return net.toFixed(4);
+function unitPrice(item: MedusaOrderLineItem): { netPrice?: string; priceInclVat?: string } {
+  const price = Number(item.unit_price ?? 0).toFixed(4);
+  return item.is_tax_inclusive ? { priceInclVat: price } : { netPrice: price };
 }
 
 /** P-48: the time zone an invoice date is read in, per seller country. v0.1 covers German sellers only
@@ -305,7 +299,8 @@ export function toAmount(value: number | string | null | undefined): Amount {
 function resolveLineAllowances(
   item: MedusaOrderLineItem,
 ): readonly { readonly amount: Amount; readonly reason: string }[] | undefined {
-  const amount = toAmount(item.discount_subtotal);
+  // P-61: in the line's own price basis — tax-inclusive for a tax-inclusive line.
+  const amount = toAmount(item.is_tax_inclusive ? item.discount_total : item.discount_subtotal);
   if (Number(amount) <= 0) {
     return undefined;
   }
@@ -324,23 +319,32 @@ function resolveLineAllowances(
  * file's (P-40: the rate of the supply it belongs to). */
 function resolveShipping(
   order: MedusaOrderForInvoice,
-): { readonly amount: Amount; readonly reason: string } | undefined {
+):
+  | { readonly amount?: Amount; readonly amountInclVat?: Amount; readonly reason: string }
+  | undefined {
   const methods = order.shipping_methods ?? [];
-  const net = methods.reduce(
-    (sum, method) => sum + Number(method.subtotal ?? 0) - Number(method.discount_subtotal ?? 0),
+  // P-61: tax-inclusive methods are charged as their `total`; if every method is, the charge is passed on
+  // VAT-inclusive, like a tax-inclusive line. Otherwise Medusa's net amounts, as before.
+  const inclusive =
+    methods.length > 0 && methods.every((method) => method.is_tax_inclusive === true);
+  const sum = methods.reduce(
+    (total, method) =>
+      total +
+      (inclusive
+        ? Number(method.total ?? 0)
+        : Number(method.subtotal ?? 0) - Number(method.discount_subtotal ?? 0)),
     0,
   );
-  const amount = toAmount(net);
+  const amount = toAmount(sum);
   if (Number(amount) <= 0) {
     return undefined;
   }
   const names = methods
     .map((method) => method.name)
     .filter((name): name is string => typeof name === "string" && name !== "");
-  return {
-    amount,
-    reason: names.length > 0 ? `Versand / Shipping: ${names.join(", ")}` : "Versand / Shipping",
-  };
+  const reason =
+    names.length > 0 ? `Versand / Shipping: ${names.join(", ")}` : "Versand / Shipping";
+  return inclusive ? { amountInclVat: amount, reason } : { amount, reason };
 }
 
 /**
@@ -551,7 +555,7 @@ export function mapOrderToCommerceInvoiceInput(
       // default; a merchant that needs a different BT-130 value has no source this mapping can read yet
       // (a real, documented v0.1 gap, not an oversight).
       unitCode: "C62",
-      netPrice: computeNetUnitPrice(item),
+      ...unitPrice(item),
       itemName: item.title,
       taxRateKind: inferTaxRateKind(item, options.deRates),
       supplyType: resolveLineSupplyType(item),

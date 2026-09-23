@@ -68,8 +68,8 @@ export function decideCreditScope(input: CreditScopeInput): CreditScope {
 }
 
 export interface PartialCreditNoteLine {
-  /** The credited net amount — `netFromGross` over the credited gross sum at the invoice's rate. */
-  readonly net: Amount;
+  /** The credited gross sum — passed on VAT-inclusive, so the credit note totals exactly this (P-61). */
+  readonly gross: Amount;
   /** The rate kind every line of the order carries (a partial credit note over mixed rates is refused). */
   readonly taxRateKind: "standard" | "reduced" | undefined;
   readonly originalInvoiceNumber: string;
@@ -78,8 +78,8 @@ export interface PartialCreditNoteLine {
 }
 
 /**
- * A partial credit note has one line: the credited net amount, under the same category and rate as the
- * invoice it corrects (the order's own `taxContext` is kept, so `buildInvoice` decides exactly as it did
+ * A partial credit note has one line: the credited gross amount, VAT-inclusive, under the same category and
+ * rate as the invoice it corrects (the order's own `taxContext` is kept, so `buildInvoice` decides exactly as it did
  * for the invoice). The order's lines, shipping and discounts are left out — they describe what was sold,
  * not what is being credited.
  */
@@ -100,7 +100,7 @@ export function toPartialCreditNoteInput(
         identifier: "1",
         quantity: "1",
         unitCode: "C62",
-        netPrice: line.net,
+        priceInclVat: line.gross,
         itemName: `${label} — Rechnung ${line.originalInvoiceNumber}`,
         taxRateKind: line.taxRateKind,
         supplyType,

@@ -118,7 +118,7 @@ describe("mapOrderToCommerceInvoiceInput", () => {
     expect(input.taxContext.buyerCountry).toBe("DE");
   });
 
-  it("backs the tax rate out of a tax-inclusive unit price", () => {
+  it("passes a tax-inclusive unit price through as priceInclVat — the core takes the VAT out (P-61)", () => {
     const order = baseOrder({
       items: [
         {
@@ -131,7 +131,41 @@ describe("mapOrderToCommerceInvoiceInput", () => {
       ],
     });
     const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
-    expect(input.lines[0]?.netPrice).toBe("100.0000");
+    expect(input.lines[0]?.priceInclVat).toBe("119.0000");
+    expect(input.lines[0]?.netPrice).toBeUndefined();
+  });
+
+  it("takes a tax-inclusive line's discount and shipping VAT-inclusive too, as Medusa charged them (P-61)", () => {
+    const order = baseOrder({
+      items: [
+        {
+          title: "T-Shirt",
+          unit_price: 10,
+          is_tax_inclusive: true,
+          tax_lines: [{ rate: 19 }],
+          detail: { quantity: 3 },
+          discount_total: 3,
+          discount_subtotal: 2.5210084033613445,
+          adjustments: [{ code: "GROSS10" }],
+        },
+      ],
+      shipping_methods: [
+        {
+          name: "Standard",
+          is_tax_inclusive: true,
+          total: 10,
+          subtotal: 8.403361344537815,
+          discount_subtotal: 0,
+        },
+      ],
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    // On a VAT-inclusive line the allowance is VAT-inclusive too — Medusa's discount_total, not its net.
+    expect(input.lines[0]?.allowances).toEqual([{ amount: "3.00", reason: "GROSS10" }]);
+    expect(input.shipping).toEqual({
+      amountInclVat: "10.00",
+      reason: "Versand / Shipping: Standard",
+    });
   });
 
   it("leaves an exclusive unit price untouched", () => {

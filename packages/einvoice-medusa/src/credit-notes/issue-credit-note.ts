@@ -4,9 +4,9 @@
  * `src/subscribers/` on purpose: Medusa loads every file there as a subscriber.
  *
  * What a credit note contains is decided by `decideCreditScope` (`mapping/credit-note.ts`): the whole
- * order restated, or one line over a credited gross sum. Its VAT category and rate always come from
- * `@normwerk/einvoice-commerce` (`decideVatCategory`, `resolveLineRate`, `netFromGross`) — this file asks,
- * it does not decide. The VAT-ID check and the partial-credit refusal run before a document number is
+ * order restated, or one VAT-inclusive line over a credited gross sum. Its VAT category and rate always
+ * come from `@normwerk/einvoice-commerce` (`decideVatCategory`, and `buildInvoice` for the rate the VAT
+ * is taken out at) — this file asks, it does not decide. The VAT-ID check and the partial-credit refusal run before a document number is
  * allocated, so neither burns a number.
  *
  * Same dynamic-import pattern as the subscribers (ESM-only core packages, CommonJS plugin build).
@@ -148,11 +148,9 @@ export async function issueCreditNote({
     if (decision.categoryCode === "S" && kinds.length > 1) {
       throw new PartialCreditAcrossRatesError(order.id);
     }
-    const taxRateKind = kinds[0];
-    const rate = commerce.resolveLineRate(decision, input.taxContext, taxRateKind);
     input = toPartialCreditNoteInput(input, {
-      net: commerce.netFromGross(scope.gross, rate),
-      taxRateKind,
+      gross: scope.gross,
+      taxRateKind: kinds[0],
       originalInvoiceNumber: basis.invoice.document_number,
       reason,
     });
@@ -191,16 +189,6 @@ export async function issueCreditNote({
 
   for (const warning of buildResult.warnings) {
     logger.warn(`einvoice: order ${order.id}: ${warning.message} [${warning.code}]`);
-  }
-  if (
-    scope.kind === "partial" &&
-    buildResult.invoice.totals.totalAmountWithVat !== Number(scope.gross).toFixed(2)
-  ) {
-    // Rounding leaves a few gross sums no 2-decimal net can reach exactly; netFromGross then stays below.
-    logger.warn(
-      `einvoice: order ${order.id}: the credit note totals ${buildResult.invoice.totals.totalAmountWithVat} ` +
-        `for a credited ${scope.gross} — no net amount reaches that sum exactly at this VAT rate.`,
-    );
   }
 
   // T-073: standalone mode's own PDF source — see invoice-on-fulfillment-created.ts's identical comment.

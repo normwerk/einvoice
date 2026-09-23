@@ -12,8 +12,6 @@ const mocks = vi.hoisted(() => ({
     warnings: [],
   })),
   decideVatCategory: vi.fn(() => ({ categoryCode: "S", ruleId: "tax-semantics#1" })),
-  resolveLineRate: vi.fn(() => "19"),
-  netFromGross: vi.fn(() => "180.00"),
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   storeEinvoiceFiles: vi.fn(async () => ({
     xmlFileId: "file_xml",
@@ -30,8 +28,6 @@ vi.mock("@normwerk/einvoice-commerce", () => ({
   selectProfile: mocks.selectProfile,
   buildInvoice: mocks.buildInvoice,
   decideVatCategory: mocks.decideVatCategory,
-  resolveLineRate: mocks.resolveLineRate,
-  netFromGross: mocks.netFromGross,
   SequentialNumberer: class {
     next = vi.fn(async () => "GS-2026-0002");
   },
@@ -136,7 +132,11 @@ describe("creditNoteOnOrderCanceled (P-41)", () => {
   it("reverses the whole invoice when nothing was credited before", async () => {
     const { container, service } = setup({ invoices: [INVOICE], creditNotes: [] });
     await creditNoteOnOrderCanceled(args(container));
-    expect(mocks.netFromGross).not.toHaveBeenCalled();
+    // The whole order restated — its own line, not a one-line "remaining amount" credit.
+    const [whole] = mocks.buildInvoice.mock.calls[0] as unknown as [
+      { lines: readonly { itemName: string }[] },
+    ];
+    expect(whole.lines.map((line) => line.itemName)).toEqual(["Widget"]);
     expect(service.recordDocumentIfAbsent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "credit_note", idempotencyKey: "order.canceled:order_01" }),
     );
@@ -145,10 +145,10 @@ describe("creditNoteOnOrderCanceled (P-41)", () => {
   it("credits only what is still outstanding after an earlier partial refund", async () => {
     const { container } = setup({ invoices: [INVOICE], creditNotes: [PARTIAL_CREDIT] });
     await creditNoteOnOrderCanceled(args(container));
-    expect(mocks.netFromGross).toHaveBeenCalledWith("214.20", "19");
     const [input] = mocks.buildInvoice.mock.calls[0] as unknown as [
-      { lines: readonly { itemName: string }[] },
+      { lines: readonly { itemName: string; priceInclVat: string }[] },
     ];
+    expect(input.lines[0]?.priceInclVat).toBe("214.20");
     expect(input.lines[0]?.itemName).toContain("Stornierung");
   });
 

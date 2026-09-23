@@ -72,6 +72,11 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
 - **"Gutschrift" ≠ credit note (P-04, T-034).** In UStG terms it is a self-billed invoice (389). Use
   "Rechnungskorrektur" for 381 in anything a human reads; keep code 381 in XML.
+- **`BR-CO-17` and `BR-S-09` accept a group VAT that is off by less than 1.** Their Schematron tests compare
+  BT-117 with round(BT-116 × rate) within ±1 (a whole currency unit, not a cent). That is what lets an
+  invoice for prices including VAT state the VAT taken out of the gross total, which differs from taxable ×
+  rate by a cent for about one gross total in six — confirmed against KoSIT with the
+  `commerce-gross-prices` fixture (4.97 on 26.13 at 19%, where taxable × rate gives 4.96).
 - **No validator asks for a street, and German law does.** EN 16931 leaves every address line optional
   (BT-35/36 seller, BT-50/51 buyer, BT-75/76 deliver-to) and the XRechnung rules require only city and post
   code (BR-DE-3/4/8/9), so a street-less invoice is KoSIT-green — while §14 Abs. 4 Satz 1 Nr. 1 UStG needs
@@ -151,9 +156,15 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
 - **Medusa refuses to cancel an order that still has an active fulfillment.** Each fulfillment is cancelled
   first (`POST /admin/orders/:id/fulfillments/:fulfillment_id/cancel`), then the order. An order invoiced on
   `order.fulfillment_created` is always in that state, so cancelling one is a two-step operation.
-- **A refund's amount is `payment.refunds[].amount`, gross.** Crediting it takes the net amount whose VAT at
-  the invoice's rate brings it back to that gross sum (`netFromGross` in `einvoice-commerce`) — at 2-decimal
-  precision a few gross sums have no exact net (0.03 at 19%), and the credit note then totals a cent less.
+- **A refund's amount is `payment.refunds[].amount`, gross.** A partial refund is credited as one
+  VAT-inclusive line (`priceInclVat`) over that sum, so the credit note totals exactly the refund.
+  Converting it to a net amount first cannot always work: at 2-decimal precision about one gross sum in six
+  has no net whose VAT adds back to it (0.03 at 19%).
+- **Tax-inclusive prices in Medusa are per price preference, not per product.** The region and the
+  currency each get a price preference when the region is created (`POST /admin/price-preferences` for the
+  region then fails with "already exists"; update it instead). On a tax-inclusive line `unit_price` and
+  `discount_total` include tax and `discount_subtotal` does not; a tax-inclusive shipping method's `total`
+  is what was charged.
 - **A guest checkout's customer record has no name.** Medusa creates it from the email alone — no
   `first_name`, `last_name` or `company_name`; the buyer's name lives only on the order's billing and
   shipping addresses. Reading names from `order.customer` alone names every guest after their email.
@@ -189,11 +200,10 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   "obviously simple" platform field this project's own rule (`docs/domain-glossary.md`'s own earlier BT-40/
   BT-41 entry) says to verify rather than assume, applied here to platform schema instead of an EN 16931 BT.
 - **`OrderLineItem.is_tax_inclusive` is a real, per-line boolean** — a store's prices can be tax-inclusive
-  or tax-exclusive per line, not fixed store-wide. `CommerceLine.netPrice` is always ex-tax
-  (`buildInvoice` computes tax itself from `TaxContext`), so a tax-inclusive Medusa line needs the rate
-  backed out of `unit_price` before mapping — skipping this would double an already-included tax on top of
-  `buildInvoice`'s own calculation for any merchant with tax-inclusive pricing turned on (Medusa's default
-  for storefronts in several regions), not a rare edge case.
+  or tax-exclusive per line, not fixed store-wide. A tax-inclusive line is mapped to
+  `CommerceLine.priceInclVat`, never to `netPrice` — treating the gross price as net would add tax on top
+  of tax already included, and backing the rate out line by line rounds each line on its own, so the
+  invoice can total a cent less than was charged.
 - **Race-safe per-series counters in real Medusa module services don't use `SELECT` then `UPDATE` from
   application code** — `display_id` (Medusa's own order-numbering field) is a native Postgres `SERIAL`
   column (`model.autoincrement()`, confirmed in `@medusajs/order`'s compiled model + migration), and the

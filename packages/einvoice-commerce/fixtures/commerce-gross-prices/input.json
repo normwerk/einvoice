@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "document": {
+    "kind": "invoice",
+    "number": "RE-2026-1006",
+    "issueDate": "2026-09-14",
+    "currency": "EUR"
+  },
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
+    "city": "Berlin",
+    "postCode": "10115",
+    "vatIdentifier": "DE123456789",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
+  },
+  "buyer": {
+    "name": "Beispielkunde GmbH",
+    "countryCode": "DE",
+    "addressLine1": "Beispielweg 2",
+    "city": "Hamburg",
+    "postCode": "20095",
+    "electronicAddress": "ap@commerce-gross-prices.example",
+    "electronicAddressScheme": "EM"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "3",
+      "unitCode": "C62",
+      "priceInclVat": "10.00",
+      "itemName": "T-Shirt (standard rate, price incl. VAT)",
+      "taxRateKind": "standard",
+      "allowances": [
+        {
+          "amount": "3.00",
+          "reason": "SOMMER10"
+        }
+      ]
+    },
+    {
+      "identifier": "2",
+      "quantity": "1",
+      "unitCode": "C62",
+      "priceInclVat": "10.70",
+      "itemName": "Kochbuch (reduced rate, price incl. VAT)",
+      "taxRateKind": "reduced"
+    }
+  ],
+  "shipping": {
+    "amountInclVat": "4.10",
+    "reason": "Versand / Shipping"
+  },
+  "payment": {
+    "means": "58",
+    "iban": "DE89370400440532013000"
+  },
+  "references": {
+    "buyerReference": "Buchhaltung-2026-09"
+  },
+  "taxContext": {
+    "sellerCountry": "DE",
+    "sellerVatId": "DE123456789",
+    "buyerCountry": "DE",
+    "buyerIsBusiness": true,
+    "ossRegistered": false,
+    "supplyType": "goods"
+  }
+}

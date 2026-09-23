@@ -1,5 +1,5 @@
 import type { AdminSession } from "./admin.js";
-import { adminPostJson } from "./admin.js";
+import { adminGetJson, adminPostJson } from "./admin.js";
 
 /** A percentage promotion on items, applied by code — real `POST /admin/promotions`, verified against a
  * real run. */
@@ -57,4 +57,38 @@ export async function createServiceProduct(
     throw new Error(`createServiceProduct: ${input.sku} was created without a variant`);
   }
   return variantId;
+}
+
+/**
+ * Switches the region's prices (and the EUR currency's) between net and tax-inclusive — Medusa's own price
+ * preferences, created with the region; real `POST /admin/price-preferences/:id`. A scenario that switches
+ * them must switch them back: every other scenario on the stand prices net.
+ */
+export async function setRegionPricesIncludeTax(
+  admin: AdminSession,
+  regionId: string,
+  inclusive: boolean,
+): Promise<void> {
+  const { price_preferences: preferences } = await adminGetJson<{
+    readonly price_preferences: readonly {
+      readonly id: string;
+      readonly attribute: string;
+      readonly value: string;
+    }[];
+  }>(admin, "/admin/price-preferences?limit=50");
+  const targets = preferences.filter(
+    (p) =>
+      (p.attribute === "region_id" && p.value === regionId) ||
+      (p.attribute === "currency_code" && p.value === "eur"),
+  );
+  if (targets.length !== 2) {
+    throw new Error(
+      `setRegionPricesIncludeTax: expected 2 price preferences, found ${targets.length}`,
+    );
+  }
+  for (const preference of targets) {
+    await adminPostJson(admin, `/admin/price-preferences/${preference.id}`, {
+      is_tax_inclusive: inclusive,
+    });
+  }
 }

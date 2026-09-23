@@ -802,6 +802,9 @@ export const commerceInvoiceInputJsonSchema = {
         "netPrice": {
           "$ref": "#/definitions/Amount"
         },
+        "priceInclVat": {
+          "$ref": "#/definitions/Amount"
+        },
         "itemName": {
           "type": "string"
         },
@@ -835,7 +838,6 @@ export const commerceInvoiceInputJsonSchema = {
       "required": [
         "quantity",
         "unitCode",
-        "netPrice",
         "itemName"
       ],
       "additionalProperties": false
@@ -865,13 +867,13 @@ export const commerceInvoiceInputJsonSchema = {
         "amount": {
           "$ref": "#/definitions/Amount"
         },
+        "amountInclVat": {
+          "$ref": "#/definitions/Amount"
+        },
         "reason": {
           "type": "string"
         }
       },
-      "required": [
-        "amount"
-      ],
       "additionalProperties": false
     },
     "PaymentMeansCode": {

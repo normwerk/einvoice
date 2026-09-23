@@ -4,6 +4,7 @@ import {
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
   InvalidLeitwegIdError,
+  InvalidPriceBasisError,
   LineAllowanceExceedsLineAmountError,
   MissingBuyerIdentifierForReverseChargeError,
   MissingBuyerVatIdError,
@@ -679,4 +680,86 @@ describe("buildInvoice — defends against a malformed non-TypeScript caller (AD
       expect(() => buildInvoice(input)).toThrow(InvalidAssembledInvoiceError);
     },
   );
+});
+
+describe("buildInvoice — VAT-inclusive prices total exactly what was charged (P-61)", () => {
+  const inclusiveLine = (priceInclVat: string, quantity = "1") => ({
+    quantity,
+    unitCode: "C62",
+    priceInclVat,
+    itemName: "T-Shirt",
+    taxRateKind: "standard" as const,
+  });
+
+  it("takes the VAT out of each rate group's gross total — 10.00 + 10.00 shipping is 20.00, not 19.99", () => {
+    const { invoice } = buildInvoice(
+      domesticInput({
+        lines: [inclusiveLine("10.00")],
+        shipping: { amountInclVat: "10.00", reason: "Versand" },
+      }),
+    );
+    expect(invoice.totals.totalAmountWithVat).toBe("20.00");
+    expect(invoice.totals.amountDueForPayment).toBe("20.00");
+    expect(invoice.vatBreakdown).toEqual([
+      expect.objectContaining({ taxableAmount: "16.81", taxAmount: "3.19", rate: "19" }),
+    ]);
+    expect(invoice.lines[0]?.netAmount).toBe("8.41");
+    expect(invoice.lines[0]?.netPrice).toBe("8.4100");
+    expect(invoice.documentLevelCharges?.[0]?.amount).toBe("8.40");
+    expect(invoice.totals.totalAmountWithoutVat).toBe("16.81");
+  });
+
+  it("carries VAT-inclusive line and document discounts into the same group", () => {
+    const { invoice } = buildInvoice(
+      domesticInput({
+        lines: [
+          { ...inclusiveLine("10.00", "3"), allowances: [{ amount: "3.00", reason: "SUMMER10" }] },
+        ],
+        shipping: { amountInclVat: "10.00", reason: "Versand" },
+        discounts: [{ amountInclVat: "2.00", reason: "Treuerabatt" }],
+      }),
+    );
+    // 30.00 − 3.00 + 10.00 − 2.00 = 35.00 gross, 5.59 VAT, 29.41 net.
+    expect(invoice.totals.totalAmountWithVat).toBe("35.00");
+    expect(invoice.totals.totalVatAmount).toBe("5.59");
+    const line = invoice.lines[0];
+    expect(line?.allowances?.[0]?.amount).toBe("2.52");
+    const lineNet = line?.netAmount ?? "";
+    expect(Number(lineNet) + Number(invoice.documentLevelCharges?.[0]?.amount)).toBeCloseTo(
+      Number(invoice.totals.totalAmountWithoutVat) +
+        Number(invoice.documentLevelAllowances?.[0]?.amount),
+      2,
+    );
+  });
+
+  it("keeps each rate's own gross total when a basket mixes 7% and 19%", () => {
+    const { invoice } = buildInvoice(
+      domesticInput({
+        lines: [inclusiveLine("11.90"), { ...inclusiveLine("10.70"), taxRateKind: "reduced" }],
+      }),
+    );
+    expect(invoice.totals.totalAmountWithVat).toBe("22.60");
+    expect(invoice.vatBreakdown).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ taxableAmount: "10.00", taxAmount: "1.90", rate: "19" }),
+        expect.objectContaining({ taxableAmount: "10.00", taxAmount: "0.70", rate: "7" }),
+      ]),
+    );
+  });
+
+  it("refuses a line or charge that gives both a net and a VAT-inclusive amount, or neither", () => {
+    expect(() =>
+      buildInvoice(domesticInput({ lines: [{ ...inclusiveLine("10.00"), netPrice: "8.40" }] })),
+    ).toThrow(InvalidPriceBasisError);
+    expect(() =>
+      buildInvoice(
+        domesticInput({
+          lines: [{ quantity: "1", unitCode: "C62", itemName: "T-Shirt", taxRateKind: "standard" }],
+        }),
+      ),
+    ).toThrow(InvalidPriceBasisError);
+    expect(() =>
+      buildInvoice(domesticInput({ shipping: { amount: "8.40", amountInclVat: "10.00" } })),
+    ).toThrow(InvalidPriceBasisError);
+  });
 });

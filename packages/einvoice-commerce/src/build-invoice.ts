@@ -23,9 +23,12 @@ import {
 import {
   compareAmounts,
   multiplyToAmount,
+  netsOfVatInclusiveParts,
   percentOfAmount,
   subtractAmounts,
   sumAmounts,
+  unitPriceOf,
+  vatContainedIn,
 } from "./decimal.js";
 import { looksLikeLeitwegId, validateLeitwegId } from "./leitweg-id.js";
 import { validateCommerceInvoiceInput } from "./validate.js";
@@ -163,6 +166,16 @@ export class MissingSellerContactError extends Error {
 /** §33 UStDV: the gross amount up to which an invoice may leave out the buyer's name and address. */
 const SMALL_AMOUNT_INVOICE_LIMIT = "250.00";
 
+export class InvalidPriceBasisError extends Error {
+  constructor(readonly where: string) {
+    super(
+      `${where}: give exactly one of a net amount (netPrice / amount) and a VAT-inclusive one ` +
+        "(priceInclVat / amountInclVat).",
+    );
+    this.name = "InvalidPriceBasisError";
+  }
+}
+
 export class MissingSellerAddressError extends Error {
   constructor() {
     super(
@@ -214,6 +227,21 @@ function mapParty(party: CommerceParty) {
     electronicAddress: party.electronicAddress,
     electronicAddressScheme: party.electronicAddressScheme,
   };
+}
+
+/** P-61: whether an amount is before VAT or includes it. */
+type PriceBasis = "net" | "inclusive";
+
+/** Exactly one of a net and a VAT-inclusive amount, with which one it is. */
+function amountAndBasis(
+  net: string | undefined,
+  inclusive: string | undefined,
+  where: string,
+): { readonly amount: string; readonly basis: PriceBasis } {
+  if (net !== undefined && inclusive === undefined) return { amount: net, basis: "net" };
+  if (inclusive !== undefined && net === undefined)
+    return { amount: inclusive, basis: "inclusive" };
+  throw new InvalidPriceBasisError(where);
 }
 
 interface ChargeLine {
@@ -363,27 +391,39 @@ export function buildInvoice(
   }
   assertTaxFactsMatchDocument(regimeDecision, input);
 
+  // P-61: every price and amount is either net or VAT-inclusive (exactly one of the two fields).
   const lineComputations = input.lines.map((line, index) => {
     const identifier = line.identifier ?? String(index + 1);
-    const grossLineAmount = multiplyToAmount(line.quantity, line.netPrice);
+    const price = amountAndBasis(line.netPrice, line.priceInclVat, `line ${identifier}`);
+    const amountBeforeAllowances = multiplyToAmount(line.quantity, price.amount);
     const allowances = line.allowances ?? [];
     const sumOfLineAllowances = sumAmounts(allowances.map((a) => a.amount));
-    if (compareAmounts(sumOfLineAllowances, grossLineAmount) > 0) {
+    if (compareAmounts(sumOfLineAllowances, amountBeforeAllowances) > 0) {
       throw new LineAllowanceExceedsLineAmountError(
         identifier,
         sumOfLineAllowances,
-        grossLineAmount,
+        amountBeforeAllowances,
       );
     }
     return {
       identifier,
-      netAmount: subtractAmounts(grossLineAmount, sumOfLineAllowances),
+      basis: price.basis,
+      amount: subtractAmounts(amountBeforeAllowances, sumOfLineAllowances),
       rate: resolveLineRate(regimeDecision, input.taxContext, line.taxRateKind),
       line,
     };
   });
-
-  const sumOfLineNetAmounts = sumAmounts(lineComputations.map((l) => l.netAmount));
+  const shipping =
+    input.shipping !== undefined
+      ? {
+          ...amountAndBasis(input.shipping.amount, input.shipping.amountInclVat, "shipping"),
+          reason: input.shipping.reason,
+        }
+      : undefined;
+  const discounts = (input.discounts ?? []).map((discount, index) => ({
+    ...amountAndBasis(discount.amount, discount.amountInclVat, `discount ${index + 1}`),
+    reason: discount.reason,
+  }));
 
   // Document-level shipping/discounts: same VAT category as the overall regime, and — for category S — the
   // rate of the supply they belong to. Shipping charged by the seller is an ancillary supply that shares
@@ -409,24 +449,100 @@ export function buildInvoice(
     });
   }
 
+  // BG-23 VAT breakdown: group by (category, rate) — a domestic (S) document can have more than one group
+  // (docs/tax-semantics.md row 9, mixed rates); every other regime is uniform, so exactly one group. A
+  // group's net-priced parts are taxed as they are (BR-CO-17); its VAT-inclusive parts keep their gross
+  // total — the VAT is taken out of it and the net spread back over them (P-61).
+  type PartRef =
+    { readonly kind: "line" | "discount"; readonly index: number } | { readonly kind: "shipping" };
+  interface GroupPart {
+    readonly ref: PartRef;
+    readonly amount: string;
+    readonly basis: PriceBasis;
+    readonly negative: boolean;
+  }
+  const groupParts = new Map<string, GroupPart[]>();
+  const addPart = (rate: string, part: GroupPart): void => {
+    groupParts.set(rate, [...(groupParts.get(rate) ?? []), part]);
+  };
+  lineComputations.forEach((lc, index) =>
+    addPart(lc.rate, {
+      ref: { kind: "line", index },
+      amount: lc.amount,
+      basis: lc.basis,
+      negative: false,
+    }),
+  );
+  if (shipping !== undefined) {
+    addPart(chargeCategoryRate, {
+      ref: { kind: "shipping" },
+      amount: shipping.amount,
+      basis: shipping.basis,
+      negative: false,
+    });
+  }
+  discounts.forEach((discount, index) =>
+    addPart(chargeCategoryRate, {
+      ref: { kind: "discount", index },
+      amount: discount.amount,
+      basis: discount.basis,
+      negative: true,
+    }),
+  );
+
+  const lineNets: string[] = lineComputations.map((lc) => lc.amount);
+  let shippingNet = shipping?.amount;
+  const discountNets: string[] = discounts.map((discount) => discount.amount);
+  const signedSum = (parts: readonly GroupPart[]): string =>
+    subtractAmounts(
+      sumAmounts(parts.filter((p) => !p.negative).map((p) => p.amount)),
+      sumAmounts(parts.filter((p) => p.negative).map((p) => p.amount)),
+    );
+  const vatBreakdown = Array.from(groupParts.entries()).map(([rate, parts]) => {
+    const netPart = signedSum(parts.filter((p) => p.basis === "net"));
+    const inclusiveParts = parts.filter((p) => p.basis === "inclusive");
+    const inclusiveTotal = signedSum(inclusiveParts);
+    const inclusiveVat = vatContainedIn(inclusiveTotal, rate);
+    const inclusiveNet = subtractAmounts(inclusiveTotal, inclusiveVat);
+    const nets = netsOfVatInclusiveParts(inclusiveParts, rate, inclusiveNet);
+    inclusiveParts.forEach((part, k) => {
+      const net = nets[k] as string;
+      if (part.ref.kind === "line") lineNets[part.ref.index] = net;
+      else if (part.ref.kind === "discount") discountNets[part.ref.index] = net;
+      else shippingNet = net;
+    });
+    const taxableAmount = sumAmounts([netPart, inclusiveNet]);
+    return {
+      taxableAmount,
+      taxAmount: sumAmounts([percentOfAmount(netPart, rate), inclusiveVat]),
+      categoryCode: regimeDecision.categoryCode,
+      rate,
+      exemptionReasonCode:
+        regimeDecision.categoryCode === "S" ? undefined : regimeDecision.exemptionReasonCode,
+      exemptionReasonText:
+        regimeDecision.categoryCode === "S" ? undefined : regimeDecision.exemptionReasonText,
+    };
+  });
+
   const documentLevelCharges: ChargeLine[] =
-    input.shipping !== undefined
+    shipping !== undefined && shippingNet !== undefined
       ? [
           {
-            amount: input.shipping.amount,
+            amount: shippingNet,
             vatCategoryCode: regimeDecision.categoryCode,
             vatRate: chargeCategoryRate,
-            reason: input.shipping.reason,
+            reason: shipping.reason,
           },
         ]
       : [];
-  const documentLevelAllowances: ChargeLine[] = (input.discounts ?? []).map((discount) => ({
-    amount: discount.amount,
+  const documentLevelAllowances: ChargeLine[] = discounts.map((discount, index) => ({
+    amount: discountNets[index] as string,
     vatCategoryCode: regimeDecision.categoryCode,
     vatRate: chargeCategoryRate,
     reason: discount.reason,
   }));
 
+  const sumOfLineNetAmounts = sumAmounts(lineNets);
   const sumOfCharges =
     documentLevelCharges.length > 0
       ? sumAmounts(documentLevelCharges.map((c) => c.amount))
@@ -441,37 +557,6 @@ export function buildInvoice(
     totalAmountWithoutVat = sumAmounts([totalAmountWithoutVat, sumOfCharges]);
   if (sumOfAllowances !== undefined)
     totalAmountWithoutVat = subtractAmounts(totalAmountWithoutVat, sumOfAllowances);
-
-  // BG-23 VAT breakdown: group by (category, rate) — a domestic (S) document can have more than one group
-  // (docs/tax-semantics.md row 9, mixed rates); every other regime is uniform, so exactly one group.
-  const groups = new Map<string, { readonly rate: string; netAmount: string }>();
-  for (const lc of lineComputations) {
-    const key = lc.rate;
-    const existing = groups.get(key);
-    groups.set(key, {
-      rate: lc.rate,
-      netAmount: sumAmounts([existing?.netAmount ?? "0", lc.netAmount]),
-    });
-  }
-  if (documentLevelCharges.length > 0 || documentLevelAllowances.length > 0) {
-    const key = chargeCategoryRate;
-    const existing = groups.get(key) ?? { rate: chargeCategoryRate, netAmount: "0" };
-    let adjusted = existing.netAmount;
-    if (sumOfCharges !== undefined) adjusted = sumAmounts([adjusted, sumOfCharges]);
-    if (sumOfAllowances !== undefined) adjusted = subtractAmounts(adjusted, sumOfAllowances);
-    groups.set(key, { rate: chargeCategoryRate, netAmount: adjusted });
-  }
-
-  const vatBreakdown = Array.from(groups.values()).map((group) => ({
-    taxableAmount: group.netAmount,
-    taxAmount: percentOfAmount(group.netAmount, group.rate),
-    categoryCode: regimeDecision.categoryCode,
-    rate: group.rate,
-    exemptionReasonCode:
-      regimeDecision.categoryCode === "S" ? undefined : regimeDecision.exemptionReasonCode,
-    exemptionReasonText:
-      regimeDecision.categoryCode === "S" ? undefined : regimeDecision.exemptionReasonText,
-  }));
 
   const totalVatAmount = sumAmounts(vatBreakdown.map((g) => g.taxAmount));
   const totalAmountWithVat = sumAmounts([totalAmountWithoutVat, totalVatAmount]);
@@ -544,24 +629,43 @@ export function buildInvoice(
       amountDueForPayment,
     },
     vatBreakdown,
-    lines: lineComputations.map((lc) => ({
-      identifier: lc.identifier,
-      quantity: lc.line.quantity,
-      unitCode: lc.line.unitCode,
-      netAmount: lc.netAmount,
-      netPrice: lc.line.netPrice,
-      itemName: lc.line.itemName,
-      allowances:
-        lc.line.allowances !== undefined && lc.line.allowances.length > 0
-          ? lc.line.allowances.map((a) => ({ amount: a.amount, reason: a.reason }))
-          : undefined,
-      vat: { categoryCode: regimeDecision.categoryCode, rate: lc.rate },
-      // BT-158/BT-159 (T-060 continuation, D-19) — undefined passes through untouched, same as every
-      // other optional field here; @normwerk/einvoice-cii's plan skips the whole DesignatedProductClassification
-      // / OriginTradeCountry element when its source field is undefined (plan.ts's own `from` semantics).
-      hsCode: lc.line.hsCode,
-      originCountry: lc.line.originCountry,
-    })),
+    lines: lineComputations.map((lc, index) => {
+      const netAmount = lineNets[index] as string;
+      // A VAT-inclusive line (P-61): its allowances' nets and its net unit price follow from its share of
+      // the group's net, so quantity × price − allowances still gives the line's net amount (BT-131).
+      const allowances =
+        lc.basis === "net"
+          ? (lc.line.allowances ?? [])
+          : (lc.line.allowances ?? []).map((a) => ({
+              amount: subtractAmounts(a.amount, vatContainedIn(a.amount, lc.rate)),
+              reason: a.reason,
+            }));
+      const netPrice =
+        lc.basis === "net"
+          ? (lc.line.netPrice as string)
+          : unitPriceOf(
+              sumAmounts([netAmount, ...allowances.map((a) => a.amount)]),
+              lc.line.quantity,
+            );
+      return {
+        identifier: lc.identifier,
+        quantity: lc.line.quantity,
+        unitCode: lc.line.unitCode,
+        netAmount,
+        netPrice,
+        itemName: lc.line.itemName,
+        allowances:
+          allowances.length > 0
+            ? allowances.map((a) => ({ amount: a.amount, reason: a.reason }))
+            : undefined,
+        vat: { categoryCode: regimeDecision.categoryCode, rate: lc.rate },
+        // BT-158/BT-159 (T-060 continuation, D-19) — undefined passes through untouched, same as every
+        // other optional field here; @normwerk/einvoice-cii's plan skips the whole DesignatedProductClassification
+        // / OriginTradeCountry element when its source field is undefined (plan.ts's own `from` semantics).
+        hsCode: lc.line.hsCode,
+        originCountry: lc.line.originCountry,
+      };
+    }),
   };
 
   const validation = validateModel(invoice);

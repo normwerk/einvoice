@@ -3,10 +3,12 @@ import {
   compareAmounts,
   isZeroAmount,
   multiplyToAmount,
-  netFromGross,
+  netsOfVatInclusiveParts,
   percentOfAmount,
   subtractAmounts,
   sumAmounts,
+  unitPriceOf,
+  vatContainedIn,
 } from "./decimal.js";
 
 describe("decimal.ts — exact arithmetic, BR-CO-* rounding (ties towards +Infinity)", () => {
@@ -39,22 +41,44 @@ describe("decimal.ts — exact arithmetic, BR-CO-* rounding (ties towards +Infin
   });
 });
 
-describe("netFromGross — the net amount a refunded gross amount corresponds to (P-41)", () => {
-  it("finds the net whose VAT, rounded the way BR-CO-17 rounds it, adds back up to exactly the gross", () => {
-    expect(netFromGross("5.00", "19")).toBe("4.20");
-    expect(netFromGross("119.00", "19")).toBe("100.00");
-    expect(netFromGross("10.00", "7")).toBe("9.35");
-    expect(netFromGross("12.00", "20")).toBe("10.00");
-    expect(netFromGross("10.55", "5.5")).toBe("10.00");
+describe("VAT-inclusive amounts (P-61)", () => {
+  it("vatContainedIn takes the VAT out of a gross amount, rounded to the cent", () => {
+    expect(vatContainedIn("20.00", "19")).toBe("3.19"); // 20.00 × 19/119 = 3.1932…
+    expect(vatContainedIn("10.00", "19")).toBe("1.60"); // 1.5966…
+    expect(vatContainedIn("10.70", "7")).toBe("0.70");
+    expect(vatContainedIn("12.00", "20")).toBe("2.00");
+    expect(vatContainedIn("100.00", "0")).toBe("0.00");
+    expect(vatContainedIn("10.55", "5.5")).toBe("0.55");
   });
 
-  it("is the identity at 0% (categories K, G, AE, E, Z)", () => {
-    expect(netFromGross("10.00", "0")).toBe("10.00");
-    expect(netFromGross("0.00", "19")).toBe("0.00");
+  it("netsOfVatInclusiveParts spreads a group's net over its parts so they add up exactly", () => {
+    // Two 10.00 parts at 19%: 8.4034 each rounds to 8.40, but the group's net is 20.00 − 3.19 = 16.81.
+    expect(
+      netsOfVatInclusiveParts([{ amount: "10.00" }, { amount: "10.00" }], "19", "16.81"),
+    ).toEqual(["8.41", "8.40"]);
+    // The cent goes to the part rounding moved down the most (8.4034 → 8.40), not simply the first
+    // (25.2101 → 25.21): 50.00 gross holds 7.98 VAT, so the net is 42.02, one cent above 25.21 + 8.40 + 8.40.
+    expect(
+      netsOfVatInclusiveParts(
+        [{ amount: "30.00" }, { amount: "10.00" }, { amount: "10.00" }],
+        "19",
+        "42.02",
+      ),
+    ).toEqual(["25.21", "8.41", "8.40"]);
+    // A subtracted part (a discount) keeps its own rounded net; the added parts absorb the difference.
+    expect(
+      netsOfVatInclusiveParts(
+        [{ amount: "30.00" }, { amount: "10.00" }, { amount: "3.00", negative: true }],
+        "19",
+        "31.09",
+      ),
+    ).toEqual(["25.21", "8.40", "2.52"]);
+    expect(netsOfVatInclusiveParts([{ amount: "5.00" }], "0", "5.00")).toEqual(["5.00"]);
   });
 
-  it("takes the closest net below when no net reaches the gross exactly — a credit never exceeds the refund", () => {
-    // At 19% a net of 0.02 gives 0.02 and a net of 0.03 gives 0.04: no net gives 0.03.
-    expect(netFromGross("0.03", "19")).toBe("0.02");
+  it("unitPriceOf divides a line amount by its quantity to 4 decimals", () => {
+    expect(unitPriceOf("25.21", "3")).toBe("8.4033");
+    expect(unitPriceOf("8.41", "1")).toBe("8.4100");
+    expect(unitPriceOf("10.00", "1.5")).toBe("6.6667");
   });
 });

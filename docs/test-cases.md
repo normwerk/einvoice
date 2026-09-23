@@ -16,7 +16,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/fixtures.test.ts` — every fixture in `fixtures/` (T-050/T-022) validates against that same generated
   schema — the model-level counterpart to the conformance suite's real KoSIT run below.
 
-### `einvoice-commerce` (114 tests)
+### `einvoice-commerce` (119 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -24,14 +24,16 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   needing BT-48), shipping/discount rates following the lines' rate, line-level discounts (BG-27), credit
   notes (row 10, T-064), Leitweg-ID validation (T-062), input validation, BT-158/BT-159 customs fields (T-060
   continuation), the parties' address lines (a seller without a street refused, a buyer without one
-  warned about above EUR 250), and defensive behavior against a malformed non-TypeScript caller (ADR-003,
+  warned about above EUR 250), prices including VAT (each rate group's VAT taken out of its gross total, so
+  the invoice totals the gross amounts; both a net and a VAT-inclusive amount, or neither, refused), and
+  defensive behavior against a malformed non-TypeScript caller (ADR-003,
   T-060).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany).
 - `src/decimal.test.ts` — exact decimal arithmetic and BR-CO-\* rounding (ties towards +Infinity, ADR-004),
-  and `netFromGross` (the net amount whose VAT brings it back to a given gross sum, used for partial credit
-  notes).
+  and the arithmetic for prices including VAT: the VAT contained in a gross amount, a group's net spread
+  over its parts to the cent (largest remainder), and a net unit price from a line amount.
 - `src/leitweg-id.test.ts` — `validateLeitwegId` against the real KoSIT Leitweg-ID Format-Spezifikation
   v2.0.2, plus `looksLikeLeitwegId`.
 - `src/numbering.test.ts` — `SequentialNumberer`, and `InMemoryNumberingStore`'s own concurrency behavior
@@ -62,13 +64,13 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (160 tests)
+### `einvoice-medusa` (161 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
   [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) (buyer name/address fallback chains —
   a guest buyer named from the billing address, not the email —
-  tax-inclusive price backing-out, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
+  tax-inclusive prices, discounts and shipping passed on VAT-inclusive, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
   methods as one document-level charge and promotions as line allowances), `describeOrderTotalMismatch`
   (invoice total vs `order.total`) and `issueDateInSellerTimeZone` (the invoice date in Berlin, not UTC).
 - `src/tax-matrix/tax-matrix.test.ts` (T-117/T-133, 57 tests) — the tax-scenario fixture matrix: every
@@ -85,7 +87,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   telling a lost idempotency race (the key exists after a failed insert) from a real failure.
 - `src/mapping/credit-note.test.ts` — `decideCreditScope` (a refund credits at most what is still
   outstanding on the invoice; the whole order is restated only when nothing was credited before),
-  `toPartialCreditNoteInput` (one line over the credited net amount) and `extractGrandTotalFromCii`.
+  `toPartialCreditNoteInput` (one VAT-inclusive line over the credited sum) and `extractGrandTotalFromCii`.
 - `src/subscribers/credit-note-on-payment-refunded.test.ts` — the refund subscriber: `extractIssueDateFromCii`
   (parsing BT-2 back out of already-generated CII XML), `MissingOriginalInvoiceError`, a full refund
   restating the order, a partial refund producing a one-line credit note, never crediting beyond what is
@@ -137,7 +139,7 @@ completeness since it's as much a "test suite" as the vitest ones above, just on
 | Level | What                                                                                                                                        | Command                           | Fixtures                                                                                           |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
 | L1+L2 | Real KoSIT Validator (XSD + Schematron, incl. `BR-DE-*`)                                                                                    | `pnpm conformance:fixtures`       | 14/14, `fixtures/`                                                                                 |
-| L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)                                         | `pnpm conformance:commerce`       | 5/5, `packages/einvoice-commerce/fixtures/`                                                        |
+| L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)                                         | `pnpm conformance:commerce`       | 6/6, `packages/einvoice-commerce/fixtures/`                                                        |
 | L1+L2 | Same, starting from a synthetic Medusa order through the real adapter (T-117/T-133); 3× per run for determinism                             | `pnpm conformance:tax-matrix`     | 20/20 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
 | L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance), both ZUGFeRD profiles                                         | `pnpm conformance:pdfa`           | 28/28 (14 fixtures × `XRECHNUNG`, `EN16931`)                                                       |
 | L4    | Differential oracle vs. `@e-invoice-eu/core`                                                                                                | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |
@@ -155,11 +157,11 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 12 files / 18 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 13 files / 20 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
-(private guest buyer), idempotency (event redelivery), Store API ownership, incomplete-config boot refusal,
+(private guest buyer), S10 (prices including VAT, with and without a promotion), idempotency (event redelivery), Store API ownership, incomplete-config boot refusal,
 and tarball contents across all six published packages. Every invoice scenario also checks that the
 invoice totals what Medusa charged (`order.total`) — the stand's German tax region charges 19%.
 

@@ -127,7 +127,15 @@ export interface CommerceLine {
   readonly identifier?: string | undefined;
   readonly quantity: Amount;
   readonly unitCode: string;
-  readonly netPrice: Amount;
+  /** The unit price before VAT. Give exactly one of `netPrice` and `priceInclVat`. */
+  readonly netPrice?: Amount | undefined;
+  /**
+   * P-61: the unit price including VAT, for a shop whose prices include it. `buildInvoice` then keeps the
+   * gross amounts the buyer was charged: each VAT rate group's VAT is taken out of the group's gross total
+   * (`vatContainedIn`), and the group's net is spread over its lines and charges to the cent. The line's
+   * `allowances` are VAT-inclusive too.
+   */
+  readonly priceInclVat?: Amount | undefined;
   readonly itemName: string;
   /**
    * Which of the seller's own product tax classifications this line falls under. Only consulted when the
@@ -158,8 +166,9 @@ export interface CommerceLine {
   readonly originCountry?: CountryCode | undefined;
 }
 
-/** BG-27 Invoice line allowance — a net amount. BR-42 requires a reason (or reason code) on every one, so
- * the reason is mandatory here rather than defaulted by this package. */
+/** BG-27 Invoice line allowance — net, or VAT-inclusive on a line priced with `priceInclVat`. BR-42 requires
+ * a reason (or reason code) on every one, so the reason is mandatory here rather than defaulted by this
+ * package. */
 export interface CommerceLineAllowance {
   readonly amount: Amount;
   readonly reason: string;
@@ -169,7 +178,10 @@ export interface CommerceLineAllowance {
  * `CommerceLine.allowances`; line-level charges (BG-28) and calculation percents (BT-138/143) are not part
  * of this input type. */
 export interface CommerceCharge {
-  readonly amount: Amount;
+  /** The amount before VAT. Give exactly one of `amount` and `amountInclVat`. */
+  readonly amount?: Amount | undefined;
+  /** P-61: the amount including VAT — see `CommerceLine.priceInclVat`. */
+  readonly amountInclVat?: Amount | undefined;
   readonly reason?: string | undefined;
 }
 

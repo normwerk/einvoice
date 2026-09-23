@@ -26,6 +26,7 @@ export {
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
   InvalidLeitwegIdError,
+  InvalidPriceBasisError,
   LineAllowanceExceedsLineAmountError,
   MissingBuyerIdentifierForReverseChargeError,
   MissingBuyerVatIdError,
@@ -63,8 +64,6 @@ export {
 } from "./tax-rules.js";
 
 export { MapVatIdVerifier, StaticVatIdVerifier } from "./vat-id-verifier.js";
-
-export { netFromGross } from "./decimal.js";
 
 export {
   InMemoryNumberingStore,

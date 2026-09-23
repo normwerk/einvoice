@@ -196,6 +196,12 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   street from the billing address (`address_1`, `address_2`), and names the buyer (BT-44) after it too — its
   company, else the person's first and last name — falling back to the customer record and, last, the
   email.
+- **A validator accepts an invoice that totals a cent less than the buyer paid.** With prices that include
+  VAT, rounding each line's net amount to the cent and computing the VAT on their sum can land a cent below
+  the gross prices charged — 10.00 + 10.00 at 19% gave 19.99. Given VAT-inclusive prices (`priceInclVat`,
+  `amountInclVat`), `buildInvoice` takes each rate group's VAT out of its gross total instead, so the
+  invoice totals exactly what was charged. The group's VAT can then differ from its taxable amount × rate
+  by a cent, which `BR-CO-17` and `BR-S-09` allow (both accept a difference below 1).
 
 This list is a starting point, not exhaustive — it grows as scenarios are added.
 

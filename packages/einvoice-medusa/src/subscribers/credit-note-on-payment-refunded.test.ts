@@ -18,8 +18,6 @@ const mocks = vi.hoisted(() => ({
     warnings: [],
   })),
   decideVatCategory: vi.fn(() => ({ categoryCode: "S", ruleId: "tax-semantics#1" })),
-  resolveLineRate: vi.fn(() => "19"),
-  netFromGross: vi.fn(() => "16.81"),
   nextNumber: vi.fn(async () => "GS-2026-0001"),
   logger: { warn: vi.fn() },
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
@@ -42,8 +40,6 @@ vi.mock("@normwerk/einvoice-commerce", () => ({
   selectProfile: mocks.selectProfile,
   buildInvoice: mocks.buildInvoice,
   decideVatCategory: mocks.decideVatCategory,
-  resolveLineRate: mocks.resolveLineRate,
-  netFromGross: mocks.netFromGross,
   SequentialNumberer: class {
     next = mocks.nextNumber;
   },
@@ -338,12 +334,12 @@ describe("creditNoteOnPaymentRefunded", () => {
 
     await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
 
-    expect(mocks.netFromGross).toHaveBeenCalledWith("20.00", "19");
     const [input] = mocks.buildInvoice.mock.calls[0] as unknown as [
-      { lines: readonly { netPrice: string; itemName: string }[]; shipping?: unknown },
+      { lines: readonly { priceInclVat: string; itemName: string }[]; shipping?: unknown },
     ];
     expect(input.lines).toHaveLength(1);
-    expect(input.lines[0]?.netPrice).toBe("16.81");
+    // The refunded gross sum, VAT-inclusive: buildInvoice takes the VAT out, so the credit note totals it.
+    expect(input.lines[0]?.priceInclVat).toBe("20.00");
     expect(input.lines[0]?.itemName).toContain("RE-2026-0001");
     expect(input.shipping).toBeUndefined();
   });

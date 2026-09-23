@@ -89,9 +89,9 @@ describe("toPartialCreditNoteInput (P-41)", () => {
     taxContext: { supplyType: "goods" },
   } as unknown as CommerceInvoiceInput;
 
-  it("replaces the order's lines, shipping and discounts with one line for the credited net amount", () => {
+  it("replaces the order's lines, shipping and discounts with one VAT-inclusive line for the credited sum", () => {
     const result = toPartialCreditNoteInput(INPUT, {
-      net: "8.40",
+      gross: "10.00",
       taxRateKind: "standard",
       originalInvoiceNumber: "RE-2026-0007",
     });
@@ -100,7 +100,7 @@ describe("toPartialCreditNoteInput (P-41)", () => {
         identifier: "1",
         quantity: "1",
         unitCode: "C62",
-        netPrice: "8.40",
+        priceInclVat: "10.00",
         itemName: "Teilerstattung / Partial refund — Rechnung RE-2026-0007",
         taxRateKind: "standard",
         supplyType: "goods",
