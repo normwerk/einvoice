@@ -285,7 +285,7 @@ export function issueDateInSellerTimeZone(sellerCountry: CountryCode, instant: D
  * 2-decimal `Amount`, rounding half away from zero. This is input conversion of an amount Medusa already
  * computed — not arithmetic the invoice relies on; `buildInvoice` takes over with exact decimals from here.
  */
-function toAmount(value: number | string | null | undefined): Amount {
+export function toAmount(value: number | string | null | undefined): Amount {
   const n = Number(value ?? 0);
   const rounded = (Math.sign(n) * Math.round(Math.abs(n) * 100 + 1e-9)) / 100;
   return rounded.toFixed(2);

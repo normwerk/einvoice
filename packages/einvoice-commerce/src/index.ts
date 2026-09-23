@@ -63,6 +63,8 @@ export {
 
 export { MapVatIdVerifier, StaticVatIdVerifier } from "./vat-id-verifier.js";
 
+export { netFromGross } from "./decimal.js";
+
 export {
   InMemoryNumberingStore,
   SequentialNumberer,

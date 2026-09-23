@@ -43,6 +43,8 @@ running it repeatedly.
 ✓ src/scenarios/s1-de-domestic.test.ts       — domestic B2B invoice, KoSIT + veraPDF green
 ✓ src/scenarios/s2-cross-border-vat-id.test.ts — intra-EU B2B with a VAT-ID, category K
 ✓ src/scenarios/s4-credit-note.test.ts       — a refund produces a credit note referencing the invoice
+✓ src/scenarios/s5-partial-refund.test.ts    — a partial refund is credited for its own amount, one line
+✓ src/scenarios/s6-cancel-after-invoice.test.ts — cancelling an invoiced order reverses the invoice
 ✓ src/scenarios/idempotency.test.ts          — redelivering an event never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot with a missing required option

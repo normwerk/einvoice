@@ -85,7 +85,8 @@ changes to any core Medusa table).
 Start the dev server (`npx medusa develop`), then fulfill any real order (admin dashboard, or
 `POST /admin/orders/:id/fulfillments`). Within about a second, open that order's page: a new "E-Invoices"
 side-panel section lists the invoice, with XML (and PDF, once you've done step 5 or 6) download links.
-Refund a captured payment and a credit note appears the same way.
+Refund a captured payment and a credit note appears the same way, for the refunded amount; cancel an
+invoiced order and a credit note reverses what is still outstanding.
 
 ## 5. Optional: attach a PDF without your own renderer
 

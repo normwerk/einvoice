@@ -179,6 +179,15 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   the VAT identification numbers of both parties on this invoice; `buildInvoice` refuses row 12 without
   BT-48.
 
+- **What a credit note credits is not checked against what was refunded (row 10).** A credit note that
+  restates the whole order for a refund of a tenth of it validates perfectly and reduces the VAT base by
+  ten times too much (§17 UStG). The Medusa adapter credits a refund for its own amount: a refund that
+  covers the invoice, with nothing credited before, restates the whole order; any other refund is one line
+  over the refunded gross amount, at the invoice's own category and rate; nothing is ever credited beyond
+  what is still outstanding on the invoice. A partial refund on an order whose lines carry different rates
+  is refused — splitting it across the rates is not decided yet — and must be credited by hand. An invoiced
+  order that is then cancelled gets a credit note for whatever is outstanding.
+
 This list is a starting point, not exhaustive — it grows as scenarios are added.
 
 ## DK/NO/SE identifiers (out of v0.1 scope — documented, not implemented)

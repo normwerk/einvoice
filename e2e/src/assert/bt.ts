@@ -76,3 +76,8 @@ export function correctedInvoiceNumber(xml: string): string | undefined {
   );
   return match?.[1];
 }
+
+/** BG-25: how many invoice lines the document has (`ram:IncludedSupplyChainTradeLineItem`). */
+export function lineCount(xml: string): number {
+  return xml.match(/<ram:IncludedSupplyChainTradeLineItem>/g)?.length ?? 0;
+}

@@ -12,7 +12,16 @@ import type EinvoiceModuleService from "../modules/einvoice/service.js";
 // suites elsewhere.
 const mocks = vi.hoisted(() => ({
   selectProfile: vi.fn(() => "EN16931" as const),
-  buildInvoice: vi.fn((input: unknown) => ({ invoice: input, warnings: [] })),
+  // Shaped like a real BuildResult where the code reads it (`invoice.totals`).
+  buildInvoice: vi.fn((input: unknown) => ({
+    invoice: { ...(input as object), totals: { totalAmountWithVat: "20.00" } },
+    warnings: [],
+  })),
+  decideVatCategory: vi.fn(() => ({ categoryCode: "S", ruleId: "tax-semantics#1" })),
+  resolveLineRate: vi.fn(() => "19"),
+  netFromGross: vi.fn(() => "16.81"),
+  nextNumber: vi.fn(async () => "GS-2026-0001"),
+  logger: { warn: vi.fn() },
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   embedInvoiceInPdfA3: vi.fn(async () => ({ pdfBytes: new Uint8Array([1, 2, 3]) })),
   waitForWebbersInvoice: vi.fn(),
@@ -22,7 +31,9 @@ const mocks = vi.hoisted(() => ({
     pdfFileId: null as string | null,
   })),
   deleteEinvoiceFiles: vi.fn(async () => undefined),
-  fetchFileBytes: vi.fn(async () => new TextEncoder().encode("<ignored/>")),
+  fetchFileBytes: vi.fn<(container: unknown, fileId: unknown) => Promise<Uint8Array>>(async () =>
+    new TextEncoder().encode("<ignored/>"),
+  ),
 }));
 
 vi.mock("@normwerk/einvoice-commerce", () => ({
@@ -30,8 +41,11 @@ vi.mock("@normwerk/einvoice-commerce", () => ({
   DE_REDUCED_RATE: "7",
   selectProfile: mocks.selectProfile,
   buildInvoice: mocks.buildInvoice,
+  decideVatCategory: mocks.decideVatCategory,
+  resolveLineRate: mocks.resolveLineRate,
+  netFromGross: mocks.netFromGross,
   SequentialNumberer: class {
-    next = vi.fn(async () => "GS-2026-0001");
+    next = mocks.nextNumber;
   },
 }));
 
@@ -69,6 +83,7 @@ import creditNoteOnPaymentRefunded, {
   extractIssueDateFromCii,
   MissingOriginalInvoiceError,
 } from "./credit-note-on-payment-refunded.js";
+import { PartialCreditAcrossRatesError } from "../mapping/credit-note.js";
 
 describe("extractIssueDateFromCii", () => {
   it("parses a real serializeCii-shaped IssueDateTime element (no pretty-print whitespace)", () => {
@@ -129,6 +144,14 @@ const ORDER = {
 };
 
 const ORIGINAL_INVOICE = { document_number: "RE-2026-0001", xml_file_id: "file_original_xml" };
+// The original invoice: 2 × 100 net at 19% = 238.00 (BT-112), issued 2026-01-01 (BT-2).
+let CREDITED_TOTAL = "0.00";
+function cii(grandTotal: string): string {
+  return (
+    "<ram:IssueDateTime><udt:DateTimeString>20260101</udt:DateTimeString></ram:IssueDateTime>" +
+    `<ram:GrandTotalAmount>${grandTotal}</ram:GrandTotalAmount>`
+  );
+}
 
 function makeEinvoiceService(
   overrides: Partial<{
@@ -160,7 +183,7 @@ function makeContainer(options: {
   const payment = options.payment ?? {
     id: "pay_01",
     payment_collection_id: "paycol_01",
-    refunds: [{ id: "refund_01" }],
+    refunds: [{ id: "refund_01", amount: 238 }],
   };
   const orders = options.orders ?? [ORDER];
   const graph = vi.fn(async ({ entity }: { entity: string }) => ({
@@ -169,6 +192,7 @@ function makeContainer(options: {
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, options.einvoiceService],
     [ContainerRegistrationKeys.QUERY, { graph }],
+    [ContainerRegistrationKeys.LOGGER, mocks.logger],
   ]);
   const container = { resolve: (key: unknown) => registry.get(key) } as unknown as MedusaContainer;
   return { container, graph };
@@ -186,10 +210,8 @@ describe("creditNoteOnPaymentRefunded", () => {
     vi.clearAllMocks();
     mocks.selectProfile.mockReturnValue("EN16931");
     mocks.storeEinvoiceFiles.mockResolvedValue({ xmlFileId: "file_xml", pdfFileId: null });
-    mocks.fetchFileBytes.mockResolvedValue(
-      new TextEncoder().encode(
-        "<ram:IssueDateTime><udt:DateTimeString>20260101</udt:DateTimeString></ram:IssueDateTime>",
-      ),
+    mocks.fetchFileBytes.mockImplementation(async (_container: unknown, fileId: unknown) =>
+      new TextEncoder().encode(cii(fileId === "file_credit_xml" ? CREDITED_TOTAL : "238.00")),
     );
   });
 
@@ -197,7 +219,11 @@ describe("creditNoteOnPaymentRefunded", () => {
     const einvoiceService = makeEinvoiceService();
     const { container } = makeContainer({
       einvoiceService,
-      payment: { id: "pay_01", payment_collection_id: null, refunds: [{ id: "refund_01" }] },
+      payment: {
+        id: "pay_01",
+        payment_collection_id: null,
+        refunds: [{ id: "refund_01", amount: 238 }],
+      },
     });
 
     await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
@@ -250,7 +276,10 @@ describe("creditNoteOnPaymentRefunded", () => {
       payment: {
         id: "pay_01",
         payment_collection_id: "paycol_01",
-        refunds: [{ id: "refund_01" }, { id: "refund_02" }],
+        refunds: [
+          { id: "refund_01", amount: 238 },
+          { id: "refund_02", amount: 238 },
+        ],
       },
     });
 
@@ -293,5 +322,82 @@ describe("creditNoteOnPaymentRefunded", () => {
     await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
 
     expect(mocks.deleteEinvoiceFiles).toHaveBeenCalledWith(container, ["file_xml", "file_pdf"]);
+  });
+
+  it("credits a partial refund with one line over its own amount, not the whole order (P-41)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer({
+      einvoiceService,
+      payment: {
+        id: "pay_01",
+        payment_collection_id: "paycol_01",
+        refunds: [{ id: "refund_01", amount: 20 }],
+      },
+    });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(mocks.netFromGross).toHaveBeenCalledWith("20.00", "19");
+    const [input] = mocks.buildInvoice.mock.calls[0] as unknown as [
+      { lines: readonly { netPrice: string; itemName: string }[]; shipping?: unknown },
+    ];
+    expect(input.lines).toHaveLength(1);
+    expect(input.lines[0]?.netPrice).toBe("16.81");
+    expect(input.lines[0]?.itemName).toContain("RE-2026-0001");
+    expect(input.shipping).toBeUndefined();
+  });
+
+  it("never credits more than is outstanding: a refund after the invoice is fully credited is logged, not credited", async () => {
+    CREDITED_TOTAL = "238.00";
+    const einvoiceService = makeEinvoiceService({
+      listEinvoiceDocuments: async (filter) => {
+        if (filter["type"] === "invoice") return [ORIGINAL_INVOICE];
+        if (filter["order_id"] === "order_01") {
+          return [{ id: "doc_cancel", xml_file_id: "file_credit_xml" }];
+        }
+        return [];
+      },
+    });
+    const { container } = makeContainer({ einvoiceService });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
+    expect(mocks.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("already fully credited"),
+    );
+    CREDITED_TOTAL = "0.00";
+  });
+
+  it("refuses a partial refund over an order with mixed VAT rates before taking a document number", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer({
+      einvoiceService,
+      payment: {
+        id: "pay_01",
+        payment_collection_id: "paycol_01",
+        refunds: [{ id: "refund_01", amount: 20 }],
+      },
+      orders: [
+        {
+          ...ORDER,
+          items: [
+            ...ORDER.items,
+            {
+              title: "Book",
+              unit_price: 10,
+              is_tax_inclusive: false,
+              tax_lines: [{ rate: 7 }],
+              detail: { quantity: 1 },
+            },
+          ],
+        },
+      ],
+    });
+
+    await expect(
+      creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" })),
+    ).rejects.toThrow(PartialCreditAcrossRatesError);
+    expect(mocks.nextNumber).not.toHaveBeenCalled();
   });
 });

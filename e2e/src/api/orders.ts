@@ -94,3 +94,13 @@ export async function downloadEinvoiceFile(
   }
   return Buffer.from(await response.arrayBuffer());
 }
+
+/** Cancels the order the way an admin does: its fulfillment first (Medusa refuses to cancel an order with
+ * a fulfillment that is not cancelled), then the order itself — real
+ * `POST /admin/orders/:id/fulfillments/:fulfillment_id/cancel` and `POST /admin/orders/:id/cancel`. The
+ * second is what emits `order.canceled`. */
+export async function cancelOrder(admin: AdminSession, orderId: string): Promise<void> {
+  const fulfillmentId = await getOrderFulfillmentId(admin, orderId);
+  await adminPostJson(admin, `/admin/orders/${orderId}/fulfillments/${fulfillmentId}/cancel`, {});
+  await adminPostJson(admin, `/admin/orders/${orderId}/cancel`, {});
+}

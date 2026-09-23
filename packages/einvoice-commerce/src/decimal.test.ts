@@ -3,6 +3,7 @@ import {
   compareAmounts,
   isZeroAmount,
   multiplyToAmount,
+  netFromGross,
   percentOfAmount,
   subtractAmounts,
   sumAmounts,
@@ -35,5 +36,25 @@ describe("decimal.ts — exact arithmetic, BR-CO-* rounding (ties towards +Infin
 
   it("subtractAmounts refuses to go negative", () => {
     expect(() => subtractAmounts("1.00", "2.00")).toThrow();
+  });
+});
+
+describe("netFromGross — the net amount a refunded gross amount corresponds to (P-41)", () => {
+  it("finds the net whose VAT, rounded the way BR-CO-17 rounds it, adds back up to exactly the gross", () => {
+    expect(netFromGross("5.00", "19")).toBe("4.20");
+    expect(netFromGross("119.00", "19")).toBe("100.00");
+    expect(netFromGross("10.00", "7")).toBe("9.35");
+    expect(netFromGross("12.00", "20")).toBe("10.00");
+    expect(netFromGross("10.55", "5.5")).toBe("10.00");
+  });
+
+  it("is the identity at 0% (categories K, G, AE, E, Z)", () => {
+    expect(netFromGross("10.00", "0")).toBe("10.00");
+    expect(netFromGross("0.00", "19")).toBe("0.00");
+  });
+
+  it("takes the closest net below when no net reaches the gross exactly — a credit never exceeds the refund", () => {
+    // At 19% a net of 0.02 gives 0.02 and a net of 0.03 gives 0.04: no net gives 0.03.
+    expect(netFromGross("0.03", "19")).toBe("0.02");
   });
 });

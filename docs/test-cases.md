@@ -16,7 +16,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/fixtures.test.ts` — every fixture in `fixtures/` (T-050/T-022) validates against that same generated
   schema — the model-level counterpart to the conformance suite's real KoSIT run below.
 
-### `einvoice-commerce` (108 tests)
+### `einvoice-commerce` (111 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -27,7 +27,9 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany).
-- `src/decimal.test.ts` — exact decimal arithmetic and BR-CO-\* rounding (ties towards +Infinity, ADR-004).
+- `src/decimal.test.ts` — exact decimal arithmetic and BR-CO-\* rounding (ties towards +Infinity, ADR-004),
+  and `netFromGross` (the net amount whose VAT brings it back to a given gross sum, used for partial credit
+  notes).
 - `src/leitweg-id.test.ts` — `validateLeitwegId` against the real KoSIT Leitweg-ID Format-Spezifikation
   v2.0.2, plus `looksLikeLeitwegId`.
 - `src/numbering.test.ts` — `SequentialNumberer`, and `InMemoryNumberingStore`'s own concurrency behavior
@@ -56,7 +58,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/render-invoice.test.ts` — `renderInvoicePdf`: real embedded-font rendering, determinism, every real
   fixture rendering without throwing, and non-ASCII text (umlauts, ß, —, ½, Ø).
 
-### `einvoice-medusa` (139 tests)
+### `einvoice-medusa` (155 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -76,8 +78,16 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   (`assertValidOptions`): every field a real KoSIT rejection found mandatory (T-071), seller contact
   included, and that `standalone.basePdf` passes through unchanged (T-073); and `recordDocumentIfAbsent`
   telling a lost idempotency race (the key exists after a failed insert) from a real failure.
-- `src/subscribers/credit-note-on-payment-refunded.test.ts` — `extractIssueDateFromCii` (parsing BT-2 back
-  out of already-generated CII XML) and `MissingOriginalInvoiceError`.
+- `src/mapping/credit-note.test.ts` — `decideCreditScope` (a refund credits at most what is still
+  outstanding on the invoice; the whole order is restated only when nothing was credited before),
+  `toPartialCreditNoteInput` (one line over the credited net amount) and `extractGrandTotalFromCii`.
+- `src/subscribers/credit-note-on-payment-refunded.test.ts` — the refund subscriber: `extractIssueDateFromCii`
+  (parsing BT-2 back out of already-generated CII XML), `MissingOriginalInvoiceError`, a full refund
+  restating the order, a partial refund producing a one-line credit note, never crediting beyond what is
+  outstanding, and a partial refund over mixed VAT rates refused before a document number is taken.
+- `src/subscribers/credit-note-on-order-canceled.test.ts` — the cancellation subscriber: no credit note
+  without an invoice, the whole invoice or only its outstanding remainder credited, and Webbers mode
+  leaving the credit note to the merchant.
 - `src/integrations/webbers.test.ts` — `waitForWebbersInvoice`'s own-package-not-installed path,
   `WebbersInvoiceNotFoundError`, and `fetchWebbersPdfBytes` (both the success and the non-2xx-response
   path, via a stubbed `fetch`).
@@ -123,7 +133,7 @@ completeness since it's as much a "test suite" as the vitest ones above, just on
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
 | L1+L2 | Real KoSIT Validator (XSD + Schematron, incl. `BR-DE-*`)                                                                                    | `pnpm conformance:fixtures`       | 14/14, `fixtures/`                                                                                 |
 | L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)                                         | `pnpm conformance:commerce`       | 5/5, `packages/einvoice-commerce/fixtures/`                                                        |
-| L1+L2 | Same, starting from a synthetic Medusa order through the real adapter (T-117/T-133); 3× per run for determinism                             | `pnpm conformance:tax-matrix`     | 17/17 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
+| L1+L2 | Same, starting from a synthetic Medusa order through the real adapter (T-117/T-133); 3× per run for determinism                             | `pnpm conformance:tax-matrix`     | 20/20 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
 | L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance), both ZUGFeRD profiles                                         | `pnpm conformance:pdfa`           | 28/28 (14 fixtures × `XRECHNUNG`, `EN16931`)                                                       |
 | L4    | Differential oracle vs. `@e-invoice-eu/core`                                                                                                | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |
 | L4    | Differential oracle vs. `@stackforge-eu/factur-x`                                                                                           | `pnpm conformance:oracle-facturx` | 14 (13 classified, 1 unmappable, 0 unreviewed)                                                     |
@@ -140,24 +150,24 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 7 files / 13 checks:
-S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), idempotency (event
-redelivery), Store API ownership, incomplete-config boot refusal, and tarball contents across all six
-published packages.
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 9 files / 15 checks:
+S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
+one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
+it), idempotency (event redelivery), Store API ownership, incomplete-config boot refusal, and tarball
+contents across all six published packages.
 
 ## CI wiring
 
-`.github/workflows/ci.yml` runs, across five jobs: the full vitest suite, the `node --test` tooling suite,
+`.github/workflows/ci.yml` runs, across six jobs: the full vitest suite, the `node --test` tooling suite,
 `pnpm license-scan` (T-003), two codegen-determinism checks (`einvoice-model`, `einvoice-pdfa`'s ICC/font
 generation) and two L4-oracle-report-is-up-to-date checks (all four "must give a zero diff on a clean tree"
 gates, ADR-002), a Docker smoke test against a vendored KoSIT test document, and the four fixture-based
 conformance jobs above (`conformance-fixtures`, `conformance-commerce`, `conformance-tax-matrix`,
-`conformance-pdfa`). This workflow
-has not yet run on GitHub Actions itself — there is no GitHub remote configured for this repository yet
-(T-001, still `doing`) — every job listed here has been run and passed locally, on the same commands CI
-itself invokes, not merely written and assumed correct.
+`conformance-pdfa`). Every job listed here has
+also been run and passed locally, on the same commands CI itself invokes, not merely written and assumed
+correct.
 
 `.github/workflows/e2e.yml` (T-078) runs the end-to-end suite above separately — nightly and on
 `workflow_dispatch`, not on every push/PR, since a full Docker Compose stand boot is minutes of work per
-run and the integration surface it covers changes slowly. Same "not yet run on GitHub Actions itself"
-caveat as `ci.yml` applies; run and passed locally against the same command (`pnpm e2e`).
+run and the integration surface it covers changes slowly. Run and passed locally against the same command
+(`pnpm e2e`).

@@ -96,3 +96,28 @@ export function compareAmounts(a: string, b: string): -1 | 0 | 1 {
   if (diff === 0n) return 0;
   return diff < 0n ? -1 : 1;
 }
+
+/**
+ * P-41: the net amount a gross amount corresponds to at `percent` — the net whose VAT, rounded the way
+ * `percentOfAmount` (BR-CO-17) rounds it, adds back up to exactly `gross`. Used for a credit note over a
+ * refunded gross sum. Rounding leaves gaps (at 19% no net gives 0.03: 0.02 gives 0.02, 0.03 gives 0.04);
+ * then the closest net whose total stays *below* `gross` is taken, so a credit never exceeds the refund.
+ */
+export function netFromGross(gross: string, percent: string): string {
+  const grossCents = toCents(gross);
+  const pct = parseDecimal(percent);
+  const hundred = 100n * 10n ** BigInt(pct.scale);
+  // Exact estimate gross / (1 + p/100) in cents, floored; the answer is within a cent or two of it.
+  const estimate = (grossCents * hundred) / (hundred + pct.unscaled);
+  const totalOf = (cents: bigint): bigint =>
+    cents + toCents(percentOfAmount(fromCents(cents), percent));
+  let below: bigint | undefined;
+  for (let delta = -2n; delta <= 2n; delta++) {
+    const cents = estimate + delta;
+    if (cents < 0n) continue;
+    const total = totalOf(cents);
+    if (total === grossCents) return fromCents(cents);
+    if (total < grossCents) below = cents;
+  }
+  return fromCents(below ?? 0n);
+}

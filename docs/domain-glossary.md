@@ -136,6 +136,17 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
   `@normwerk/einvoice-model` and `@normwerk/einvoice-commerce` must themselves be published to npm before
   `@normwerk/einvoice-medusa` can be a normally-installable plugin for anyone outside this repo — relevant
   to T-076 ("Публикация в npm"), not previously an explicit finding.
+- **Cancelling an order refunds its captured payments without a `payment.refunded` event.**
+  `cancelOrderWorkflow` refunds through `refundCapturedPaymentsWorkflow`, which emits nothing a refund
+  subscriber hears; the only signal is `order.canceled` (`OrderWorkflowEvents.CANCELED`, payload `{ id }`,
+  the order's id). A credit note for a cancelled, already-invoiced order therefore needs its own
+  `order.canceled` subscriber — a refund subscriber alone silently leaves the invoice uncorrected.
+- **Medusa refuses to cancel an order that still has an active fulfillment.** Each fulfillment is cancelled
+  first (`POST /admin/orders/:id/fulfillments/:fulfillment_id/cancel`), then the order. An order invoiced on
+  `order.fulfillment_created` is always in that state, so cancelling one is a two-step operation.
+- **A refund's amount is `payment.refunds[].amount`, gross.** Crediting it takes the net amount whose VAT at
+  the invoice's rate brings it back to that gross sum (`netFromGross` in `einvoice-commerce`) — at 2-decimal
+  precision a few gross sums have no exact net (0.03 at 19%), and the credit note then totals a cent less.
 
 ### T-071 (subscribers, idempotency, W10)
 
