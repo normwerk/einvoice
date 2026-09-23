@@ -13,14 +13,12 @@
  * script) passes this value straight through.
  *
  * Four branches (`ecom docs/todo.md` T-066's own spec):
- * 1. DE buyer with a Leitweg-ID-*shaped* `buyerReference` → `XRECHNUNG` (B2G, pure-XML delivery is
- *    mandatory there). Shape only (`looksLikeLeitwegId`), not the full ISO/IEC 7064 checksum — an ordinary
- *    free-text B2B reference that doesn't look like a Leitweg-ID at all is not a malformed one, it simply
- *    isn't one (same reasoning `build-invoice.ts` already applies before calling `validateLeitwegId`); a
- *    reference that *does* look like one but fails the checksum still reaches `XRECHNUNG` here and is
- *    rejected later, by `buildInvoice`'s own `InvalidLeitwegIdError` guard — this function only routes, it
- *    doesn't re-validate.
- * 2. DE buyer, no Leitweg-ID-shaped reference → `preferredProfile ?? "EN16931"`.
+ * 1. DE buyer with a declared `leitwegId` → `XRECHNUNG` (B2G, pure-XML delivery is mandatory there). Only
+ *    a declared Leitweg-ID counts (P-54): an ordinary buyer reference such as "2024-01" has the same shape,
+ *    and reading one as a B2G signal sent ordinary B2B invoices down this branch. A Leitweg-ID that fails
+ *    its check digits still reaches `XRECHNUNG` here and is rejected by `buildInvoice`'s
+ *    `InvalidLeitwegIdError` — this function only routes, it doesn't re-validate.
+ * 2. DE buyer without a Leitweg-ID → `preferredProfile ?? "EN16931"`.
  * 3. Any other EU/EEA member, or Switzerland/the UK → `preferredProfile ?? "EN16931"` — the Factur-X-
  *    compatible EN 16931 hybrid is accepted EU-wide (and CH/UK have no e-invoice mandate of their own that
  *    would reject a hybrid PDF either). v0.2 will prefer a `PEPPOL_BIS` profile for DK/NO/SE/BE/NL instead,
@@ -34,7 +32,6 @@
  * `tax-rules.ts`) — this function only ever decides the *document format*, never the VAT category.
  */
 import type { CountryCode } from "@normwerk/einvoice-model";
-import { looksLikeLeitwegId } from "./leitweg-id.js";
 import { EU_MEMBER_STATES } from "./tax-rules.js";
 
 export type EInvoiceProfileName = "EN16931" | "XRECHNUNG";
@@ -89,20 +86,19 @@ export class UnsupportedCountryError extends Error {
 
 export interface SelectProfileOptions {
   readonly buyerCountry: CountryCode;
-  /** A Leitweg-ID-*shaped* value (checked via `looksLikeLeitwegId`, not merely present) signals a German
-   * public-sector buyer (B2G) — XRechnung's pure-XML delivery is mandatory there; a plain ZUGFeRD/Factur-X
-   * hybrid PDF is not an accepted substitute (unlike ordinary B2B). An ordinary free-text B2B reference
-   * (BT-10 is valid free text in general) is not treated as a B2G signal just because it's present. */
-  readonly buyerReference?: string | undefined;
+  /** The buyer's declared Leitweg-ID (`CommerceInvoiceInput.references.leitwegId`): a German public-sector
+   * buyer (B2G), for whom XRechnung's pure-XML delivery is mandatory; a ZUGFeRD/Factur-X hybrid PDF is not
+   * an accepted substitute (unlike ordinary B2B). Ignored for a buyer outside Germany. */
+  readonly leitwegId?: string | undefined;
   /** Caller's own preference, when neither B2G-mandatory-XRechnung nor the plain default applies. */
   readonly preferredProfile?: EInvoiceProfileName | undefined;
 }
 
 export function selectProfile(options: SelectProfileOptions): EInvoiceProfileName {
-  const { buyerCountry, buyerReference, preferredProfile } = options;
+  const { buyerCountry, leitwegId, preferredProfile } = options;
 
   if (buyerCountry === "DE") {
-    if (buyerReference !== undefined && looksLikeLeitwegId(buyerReference)) {
+    if (leitwegId !== undefined) {
       return "XRECHNUNG";
     }
     return preferredProfile ?? "EN16931";

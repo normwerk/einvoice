@@ -30,7 +30,7 @@ import {
   unitPriceOf,
   vatContainedIn,
 } from "./decimal.js";
-import { looksLikeLeitwegId, validateLeitwegId } from "./leitweg-id.js";
+import { validateLeitwegId } from "./leitweg-id.js";
 import { validateCommerceInvoiceInput } from "./validate.js";
 import type {
   BuildResult,
@@ -145,11 +145,21 @@ export class InvalidLeitwegIdError extends Error {
     readonly reason: string,
   ) {
     super(
-      `references.buyerReference "${value}" has the shape of a Leitweg-ID but fails validation (${reason}) ` +
-        "— KoSIT's own validator only checks that BT-10 is present (BR-DE-15), not its format, so a " +
-        "mistyped Leitweg-ID would otherwise pass KoSIT and misroute at the receiving public-sector system.",
+      `references.leitwegId "${value}" is not a valid Leitweg-ID (${reason}) — KoSIT only checks that ` +
+        "BT-10 is present (BR-DE-15), not its format, so a mistyped Leitweg-ID would pass KoSIT and " +
+        "misroute at the receiving public-sector system.",
     );
     this.name = "InvalidLeitwegIdError";
+  }
+}
+
+export class DuplicateBuyerReferenceError extends Error {
+  constructor() {
+    super(
+      "references.buyerReference and references.leitwegId both fill BT-10 (Buyer reference), which holds " +
+        "one value. For a public-sector buyer, give the Leitweg-ID alone.",
+    );
+    this.name = "DuplicateBuyerReferenceError";
   }
 }
 
@@ -338,14 +348,16 @@ export function buildInvoice(
   if (input.seller.addressLine1 === undefined || input.seller.addressLine1.trim() === "") {
     throw new MissingSellerAddressError();
   }
-  const buyerReference = input.references?.buyerReference;
-  if (buyerReference !== undefined && looksLikeLeitwegId(buyerReference)) {
-    // Only validated when it has the shape at all (T-062) — an ordinary free-text B2B reference that
-    // doesn't look like a Leitweg-ID is not a malformed one, it's simply not one; BT-10 is valid free text
-    // in general, not exclusively for German public-sector buyers.
-    const leitwegIdResult = validateLeitwegId(buyerReference);
+  // P-54: a Leitweg-ID is declared, never read out of BT-10's free text — "2024-01" or a purchase order
+  // number "4500123456-10" has the same shape, and was refused or routed to XRechnung for it.
+  const leitwegId = input.references?.leitwegId;
+  if (leitwegId !== undefined) {
+    if (input.references?.buyerReference !== undefined) {
+      throw new DuplicateBuyerReferenceError();
+    }
+    const leitwegIdResult = validateLeitwegId(leitwegId);
     if (!leitwegIdResult.valid) {
-      throw new InvalidLeitwegIdError(buyerReference, leitwegIdResult.reason ?? "unknown");
+      throw new InvalidLeitwegIdError(leitwegId, leitwegIdResult.reason ?? "unknown");
     }
   }
 
@@ -602,7 +614,7 @@ export function buildInvoice(
     currencyCode: input.document.currency,
     specificationIdentifier: XRECHNUNG_SPECIFICATION_IDENTIFIER,
     businessProcessType: PEPPOL_BILLING_PROCESS_TYPE,
-    buyerReference: input.references?.buyerReference,
+    buyerReference: leitwegId ?? input.references?.buyerReference,
     precedingInvoiceReferences:
       input.document.correctedInvoice !== undefined
         ? [

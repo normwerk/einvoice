@@ -15,10 +15,7 @@ import type {
   EInvoiceProfileName,
   SelectProfileOptions,
 } from "@normwerk/einvoice-commerce" with { "resolution-mode": "import" };
-import {
-  mapOrderToCommerceInvoiceInput,
-  resolveB2gBuyerReference,
-} from "../mapping/order-to-commerce-invoice-input.js";
+import { mapOrderToCommerceInvoiceInput } from "../mapping/order-to-commerce-invoice-input.js";
 import { loadSellers } from "./load-cells.js";
 import type { BuildAxisOutcome, ProfileAxisOutcome, TaxMatrixCell } from "./types.js";
 
@@ -96,7 +93,7 @@ export function runTaxMatrixCell(cell: TaxMatrixCell, deps: TaxMatrixDeps): Cell
   try {
     const resolvedProfile = deps.selectProfile({
       buyerCountry: input.buyer.countryCode,
-      buyerReference: resolveB2gBuyerReference(cell.order),
+      leitwegId: input.references?.leitwegId,
       preferredProfile: cell.selectProfileOptions?.preferredProfile,
     });
     profile = { kind: "ok", profile: resolvedProfile };

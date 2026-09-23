@@ -105,6 +105,9 @@ export const commerceInvoiceInputJsonSchema = {
         "buyerReference": {
           "type": "string"
         },
+        "leitwegId": {
+          "type": "string"
+        },
         "orderReference": {
           "type": "string"
         },

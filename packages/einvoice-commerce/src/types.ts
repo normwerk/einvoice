@@ -55,8 +55,15 @@ export interface CommerceInvoiceInput {
     | undefined;
   readonly references?:
     | {
-        /** BT-10. Also carries a Leitweg-ID for a German public-sector buyer (B2G) — T-062. */
+        /** BT-10: the buyer's own reference for this invoice, free text. Never read as a Leitweg-ID. */
         readonly buyerReference?: string | undefined;
+        /**
+         * P-54: the Leitweg-ID of a German public-sector buyer (B2G) — a declared fact, never inferred from
+         * the shape of `buyerReference` (an ordinary reference such as "2024-01" has that shape too).
+         * `buildInvoice` validates it, check digits included, and writes it to BT-10, so give it instead of
+         * `buyerReference`, not with it. `selectProfile` takes it as the signal for XRechnung.
+         */
+        readonly leitwegId?: string | undefined;
         readonly orderReference?: string | undefined; // BT-13
         readonly contractReference?: string | undefined; // BT-12
       }

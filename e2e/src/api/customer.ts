@@ -62,3 +62,12 @@ export async function setCustomerVatId(
 ): Promise<void> {
   await adminPostJson(admin, `/admin/customers/${customerId}`, { metadata: { vat_id: vatId } });
 }
+
+/** Sets `customer.metadata` keys the plugin reads (`docs/quickstart-medusa.md`), e.g. `leitweg_id`. */
+export async function setCustomerMetadata(
+  admin: AdminSession,
+  customerId: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  await adminPostJson(admin, `/admin/customers/${customerId}`, { metadata });
+}

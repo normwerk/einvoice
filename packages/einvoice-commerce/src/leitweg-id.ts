@@ -1,7 +1,7 @@
 /**
  * T-062/W9: Leitweg-ID format validation — the German public-sector
  * (B2G) buyer-reference routing identifier that can appear in
- * `CommerceInvoiceInput.references.buyerReference` (BT-10).
+ * `CommerceInvoiceInput.references.leitwegId`, written to BT-10.
  *
  * Real gap this closes: KoSIT's own XRechnung validator (the same Docker
  * image this repo already runs, T-040) only checks that BT-10 is
@@ -42,18 +42,6 @@ export interface LeitwegIdValidationResult {
   readonly valid: boolean;
   /** Present only when `valid` is false. */
   readonly reason?: string;
-}
-
-/**
- * Structural pre-check only (no checksum) — whether `value` even has the
- * general Leitweg-ID shape. Use this to decide whether an arbitrary
- * `buyerReference` is a Leitweg-ID at all before applying full validation:
- * an ordinary free-text B2B reference (BT-10 is valid free text in
- * general, not only for German public-sector buyers) that happens not to
- * match this shape is not a malformed Leitweg-ID — it's simply not one.
- */
-export function looksLikeLeitwegId(value: string): boolean {
-  return LEITWEG_ID_PATTERN.test(value);
 }
 
 /** §2.4 step 2b: A=10, B=11, … Z=35 (ISO/IEC 7064 MOD 97-10's own alphanumeric mapping — the same one IBAN uses). */

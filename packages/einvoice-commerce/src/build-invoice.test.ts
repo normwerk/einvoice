@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateModel } from "@normwerk/einvoice-model";
 import {
+  DuplicateBuyerReferenceError,
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
   InvalidLeitwegIdError,
@@ -509,22 +510,32 @@ describe("buildInvoice — credit note (row 10, T-064)", () => {
   });
 });
 
-describe("buildInvoice — Leitweg-ID validation (T-062)", () => {
-  it("accepts a valid Leitweg-ID buyerReference", () => {
-    const input = domesticInput({ references: { buyerReference: "991-ABC-29" } });
+describe("buildInvoice — Leitweg-ID, declared and validated (T-062, P-54)", () => {
+  it("writes a valid declared Leitweg-ID to BT-10", () => {
+    const input = domesticInput({ references: { leitwegId: "991-ABC-29" } });
     const result = buildInvoice(input);
     expect(result.invoice.buyerReference).toBe("991-ABC-29");
   });
 
-  it("rejects a Leitweg-ID-shaped buyerReference with a wrong check digit", () => {
-    const input = domesticInput({ references: { buyerReference: "991-ABD-29" } });
+  it("rejects a declared Leitweg-ID with a wrong check digit", () => {
+    const input = domesticInput({ references: { leitwegId: "991-ABD-29" } });
     expect(() => buildInvoice(input)).toThrow(InvalidLeitwegIdError);
   });
 
-  it("does not touch an ordinary free-text buyerReference that doesn't look like a Leitweg-ID", () => {
-    const input = domesticInput({ references: { buyerReference: "Buchhaltung-2026-09" } });
-    const result = buildInvoice(input);
-    expect(result.invoice.buyerReference).toBe("Buchhaltung-2026-09");
+  it("never reads an ordinary buyer reference as a Leitweg-ID, whatever its shape", () => {
+    // "2024-01" and "4500123456-10" have a Leitweg-ID's shape but fail its check digits: an ordinary
+    // reference like these was refused before the Leitweg-ID became a declared field.
+    for (const buyerReference of ["Buchhaltung-2026-09", "2024-01", "4500123456-10"]) {
+      const result = buildInvoice(domesticInput({ references: { buyerReference } }));
+      expect(result.invoice.buyerReference).toBe(buyerReference);
+    }
+  });
+
+  it("refuses a buyer reference and a Leitweg-ID together — BT-10 holds one value", () => {
+    const input = domesticInput({
+      references: { buyerReference: "PO-2026-4471", leitwegId: "991-ABC-29" },
+    });
+    expect(() => buildInvoice(input)).toThrow(DuplicateBuyerReferenceError);
   });
 });
 

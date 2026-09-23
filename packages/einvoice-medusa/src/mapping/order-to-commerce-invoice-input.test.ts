@@ -339,13 +339,25 @@ describe("mapOrderToCommerceInvoiceInput", () => {
     const order = baseOrder({
       customer: {
         company_name: "Buyer GmbH",
-        metadata: { vat_id: "DE999999999", buyer_reference: "04011000-1234512345-06" },
+        metadata: { vat_id: "DE999999999", buyer_reference: "2024-01" },
       },
     });
     const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
     expect(input.buyer.vatIdentifier).toBe("DE999999999");
     expect(input.taxContext.buyerVatId).toBe("DE999999999");
-    expect(input.references?.buyerReference).toBe("04011000-1234512345-06");
+    // A Leitweg-ID's shape, but only ever the buyer's own reference (P-54).
+    expect(input.references).toEqual({ buyerReference: "2024-01" });
+  });
+
+  it("maps a declared metadata.leitweg_id to references.leitwegId, which then fills BT-10 (P-54)", () => {
+    const order = baseOrder({
+      customer: {
+        company_name: "Stadtverwaltung Musterstadt",
+        metadata: { leitweg_id: " 04011000-1234512345-06 ", buyer_reference: "PO-7" },
+      },
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.references).toEqual({ leitwegId: "04011000-1234512345-06" });
   });
 
   it("reads order.metadata.regime_override — distinct from customer.metadata, a fact about this transaction", () => {

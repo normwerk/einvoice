@@ -1,0 +1,29 @@
+{
+  "id": "order_tax_matrix_b2b_reference",
+  "display_id": 1022,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Buyer GmbH",
+    "email": "buyer@example.test",
+    "metadata": { "buyer_reference": "2024-01" }
+  },
+  "billing_address": {
+    "country_code": "de",
+    "city": "Munich",
+    "postal_code": "80331",
+    "address_1": "Beispielstraße 1",
+    "company": "Buyer GmbH"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Widget",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 19 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

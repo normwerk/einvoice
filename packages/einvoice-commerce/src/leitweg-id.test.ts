@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  computeLeitwegIdCheckDigits,
-  looksLikeLeitwegId,
-  validateLeitwegId,
-} from "./leitweg-id.js";
+import { computeLeitwegIdCheckDigits, validateLeitwegId } from "./leitweg-id.js";
 
 describe("validateLeitwegId — against the real KoSIT Format-Spezifikation v2.0.2", () => {
   it("the spec's own §2.4 worked example (numeric-only)", () => {
@@ -42,16 +38,5 @@ describe("validateLeitwegId — against the real KoSIT Format-Spezifikation v2.0
 
   it("case-insensitivity of Feinadressierung letters (spec §2.3: 'nicht case-sensitiv')", () => {
     expect(validateLeitwegId("991-abc-29")).toEqual({ valid: true });
-  });
-});
-
-describe("looksLikeLeitwegId", () => {
-  it("true for a Leitweg-ID shape, even with a wrong checksum (shape vs. checksum are separate concerns)", () => {
-    expect(looksLikeLeitwegId("991-ABD-29")).toBe(true);
-  });
-
-  it("false for ordinary free-text buyer references", () => {
-    expect(looksLikeLeitwegId("Buchhaltung-2026-09")).toBe(false);
-    expect(looksLikeLeitwegId("PO-2026-00123")).toBe(false);
   });
 });

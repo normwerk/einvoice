@@ -2,43 +2,28 @@ import { describe, expect, it } from "vitest";
 import { selectProfile, UnsupportedCountryError } from "./profile.js";
 
 describe("selectProfile", () => {
-  describe("branch 1: DE buyer with a Leitweg-ID-shaped buyerReference", () => {
+  describe("branch 1: DE buyer with a declared Leitweg-ID", () => {
     it("resolves XRECHNUNG regardless of preferredProfile", () => {
-      expect(selectProfile({ buyerCountry: "DE", buyerReference: "991-12345-67" })).toBe(
-        "XRECHNUNG",
-      );
+      expect(selectProfile({ buyerCountry: "DE", leitwegId: "991-ABC-29" })).toBe("XRECHNUNG");
       expect(
         selectProfile({
           buyerCountry: "DE",
-          buyerReference: "991-12345-67",
+          leitwegId: "991-ABC-29",
           preferredProfile: "EN16931",
         }),
       ).toBe("XRECHNUNG");
     });
   });
 
-  describe("branch 2: DE buyer without a Leitweg-ID-shaped buyerReference", () => {
-    it("falls back to preferredProfile when there is no buyerReference", () => {
+  describe("branch 2: DE buyer without a Leitweg-ID", () => {
+    it("falls back to preferredProfile when there is no Leitweg-ID", () => {
       expect(selectProfile({ buyerCountry: "DE", preferredProfile: "XRECHNUNG" })).toBe(
         "XRECHNUNG",
       );
     });
 
-    it("defaults to EN16931 when there is no buyerReference and no preferredProfile", () => {
+    it("defaults to EN16931 when there is no Leitweg-ID and no preferredProfile", () => {
       expect(selectProfile({ buyerCountry: "DE" })).toBe("EN16931");
-    });
-
-    it("does not treat an ordinary free-text buyerReference as a B2G signal", () => {
-      // Doesn't match LEITWEG_ID_PATTERN (no mandatory trailing "-NN" checksum segment) — an ordinary B2B
-      // purchase-order reference, not a malformed Leitweg-ID.
-      expect(selectProfile({ buyerCountry: "DE", buyerReference: "PO-2026-4471" })).toBe("EN16931");
-      expect(
-        selectProfile({
-          buyerCountry: "DE",
-          buyerReference: "PO-2026-4471",
-          preferredProfile: "XRECHNUNG",
-        }),
-      ).toBe("XRECHNUNG");
     });
   });
 
@@ -63,8 +48,8 @@ describe("selectProfile", () => {
       );
     });
 
-    it("ignores buyerReference — Leitweg-ID/B2G is a Germany-only signal", () => {
-      expect(selectProfile({ buyerCountry: "FR", buyerReference: "991-12345-67" })).toBe("EN16931");
+    it("ignores a Leitweg-ID — B2G is a Germany-only signal", () => {
+      expect(selectProfile({ buyerCountry: "FR", leitwegId: "991-ABC-29" })).toBe("EN16931");
     });
   });
 

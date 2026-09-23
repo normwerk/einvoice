@@ -25,6 +25,7 @@ export {
   buildInvoice,
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
+  DuplicateBuyerReferenceError,
   InvalidLeitwegIdError,
   InvalidPriceBasisError,
   LineAllowanceExceedsLineAmountError,
@@ -48,7 +49,6 @@ export {
 
 export {
   computeLeitwegIdCheckDigits,
-  looksLikeLeitwegId,
   validateLeitwegId,
   type LeitwegIdValidationResult,
 } from "./leitweg-id.js";

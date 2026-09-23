@@ -1,0 +1,29 @@
+{
+  "id": "order_tax_matrix_b2g",
+  "display_id": 1021,
+  "email": "rechnungseingang@musterstadt.example",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Stadtverwaltung Musterstadt",
+    "email": "rechnungseingang@musterstadt.example",
+    "metadata": { "leitweg_id": "04011000-1234512345-06" }
+  },
+  "billing_address": {
+    "country_code": "de",
+    "city": "Musterstadt",
+    "postal_code": "12345",
+    "address_1": "Rathausplatz 1",
+    "company": "Stadtverwaltung Musterstadt"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Widget",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 19 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

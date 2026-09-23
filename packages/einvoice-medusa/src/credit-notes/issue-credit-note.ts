@@ -28,7 +28,6 @@ import { deleteEinvoiceFiles, fetchFileBytes, storeEinvoiceFiles } from "../stor
 import {
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
-  resolveB2gBuyerReference,
   type MedusaOrderForInvoice,
 } from "../mapping/order-to-commerce-invoice-input.js";
 import {
@@ -128,10 +127,9 @@ export async function issueCreditNote({
     correctedInvoice: { number: basis.invoice.document_number, issueDate: basis.invoiceIssueDate },
   });
 
-  // The *raw* B2G signal — see invoice-on-fulfillment-created.ts's identical comment.
   const profile = commerce.selectProfile({
     buyerCountry: input.buyer.countryCode,
-    buyerReference: resolveB2gBuyerReference(order),
+    leitwegId: input.references?.leitwegId,
     preferredProfile: einvoiceService.options.defaultProfile,
   });
 

@@ -61,7 +61,6 @@ import {
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
-  resolveB2gBuyerReference,
   type MedusaOrderForInvoice,
 } from "../mapping/order-to-commerce-invoice-input.js";
 
@@ -112,12 +111,10 @@ export default async function invoiceOnFulfillmentCreated({
     ossRegistered: einvoiceService.options.ossRegistered,
   });
 
-  // The *raw* B2G signal, not `input.references.buyerReference` — that field is always populated (BR-DE-15,
-  // `mapOrderToCommerceInvoiceInput`'s own doc comment), and feeding it back into `selectProfile` here
-  // would make every order resolve to XRECHNUNG regardless of `defaultProfile`.
+  // P-54: only a declared Leitweg-ID routes to XRechnung — never BT-10's free text, which is always filled.
   const profile = commerce.selectProfile({
     buyerCountry: input.buyer.countryCode,
-    buyerReference: resolveB2gBuyerReference(order),
+    leitwegId: input.references?.leitwegId,
     preferredProfile: einvoiceService.options.defaultProfile,
   });
 

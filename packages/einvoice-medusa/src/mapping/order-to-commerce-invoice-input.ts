@@ -212,16 +212,19 @@ export interface MapOrderOptions {
 }
 
 /**
- * The one real signal `selectProfile` (`einvoice-commerce`) needs to detect a German B2G buyer — kept
- * distinct from `CommerceInvoiceInput.references.buyerReference` itself (below), which is *always*
- * populated to satisfy BR-DE-15 (found mandatory by the same real KoSIT rejection as BG-16 above, for
- * every invoice regardless of buyer type). Feeding that always-populated value into `selectProfile` would
- * make every single order resolve to XRECHNUNG, defeating the merchant's own `defaultProfile` preference —
- * this function is the one place both `mapOrderToCommerceInvoiceInput` and the subscriber that calls
- * `selectProfile` read the *raw* signal from, so the two can never drift apart.
+ * P-54: the buyer's Leitweg-ID, from `customer.metadata.leitweg_id` — a German public-sector buyer (B2G)
+ * declared by the merchant, never inferred from the shape of another reference. `buildInvoice` validates it
+ * and writes it to BT-10; `selectProfile` routes the order to XRechnung for it.
  */
-export function resolveB2gBuyerReference(order: MedusaOrderForInvoice): string | undefined {
-  return (order.customer?.metadata?.["buyer_reference"] as string | undefined) ?? undefined;
+function resolveLeitwegId(order: MedusaOrderForInvoice): string | undefined {
+  const value = order.customer?.metadata?.["leitweg_id"];
+  return typeof value === "string" ? nonEmpty(value)?.trim() : undefined;
+}
+
+/** `customer.metadata.buyer_reference` — the buyer's own reference for their invoices (BT-10), free text. */
+function resolveBuyerReference(order: MedusaOrderForInvoice): string | undefined {
+  const value = order.customer?.metadata?.["buyer_reference"];
+  return typeof value === "string" ? nonEmpty(value) : undefined;
 }
 
 /**
@@ -504,12 +507,14 @@ export function mapOrderToCommerceInvoiceInput(
   const buyerCountry = buyerAddress.country_code.toUpperCase() as CountryCode;
   const buyerVatId = (order.customer?.metadata?.["vat_id"] as string | undefined) ?? undefined;
   // BT-10 (Buyer reference) — found mandatory by a real KoSIT rejection (BR-DE-15, T-071's own e2e proof),
-  // for every invoice, not just a B2G one (`resolveB2gBuyerReference`'s own doc comment explains why this
-  // is deliberately a *different* value than what `selectProfile` is called with). When there's no real
-  // Leitweg-ID/B2G reference, the order's own human-readable number is the closest honest equivalent this
-  // mapping has for "a reference the buyer would recognize this document by" — not a fabricated value, but
-  // also not claimed to be a true Leitweg-ID.
-  const buyerReference = resolveB2gBuyerReference(order) ?? String(order.display_id);
+  // for every invoice, not just a B2G one. A declared Leitweg-ID fills it; otherwise the buyer's own
+  // reference, and failing that the order's own human-readable number — the closest honest equivalent this
+  // mapping has for "a reference the buyer would recognize this document by", not a fabricated value.
+  const leitwegId = resolveLeitwegId(order);
+  const references =
+    leitwegId !== undefined
+      ? { leitwegId }
+      : { buyerReference: resolveBuyerReference(order) ?? String(order.display_id) };
   // BT-49 (Buyer electronic address) — found mandatory by a real KoSIT rejection (BR-63, T-071's own e2e
   // proof): KoSIT bundles this into the base "EN16931 (CII)" Schematron step itself (not an
   // XRechnung-specific rule, `docs/domain-glossary.md`'s own earlier T-021 entry), so it fires
@@ -551,7 +556,7 @@ export function mapOrderToCommerceInvoiceInput(
       allowances: resolveLineAllowances(item),
     })),
     shipping: resolveShipping(order),
-    references: { buyerReference },
+    references,
     payment: options.payment,
     // BG-13 (P-25). `buildInvoice` only ever consults this for category K (BR-IC-11/12) — harmless to
     // populate unconditionally otherwise, the same way taxContext.buyerVatId is always computed regardless

@@ -92,6 +92,11 @@ export function issueDate(xml: string): string {
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 }
 
+/** BT-10: the buyer reference, `ram:ApplicableHeaderTradeAgreement > ram:BuyerReference`. */
+export function buyerReference(xml: string): string {
+  return requireMatch(xml, /<ram:BuyerReference>([^<]+)<\/ram:BuyerReference>/, "BT-10");
+}
+
 /** BT-44: the buyer's name, `ram:BuyerTradeParty > ram:Name`. */
 export function buyerName(xml: string): string {
   return requireMatch(xml, /<ram:BuyerTradeParty>\s*<ram:Name>([^<]+)<\/ram:Name>/, "BT-44");

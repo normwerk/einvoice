@@ -41,7 +41,7 @@
     }
   ],
   "payment": { "means": "58", "iban": "DE89370400440532013000" },
-  "references": { "buyerReference": "04011000-1234512345-06" },
+  "references": { "leitwegId": "04011000-1234512345-06" },
   "taxContext": {
     "sellerCountry": "DE",
     "sellerVatId": "DE123456789",

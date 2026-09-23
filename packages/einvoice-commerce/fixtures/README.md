@@ -20,6 +20,6 @@ simulate conformance).
 | `commerce-domestic-mixed-rates` | 1, 2, 9                     | Two lines at different rates → two `BG-23` groups; shipping + discount arithmetic          |
 | `commerce-intra-eu`             | 3                           | Category K, VIES evidence gate, mandatory delivery info (`BR-IC-11`/`BR-IC-12`)            |
 | `commerce-credit-note`          | 10                          | `document.kind === "credit-note"` requires `correctedInvoice`                              |
-| `commerce-b2g-leitweg-id`       | —                           | Real Leitweg-ID `buyerReference`, validated by its own MOD 97-10 check digit               |
+| `commerce-b2g-leitweg-id`       | —                           | Real Leitweg-ID declared as `leitwegId`, validated by its own MOD 97-10 check digit        |
 | `commerce-customs-hs-origin`    | 1                           | `lines[].hsCode`/`originCountry` (BT-158/159) mapped per-line, not document-wide           |
 | `commerce-gross-prices`         | 1, 2, 9                     | Prices including VAT: each group's VAT taken out of its gross total, total = gross charged |
