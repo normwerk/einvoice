@@ -191,6 +191,28 @@ describe("buildInvoice — intra-EU supply (row 3), needs vatIdEvidence", () => 
     );
   });
 
+  it("refuses when the document's buyer VAT-ID (BT-48) is not the one the tax decision was made on (P-44)", () => {
+    const mismatched = {
+      ...intraEuInput,
+      buyer: { ...intraEuInput.buyer, vatIdentifier: "FR99999999999" },
+    };
+    expect(() => buildInvoice(mismatched, { vatIdEvidence: evidence })).toThrow(
+      expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#3" }),
+    );
+  });
+
+  it("refuses K when the goods are not delivered to another member state — DE or a third country (§6a Abs. 1 Nr. 1 UStG, P-44)", () => {
+    for (const deliverToCountryCode of ["DE", "CH"] as const) {
+      const input = {
+        ...intraEuInput,
+        delivery: { ...intraEuInput.delivery, deliverToCountryCode },
+      };
+      expect(() => buildInvoice(input, { vatIdEvidence: evidence })).toThrow(
+        expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#3" }),
+      );
+    }
+  });
+
   it("requires buyer.vatIdentifier on the document itself, not just a positive VIES check (BR-IC-02, P-19)", () => {
     const withoutBuyerVatId = {
       ...intraEuInput,
@@ -252,6 +274,35 @@ describe("buildInvoice — domestic reverse charge (row 5), needs buyer.vatIdent
       postCode: "20095",
     });
     expect(() => buildInvoice(input)).toThrow(MissingBuyerIdentifierForReverseChargeError);
+  });
+});
+
+describe("buildInvoice — export (row 4) is decided by where the goods go, not only by who buys (P-44)", () => {
+  function exportInput(deliverToCountryCode: "CH" | "DE" | "FR"): CommerceInvoiceInput {
+    return domesticInput({
+      buyer: { name: "Muster AG", countryCode: "CH", city: "Zürich", postCode: "8001" },
+      delivery: { deliverToCountryCode },
+      taxContext: {
+        sellerCountry: "DE",
+        sellerVatId: "DE123456789",
+        buyerCountry: "CH",
+        buyerIsBusiness: true,
+        ossRegistered: false,
+        supplyType: "goods",
+      },
+    });
+  }
+
+  it("goods delivered to the non-EU buyer's country → G", () => {
+    expect(buildInvoice(exportInput("CH")).invoice.vatBreakdown[0]?.categoryCode).toBe("G");
+  });
+
+  it("refuses G when the goods stay inside the EU — a non-EU buyer does not make it an export (§6 Abs. 1 UStG)", () => {
+    for (const country of ["DE", "FR"] as const) {
+      expect(() => buildInvoice(exportInput(country))).toThrow(
+        expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#4" }),
+      );
+    }
   });
 });
 

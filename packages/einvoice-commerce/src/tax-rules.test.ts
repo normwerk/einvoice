@@ -103,6 +103,42 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
     expect(decision.reasoning).toContain("confirmed by phone");
   });
 
+  it("row 3 (P-44): K refuses VIES evidence that was issued for a different VAT-ID than the buyer's", () => {
+    const context: TaxContext = { ...BASE, buyerCountry: "FR", buyerVatId: "FR12345678901" };
+    expect(() =>
+      decideVatCategory(context, {
+        vatId: "IT12345678901",
+        status: "valid",
+        checkedAt: "2026-09-14",
+      }),
+    ).toThrow(expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#3" }));
+    // Formatting differences are not a different number.
+    expect(
+      decideVatCategory(context, {
+        vatId: "fr 123 456 789 01",
+        status: "valid",
+        checkedAt: "2026-09-14",
+      }).categoryCode,
+    ).toBe("K");
+  });
+
+  it("row 3 (P-44): K refuses a buyer VAT-ID issued by Germany itself (§6a Abs. 1 Nr. 4 UStG)", () => {
+    const context: TaxContext = { ...BASE, buyerCountry: "FR", buyerVatId: "DE987654321" };
+    expect(() =>
+      decideVatCategory(context, {
+        vatId: "DE987654321",
+        status: "valid",
+        checkedAt: "2026-09-14",
+      }),
+    ).toThrow(expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#3" }));
+    expect(() =>
+      decideVatCategory({
+        ...context,
+        regimeOverride: { kind: "intra-eu-confirmed", evidenceNote: "phone" },
+      }),
+    ).toThrow(expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#3" }));
+  });
+
   it("row 4: DE → CH (non-EU) → G, VATEX-EU-G", () => {
     const context: TaxContext = { ...BASE, buyerCountry: "CH" };
     const decision = decideVatCategory(context);

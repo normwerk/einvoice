@@ -12,8 +12,15 @@
  * from `decideVatCategory`; it never guesses a way around a missing fact.
  */
 import { validateModel, type Invoice, type VatCategoryCode } from "@normwerk/einvoice-model";
-import { DE_STANDARD_RATE, decideVatCategory, resolveLineRate } from "./tax-rules.js";
 import { multiplyToAmount, percentOfAmount, subtractAmounts, sumAmounts } from "./decimal.js";
+import {
+  DE_STANDARD_RATE,
+  EU_MEMBER_STATES,
+  TaxRuleError,
+  decideVatCategory,
+  normalizeVatId,
+  resolveLineRate,
+} from "./tax-rules.js";
 import { looksLikeLeitwegId, validateLeitwegId } from "./leitweg-id.js";
 import { validateCommerceInvoiceInput } from "./validate.js";
 import type {
@@ -180,6 +187,48 @@ interface ChargeLine {
   readonly reason?: string | undefined;
 }
 
+/**
+ * P-44: `decideVatCategory` sees only `TaxContext` — the facts the category was decided on. This checks those
+ * facts against what the document itself will say, for the two categories whose legal basis depends on
+ * where the goods actually go: K needs the goods to reach another member state under the buyer VAT-ID the
+ * document names (§6a Abs. 1 UStG), G needs them to leave the EU (§6 Abs. 1 UStG). Without it a French
+ * billing address with a German shipping address gets K, and a Swiss buyer's order delivered in Germany
+ * gets G — both green in every validator, both wrong.
+ */
+function assertTaxFactsMatchDocument(decision: TaxDecision, input: CommerceInvoiceInput): void {
+  const deliverTo = input.delivery?.deliverToCountryCode;
+  if (decision.categoryCode === "K") {
+    if (deliverTo === undefined || deliverTo === "DE" || !EU_MEMBER_STATES.has(deliverTo)) {
+      throw new TaxRuleError(
+        `An intra-EU supply (category K) needs the goods delivered to another EU member state (§6a Abs. 1 ` +
+          `Nr. 1 UStG) — the deliver-to country (BT-80) is ${deliverTo ?? "missing"}. Refusing category K.`,
+        "tax-semantics#3",
+      );
+    }
+    const documentVatId = input.buyer.vatIdentifier;
+    const decidedVatId = input.taxContext.buyerVatId;
+    if (
+      documentVatId !== undefined &&
+      decidedVatId !== undefined &&
+      normalizeVatId(documentVatId) !== normalizeVatId(decidedVatId)
+    ) {
+      throw new TaxRuleError(
+        `The document's buyer VAT-ID (BT-48) ${documentVatId} is not the VAT-ID the tax decision was made ` +
+          `on (${decidedVatId}) — refusing category K on a document that names a different buyer number.`,
+        "tax-semantics#3",
+      );
+    }
+  }
+  if (decision.categoryCode === "G" && deliverTo !== undefined && EU_MEMBER_STATES.has(deliverTo)) {
+    throw new TaxRuleError(
+      `An export (category G) needs the goods to leave the EU (§6 Abs. 1 UStG) — they are delivered to ` +
+        `${deliverTo}. A buyer outside the EU does not make a delivery inside it an export; refusing ` +
+        `rather than guessing which domestic or intra-EU regime applies instead.`,
+      "tax-semantics#4",
+    );
+  }
+}
+
 export function buildInvoice(
   input: CommerceInvoiceInput,
   options: BuildInvoiceOptions = {},
@@ -273,6 +322,7 @@ export function buildInvoice(
   if (regimeDecision.ruleId === "tax-semantics#12" && input.buyer.vatIdentifier === undefined) {
     throw new MissingBuyerVatIdForCrossBorderServiceError();
   }
+  assertTaxFactsMatchDocument(regimeDecision, input);
 
   const lineComputations = input.lines.map((line, index) => ({
     identifier: line.identifier ?? String(index + 1),

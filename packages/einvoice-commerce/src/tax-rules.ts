@@ -57,6 +57,12 @@ export const EU_MEMBER_STATES: ReadonlySet<CountryCode> = new Set([
   "SE",
 ] as const);
 
+/** Compares VAT-IDs the way VIES does — ignoring case, spaces, dots and dashes — so a formatting difference
+ * is never mistaken for a different number, and a different number is never mistaken for the same one. */
+export function normalizeVatId(vatId: string): string {
+  return vatId.replace(/[\s.-]/g, "").toUpperCase();
+}
+
 export class TaxRuleError extends Error {
   constructor(
     message: string,
@@ -270,7 +276,22 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     context.buyerVatId !== undefined &&
     context.supplyType !== "services"
   ) {
+    const buyerVatId = normalizeVatId(context.buyerVatId);
+    if (buyerVatId.startsWith("DE")) {
+      throw new TaxRuleError(
+        `Intra-EU supply needs a buyer VAT-ID issued by another member state (§6a Abs. 1 Nr. 4 UStG, ` +
+          `Art. 138(1) VAT Directive) — got the German VAT-ID ${context.buyerVatId}. Refusing category K.`,
+        "tax-semantics#3",
+      );
+    }
     if (vatIdEvidence?.status === "valid") {
+      if (normalizeVatId(vatIdEvidence.vatId) !== buyerVatId) {
+        throw new TaxRuleError(
+          `The positive VIES check is for VAT-ID ${vatIdEvidence.vatId}, not for the buyer's ` +
+            `${context.buyerVatId} — refusing category K on evidence about a different number.`,
+          "tax-semantics#3",
+        );
+      }
       return {
         ruleId: "tax-semantics#3",
         categoryCode: "K",
