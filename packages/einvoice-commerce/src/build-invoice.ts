@@ -96,6 +96,18 @@ export class MissingBuyerIdentifierForReverseChargeError extends Error {
   }
 }
 
+export class MissingBuyerVatIdForCrossBorderServiceError extends Error {
+  constructor() {
+    super(
+      "A B2B service to a business in another EU member state under reverse charge (category AE, " +
+        "docs/tax-semantics.md row 12) requires buyer.vatIdentifier (BT-48): §14a Abs. 1 UStG requires the " +
+        "VAT identification numbers of both parties on this invoice, and the buyer's is also needed for the " +
+        "EC Sales List. A legal registration identifier (BT-47) alone satisfies BR-AE-02 but not German law.",
+    );
+    this.name = "MissingBuyerVatIdForCrossBorderServiceError";
+  }
+}
+
 export class InvalidLeitwegIdError extends Error {
   constructor(
     readonly value: string,
@@ -257,6 +269,9 @@ export function buildInvoice(
     input.buyer.legalRegistrationIdentifier === undefined
   ) {
     throw new MissingBuyerIdentifierForReverseChargeError();
+  }
+  if (regimeDecision.ruleId === "tax-semantics#12" && input.buyer.vatIdentifier === undefined) {
+    throw new MissingBuyerVatIdForCrossBorderServiceError();
   }
 
   const lineComputations = input.lines.map((line, index) => ({

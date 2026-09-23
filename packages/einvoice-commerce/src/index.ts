@@ -27,6 +27,7 @@ export {
   InvalidLeitwegIdError,
   MissingBuyerIdentifierForReverseChargeError,
   MissingBuyerVatIdError,
+  MissingBuyerVatIdForCrossBorderServiceError,
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,

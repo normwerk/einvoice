@@ -151,6 +151,10 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   and both are refused for a buyer outside Germany — otherwise a declared E or Z would skip the VIES check of
   row 3 and the refusals of rows 12/13 entirely. §12 Abs. 3 UStG covers private operators of photovoltaic
   installations too, so row 8 is not limited to business buyers.
+- **A cross-border B2B service (row 12) needs the buyer's VAT-ID on the invoice.** `BR-AE-02` accepts a
+  buyer legal registration identifier (BT-47) instead of the VAT-ID (BT-48), but §14a Abs. 1 UStG requires
+  the VAT identification numbers of both parties on this invoice; `buildInvoice` refuses row 12 without
+  BT-48.
 
 This list is a starting point, not exhaustive — it grows as scenarios are added.
 

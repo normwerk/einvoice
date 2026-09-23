@@ -6,6 +6,7 @@ import {
   InvalidLeitwegIdError,
   MissingBuyerIdentifierForReverseChargeError,
   MissingBuyerVatIdError,
+  MissingBuyerVatIdForCrossBorderServiceError,
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,
@@ -251,6 +252,45 @@ describe("buildInvoice — domestic reverse charge (row 5), needs buyer.vatIdent
       postCode: "20095",
     });
     expect(() => buildInvoice(input)).toThrow(MissingBuyerIdentifierForReverseChargeError);
+  });
+});
+
+describe("buildInvoice — cross-border B2B service under reverse charge (row 12), needs buyer.vatIdentifier (P-47)", () => {
+  function crossBorderServiceInput(buyer: CommerceInvoiceInput["buyer"]): CommerceInvoiceInput {
+    return domesticInput({
+      buyer,
+      taxContext: {
+        sellerCountry: "DE",
+        sellerVatId: "DE123456789",
+        buyerCountry: "FR",
+        buyerVatId: "FR12345678901",
+        buyerIsBusiness: true,
+        ossRegistered: false,
+        supplyType: "services",
+        regimeOverride: { kind: "reverse-charge-cross-border" },
+      },
+    });
+  }
+  const FR_BUYER = {
+    name: "Client SARL",
+    countryCode: "FR" as const,
+    city: "Paris",
+    postCode: "75001",
+  };
+
+  it("accepts buyer.vatIdentifier", () => {
+    const result = buildInvoice(
+      crossBorderServiceInput({ ...FR_BUYER, vatIdentifier: "FR12345678901" }),
+    );
+    expect(result.invoice.vatBreakdown[0]?.categoryCode).toBe("AE");
+  });
+
+  it("refuses buyer.legalRegistrationIdentifier alone — §14a Abs. 1 UStG needs both parties' VAT-IDs, stricter than BR-AE-02", () => {
+    const input = crossBorderServiceInput({
+      ...FR_BUYER,
+      legalRegistrationIdentifier: "RCS Paris 123",
+    });
+    expect(() => buildInvoice(input)).toThrow(MissingBuyerVatIdForCrossBorderServiceError);
   });
 });
 
