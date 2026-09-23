@@ -144,6 +144,59 @@ describe("buildInvoice — domestic (docs/tax-semantics.md row 1)", () => {
   });
 });
 
+describe("buildInvoice — shipping/discounts take the rate of the supply they belong to (P-40)", () => {
+  const BOOK = {
+    quantity: "2",
+    unitCode: "C62",
+    netPrice: "20.00",
+    itemName: "Book",
+    taxRateKind: "reduced" as const,
+  };
+
+  it("an all-reduced-rate basket taxes its shipping at 7%, not 19% (§10 Abs. 1 UStG: ancillary supply)", () => {
+    const result = buildInvoice(
+      domesticInput({ lines: [BOOK], shipping: { amount: "5.00", reason: "Shipping" } }),
+    );
+    expect(result.invoice.documentLevelCharges?.[0]?.vatRate).toBe("7");
+    expect(result.invoice.vatBreakdown).toEqual([
+      expect.objectContaining({ taxableAmount: "45.00", taxAmount: "3.15", rate: "7" }),
+    ]);
+    expect(result.warnings.map((w) => w.code)).not.toContain("shipping-discount-rate-assumption");
+  });
+
+  it("an all-reduced-rate basket takes a document discount off the 7% base instead of crashing on an empty 19% one", () => {
+    const result = buildInvoice(
+      domesticInput({ lines: [BOOK], discounts: [{ amount: "10.00", reason: "Voucher" }] }),
+    );
+    expect(result.invoice.documentLevelAllowances?.[0]?.vatRate).toBe("7");
+    expect(result.invoice.vatBreakdown).toEqual([
+      expect.objectContaining({ taxableAmount: "30.00", taxAmount: "2.10", rate: "7" }),
+    ]);
+  });
+
+  it("an OSS distance sale taxes its shipping at the destination rate, not Germany's", () => {
+    const result = buildInvoice(
+      domesticInput({
+        buyer: { name: "Jeanne Martin", countryCode: "FR", city: "Paris", postCode: "75001" },
+        shipping: { amount: "10.00", reason: "Shipping" },
+        taxContext: {
+          sellerCountry: "DE",
+          sellerVatId: "DE123456789",
+          buyerCountry: "FR",
+          buyerIsBusiness: false,
+          ossRegistered: true,
+          ossRateOverride: "20",
+          supplyType: "goods",
+        },
+      }),
+    );
+    expect(result.invoice.documentLevelCharges?.[0]?.vatRate).toBe("20");
+    expect(result.invoice.vatBreakdown).toEqual([
+      expect.objectContaining({ taxableAmount: "110.00", taxAmount: "22.00", rate: "20" }),
+    ]);
+  });
+});
+
 describe("buildInvoice — intra-EU supply (row 3), needs vatIdEvidence", () => {
   const intraEuInput = domesticInput({
     buyer: {

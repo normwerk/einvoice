@@ -147,6 +147,17 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   does permit "Gutschrift" in an unambiguous context, but common practice avoids it); confirm the final
   phrasing with your own tax advisor before relying on it.
 
+- **Shipping and discounts take the rate of the supply they belong to — a validator cannot tell.**
+  Shipping charged by the seller is an ancillary supply that shares the main supply's rate (Art. 78(b) VAT
+  Directive, §10 Abs. 1 UStG, UStAE 3.10 Abs. 5), and a discount reduces the base of the supplies it
+  relates to (§17 UStG). Taxing a books-only order's shipping at 19% instead of 7%, or an OSS order's
+  shipping at Germany's rate instead of the destination's, still produces a VAT breakdown whose amounts add
+  up — `BR-S-08`/`BR-S-09` pass. `buildInvoice` therefore gives shipping and document-level discounts the
+  rate of the lines when all lines share one rate (7%, 19%, or the declared OSS rate). A discount that
+  belongs to one line (a promotion on one item) is expressed on that line (BG-27) and reduces only that
+  line's rate. When lines carry **different** rates, how to split a document-level amount across them is
+  not decided yet: such an amount is taxed at the standard rate and the result carries the warning
+  `shipping-discount-rate-assumption`.
 - **An intra-EU supply (row 3) and an export (row 4) depend on where the goods go, not only on who buys.**
   Validators check that BT-80 is present for K (`BR-IC-12`), never that it names another member state, and
   nothing ties the positive VIES check to the VAT-ID printed on the document. `buildInvoice` refuses

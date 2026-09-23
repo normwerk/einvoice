@@ -333,18 +333,27 @@ export function buildInvoice(
 
   const sumOfLineNetAmounts = sumAmounts(lineComputations.map((l) => l.netAmount));
 
-  // Document-level shipping/discounts: same VAT category as the overall regime; for a domestic-standard-
-  // rate (S) document they default to the standard rate (the common real-world convention — shipping is
-  // ordinarily charged at the standard rate regardless of a mixed-rate line basket), not apportioned
-  // per-line. A mixed-rate document with a discount that must instead follow the *reduced*-rate lines is
-  // out of v0.1 scope; document as much rather than silently mis-taxing it.
-  const chargeCategoryRate = regimeDecision.categoryCode === "S" ? DE_STANDARD_RATE : "0";
-  if (regimeDecision.categoryCode === "S" && input.lines.some((l) => l.taxRateKind === "reduced")) {
+  // Document-level shipping/discounts: same VAT category as the overall regime, and — for category S — the
+  // rate of the supply they belong to. Shipping charged by the seller is an ancillary supply that shares
+  // the main supply's rate (Art. 78(b) VAT Directive, §10 Abs. 1 UStG, UStAE 3.10 Abs. 5), and a discount
+  // reduces the base of the supplies it relates to (§17 UStG) — so a basket with a single line rate
+  // (all 7%, all 19%, or an OSS destination rate) takes exactly that rate (P-40). Only a basket that mixes
+  // rates has no single answer: splitting the amount across rates is an open decision (M-039), so until it's
+  // made the amount stays at the standard rate, with a warning, as before.
+  const lineRates = new Set(lineComputations.map((l) => l.rate));
+  const singleLineRate = lineRates.size === 1 ? lineComputations[0]?.rate : undefined;
+  const chargeCategoryRate =
+    regimeDecision.categoryCode !== "S" ? "0" : (singleLineRate ?? DE_STANDARD_RATE);
+  if (
+    regimeDecision.categoryCode === "S" &&
+    singleLineRate === undefined &&
+    (input.shipping !== undefined || (input.discounts ?? []).length > 0)
+  ) {
     warnings.push({
       code: "shipping-discount-rate-assumption",
       message:
-        "This invoice mixes standard- and reduced-rate lines; shipping/discounts (if any) are taxed at " +
-        "the standard rate by default, not apportioned across rates.",
+        "This invoice mixes VAT rates across its lines; its shipping/discounts are taxed at the standard " +
+        "rate, not apportioned across the rates of the lines they relate to.",
     });
   }
 
