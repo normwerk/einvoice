@@ -19,13 +19,13 @@ function num(value) {
 }
 
 function mapAddress(party) {
-  // BT-35/50 (street address) has no field in einvoice-model at all — same
-  // class of gap as T-041's BT-62 finding. AddressInput.line1 is typed as
-  // mandatory in the library's .d.ts, but this is plain JS at runtime; an
-  // empty string is the honest "we don't have this" value, not a fabricated
-  // street. Documented here rather than silently invented.
+  // BT-35/36, BT-50/51 (P-60). AddressInput.line1 is typed as mandatory in
+  // the library's .d.ts; a party without a street (the model allows it) keeps
+  // the empty string this mapping used before the model had the field — the
+  // honest "we don't have this" value, not a fabricated street.
   return {
-    line1: "",
+    line1: party.addressLine1 ?? "",
+    ...(party.addressLine2 ? { line2: party.addressLine2 } : {}),
     city: party.city,
     postalCode: party.postCode,
     country: party.countryCode,
@@ -182,7 +182,8 @@ export function mapInvoiceToFacturXInput(invoice) {
     if (d.actualDeliveryDate) delivery.date = d.actualDeliveryDate;
     if (d.deliverToCity || d.deliverToPostCode || d.deliverToCountryCode) {
       delivery.location = {
-        line1: "", // same documented gap as mapAddress()
+        line1: d.deliverToAddressLine1 ?? "", // BT-75, same fallback as mapAddress()
+        ...(d.deliverToAddressLine2 ? { line2: d.deliverToAddressLine2 } : {}),
         city: d.deliverToCity,
         postalCode: d.deliverToPostCode,
         country: d.deliverToCountryCode,

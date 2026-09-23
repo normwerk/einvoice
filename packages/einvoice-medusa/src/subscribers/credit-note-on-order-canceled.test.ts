@@ -89,7 +89,13 @@ function setup(
 ): { container: MedusaContainer; service: EinvoiceModuleService } {
   const service = {
     options: {
-      seller: { name: "Musterfirma GmbH", countryCode: "DE", city: "Berlin", postCode: "10115" },
+      seller: {
+        name: "Musterfirma GmbH",
+        countryCode: "DE",
+        addressLine1: "Musterstraße 1",
+        city: "Berlin",
+        postCode: "10115",
+      },
       payment: { means: "58" },
       ...options,
     },

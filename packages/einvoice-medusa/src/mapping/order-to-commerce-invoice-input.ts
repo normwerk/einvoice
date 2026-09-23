@@ -62,6 +62,7 @@ export const ORDER_QUERY_FIELDS = [
   "billing_address.city",
   "billing_address.postal_code",
   "billing_address.address_1",
+  "billing_address.address_2",
   "billing_address.company",
   "billing_address.first_name",
   "billing_address.last_name",
@@ -69,6 +70,7 @@ export const ORDER_QUERY_FIELDS = [
   "shipping_address.city",
   "shipping_address.postal_code",
   "shipping_address.address_1",
+  "shipping_address.address_2",
   "shipping_address.company",
   "shipping_address.first_name",
   "shipping_address.last_name",
@@ -97,6 +99,7 @@ export interface MedusaOrderAddress {
   readonly city?: string | null;
   readonly postal_code?: string | null;
   readonly address_1?: string | null;
+  readonly address_2?: string | null;
   readonly company?: string | null;
   readonly first_name?: string | null;
   readonly last_name?: string | null;
@@ -457,6 +460,11 @@ function resolveOrderSupplyType(
   return kinds.has("services") ? "services" : "goods";
 }
 
+/** An optional Medusa text field as an optional model field: `null` and blank both become `undefined`. */
+function nonEmpty(value: string | null | undefined): string | undefined {
+  return value === null || value === undefined || value.trim() === "" ? undefined : value;
+}
+
 function fullName(person: {
   readonly first_name?: string | null;
   readonly last_name?: string | null;
@@ -528,6 +536,8 @@ export function mapOrderToCommerceInvoiceInput(
     buyer: {
       name: resolveBuyerName(order, buyerAddress),
       countryCode: buyerCountry,
+      addressLine1: nonEmpty(buyerAddress.address_1),
+      addressLine2: nonEmpty(buyerAddress.address_2),
       city: buyerAddress.city ?? "",
       postCode: buyerAddress.postal_code ?? "",
       vatIdentifier: buyerVatId,
@@ -560,6 +570,8 @@ export function mapOrderToCommerceInvoiceInput(
     delivery: {
       actualDeliveryDate: options.issueDate,
       deliverToCountryCode: deliveryAddress.country_code.toUpperCase() as CountryCode,
+      deliverToAddressLine1: nonEmpty(deliveryAddress.address_1),
+      deliverToAddressLine2: nonEmpty(deliveryAddress.address_2),
       deliverToCity: deliveryAddress.city ?? undefined,
       deliverToPostCode: deliveryAddress.postal_code ?? undefined,
     },

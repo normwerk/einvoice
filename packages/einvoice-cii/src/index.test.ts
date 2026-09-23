@@ -85,7 +85,7 @@ describe("serializeCii", () => {
     const invoice = loadFixture("de-eu-intracommunity");
     const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
     expect(xml).toContain(
-      "<ram:ShipToTradeParty><ram:PostalTradeAddress><ram:PostcodeCode>75001</ram:PostcodeCode><ram:CityName>Paris</ram:CityName><ram:CountryID>FR</ram:CountryID>",
+      "<ram:ShipToTradeParty><ram:PostalTradeAddress><ram:PostcodeCode>75001</ram:PostcodeCode><ram:LineOne>1 Rue du Dépôt</ram:LineOne><ram:LineTwo>Quai 4</ram:LineTwo><ram:CityName>Paris</ram:CityName><ram:CountryID>FR</ram:CountryID>",
     );
     expect(xml).toContain(
       '<ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime><udt:DateTimeString format="102">20260910</udt:DateTimeString>',
@@ -129,6 +129,39 @@ describe("serializeCii", () => {
     expect(buyer).not.toContain("URIUniversalCommunication");
     // The seller still has one, and keeps its schemeID.
     expect(xml).toMatch(/<ram:URIUniversalCommunication><ram:URIID schemeID="[^"]+">/);
+  });
+
+  it("writes each address's lines between post code and city — BT-35/36, BT-50/51, BT-75/76 (P-60)", () => {
+    const base = loadFixture("de-b2b-standard");
+    const invoice: Invoice = {
+      ...base,
+      seller: { ...base.seller, addressLine1: "Musterstraße 1", addressLine2: "Aufgang B" },
+      buyer: { ...base.buyer, addressLine1: "Beispielweg 2", addressLine2: undefined },
+      delivery: {
+        deliverToCountryCode: "DE",
+        deliverToCity: "Köln",
+        deliverToPostCode: "50667",
+        deliverToAddressLine1: "Lagerstraße 3",
+        deliverToAddressLine2: "Tor 4",
+      },
+    };
+    const { xml } = serializeCii(invoice, { profile: "en16931-cii" });
+    const address = (party: string): string => {
+      const start = xml.indexOf(`<ram:${party}>`);
+      return xml.slice(
+        xml.indexOf("<ram:PostalTradeAddress>", start),
+        xml.indexOf("</ram:PostalTradeAddress>", start),
+      );
+    };
+    expect(address("SellerTradeParty")).toMatch(
+      /<ram:PostcodeCode>[^<]+<\/ram:PostcodeCode><ram:LineOne>Musterstraße 1<\/ram:LineOne><ram:LineTwo>Aufgang B<\/ram:LineTwo><ram:CityName>/,
+    );
+    expect(address("BuyerTradeParty")).toMatch(
+      /<\/ram:PostcodeCode><ram:LineOne>Beispielweg 2<\/ram:LineOne><ram:CityName>/,
+    );
+    expect(address("ShipToTradeParty")).toContain(
+      "<ram:PostcodeCode>50667</ram:PostcodeCode><ram:LineOne>Lagerstraße 3</ram:LineOne><ram:LineTwo>Tor 4</ram:LineTwo><ram:CityName>Köln</ram:CityName>",
+    );
   });
 
   it("omits ShipToTradeParty when delivery has a date but no country — an empty PostalTradeAddress fails BR-57 (P-43)", () => {
@@ -193,7 +226,7 @@ describe("serializeCii", () => {
       '<ram:URIUniversalCommunication><ram:URIID schemeID="EM">rechnung@musterfirma.example</ram:URIID></ram:URIUniversalCommunication>',
     );
     expect(xml).toContain(
-      "<ram:PostalTradeAddress><ram:PostcodeCode>10115</ram:PostcodeCode><ram:CityName>Berlin</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>",
+      "<ram:PostalTradeAddress><ram:PostcodeCode>10115</ram:PostcodeCode><ram:LineOne>Musterstraße 1</ram:LineOne><ram:CityName>Berlin</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>",
     );
   });
 

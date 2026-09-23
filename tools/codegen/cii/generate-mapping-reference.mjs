@@ -62,7 +62,7 @@ Re-run after any plan change: \`node tools/codegen/cii/generate-mapping-referenc
 Only fields the serializer actually emits appear here. Fields the model has but the plan does not serialize
 yet — dropped, not rejected: VAT accounting currency (BT-6), value added tax point date and code (BT-7,
 BT-8), total VAT in accounting currency (BT-111), invoice line period (BG-26), item attributes (BG-32) and
-additional supporting documents (BG-24). Street lines (BT-35/36, BT-50/51) are not in the model at all yet.
+additional supporting documents (BG-24). A third address line (BT-162, BT-163, BT-165) is not in the model yet.
 
 | BT/BG | Model path (relative to \`Invoice\`, or to the current line/breakdown/reference item) | CII XPath (relative to \`rsm:CrossIndustryInvoice\`) |
 |---|---|---|

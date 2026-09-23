@@ -33,6 +33,7 @@ export {
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,
+  MissingSellerAddressError,
   MissingSellerContactError,
   UnsupportedSchemaVersionError,
   type BuildInvoiceOptions,

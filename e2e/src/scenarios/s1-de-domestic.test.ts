@@ -79,6 +79,9 @@ describe("S1: DE -> DE B2B, 19%", () => {
     expect(order.currencyCode).toBe("eur");
     // The billing address names the buyer (BT-44); the stand's fixed clock dates the document (BT-2).
     expect(bt.buyerName(xml)).toBe("Musterfirma GmbH");
+    // Both parties' full address, street included (§14 Abs. 4 Nr. 1 UStG, P-60).
+    expect(bt.addressLineOne(xml, "SellerTradeParty")).toBe("Teststraße 1");
+    expect(bt.addressLineOne(xml, "BuyerTradeParty")).toBe("Teststr. 1");
     expect(bt.issueDate(xml)).toBe(FIXED_NOW.slice(0, 10));
 
     const xmlReport = await validateBytes(xmlBytes, "s1-invoice.xml");

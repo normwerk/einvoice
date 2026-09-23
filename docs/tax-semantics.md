@@ -189,11 +189,13 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   order that is then cancelled gets a credit note for whatever is outstanding.
 - **A validator accepts an invoice without a street address.** §14 Abs. 4 Satz 1 Nr. 1 UStG requires the
   full name and the full address of both the seller and the buyer; EN 16931 makes the street (BT-35 for the
-  seller, BT-50 for the buyer) optional, and KoSIT checks only city, post code and country. The data model
-  has no street field yet, so no invoice from these packages carries a street line for either party — check
-  whether that is acceptable for your invoices before relying on them. The Medusa adapter names the buyer
-  (BT-44) after the billing address — its company, else the person's first and last name — and falls back
-  to the customer record and, last, the email.
+  seller, BT-50 for the buyer) optional, and KoSIT checks only city, post code and country. `buildInvoice`
+  refuses a seller without a street (`MissingSellerAddressError`) — the seller's full address is required
+  on a small-amount invoice too (§33 UStDV) — and warns (`buyer-street-missing`) when the buyer has none on
+  an invoice above EUR 250 including VAT. It cannot make a buyer's street up. The Medusa adapter takes the
+  street from the billing address (`address_1`, `address_2`), and names the buyer (BT-44) after it too — its
+  company, else the person's first and last name — falling back to the customer record and, last, the
+  email.
 
 This list is a starting point, not exhaustive — it grows as scenarios are added.
 

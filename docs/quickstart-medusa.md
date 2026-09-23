@@ -43,6 +43,7 @@ export default defineConfig({
         seller: {
           name: "Your Company GmbH",
           countryCode: "DE",
+          addressLine1: "Musterstraße 1",
           city: "Berlin",
           postCode: "10115",
           vatIdentifier: "DE123456789",
@@ -64,10 +65,11 @@ export default defineConfig({
 });
 ```
 
-`seller.contact` and `payment` both look like they could be optional from their TypeScript types alone —
-they aren't. Every document this plugin builds targets the full XRechnung 3.0 CIUS regardless of who the
-buyer is, and that CIUS makes seller contact (BR-DE-2) and payment instructions (BR-DE-1) mandatory. Leave
-either out and the plugin refuses to start at all
+`seller.addressLine1`, `seller.contact` and `payment` all look like they could be optional from their
+TypeScript types alone — they aren't. §14 Abs. 4 Satz 1 Nr. 1 UStG requires the seller's full address on
+every invoice, street included (`addressLine2` is optional). Every document this plugin builds targets the
+full XRechnung 3.0 CIUS regardless of who the buyer is, and that CIUS makes seller contact (BR-DE-2) and
+payment instructions (BR-DE-1) mandatory. Leave any of them out and the plugin refuses to start at all
 (`InvalidEinvoiceModuleOptionsError`, thrown from the module's own constructor) — a loud failure at boot,
 not a document that silently fails validation later.
 

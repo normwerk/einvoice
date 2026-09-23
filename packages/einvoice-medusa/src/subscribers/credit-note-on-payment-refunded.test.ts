@@ -111,6 +111,7 @@ describe("MissingOriginalInvoiceError", () => {
 const SELLER = {
   name: "Musterfirma GmbH",
   countryCode: "DE" as const,
+  addressLine1: "Musterstraße 1",
   city: "Berlin",
   postCode: "10115",
   vatIdentifier: "DE123456789",

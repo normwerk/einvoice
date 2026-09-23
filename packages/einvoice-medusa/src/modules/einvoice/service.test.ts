@@ -5,6 +5,7 @@ import EinvoiceModuleService, { InvalidEinvoiceModuleOptionsError } from "./serv
 const VALID_SELLER = {
   name: "Musterfirma GmbH",
   countryCode: "DE" as const,
+  addressLine1: "Musterstraße 1",
   city: "Berlin",
   postCode: "10115",
   vatIdentifier: "DE123456789",
@@ -70,6 +71,18 @@ describe("EinvoiceModuleService", () => {
         () =>
           new EinvoiceModuleService(FAKE_CONTAINER, {
             seller: { ...VALID_SELLER, contact: contact as never },
+            payment: VALID_PAYMENT,
+          }),
+      ).toThrow(InvalidEinvoiceModuleOptionsError);
+    }
+  });
+
+  it("rejects a seller without a street at startup — §14 Abs. 4 Nr. 1 UStG needs the seller's full address (P-60)", () => {
+    for (const addressLine1 of [undefined, " "]) {
+      expect(
+        () =>
+          new EinvoiceModuleService(FAKE_CONTAINER, {
+            seller: { ...VALID_SELLER, addressLine1 },
             payment: VALID_PAYMENT,
           }),
       ).toThrow(InvalidEinvoiceModuleOptionsError);

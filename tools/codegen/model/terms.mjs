@@ -16,14 +16,17 @@
  * Schematron, which — per plan-v0.1 §1 principle 3 ("one vertical, then
  * width") — is enough to model a complete domestic/intra-EU/export/reverse-
  * charge/exempt invoice or credit note (the 10 scenarios in
- * `docs/tax-semantics.md`). Full postal addresses (street/city/postcode
- * beyond the seller's country code) are deliberately left out of this pass:
- * their individual BT numbers (BT-35/36/38/39) are not asserted by name in
- * any rule we can quote directly, and after finding a Peppol summary of
- * them factually **wrong** for a neighboring field (BT-40/41 mixed up)
- * during this same session, unverifiable numbers are excluded rather than
- * guessed. Follow-up: T-011 continuation, once a directly-readable
- * (non-summarized) primary source confirms them.
+ * `docs/tax-semantics.md`). Full postal addresses were left out of the
+ * first pass: their BT numbers are not asserted by name in any rule we can
+ * quote directly, and a Peppol summary had turned out factually **wrong**
+ * for a neighboring field (BT-40/41 mixed up), so unverifiable numbers were
+ * excluded rather than guessed. City and post code came in later through
+ * the XRechnung rules that name them (BT-37/38, BT-52/53, BT-77/78); the
+ * first two address lines of each address (BT-35/36, BT-50/51, BT-75/76,
+ * P-60 — §14 Abs. 4 Nr. 1 UStG needs the full address) through the
+ * "e-invoice-eu-schema" tier below, each cross-checked against its own
+ * docs.peppol.eu element page. Address line 3, country subdivision and PO
+ * box are still out.
  *
  * `verified` values:
  *  - "extraction": name is asserted, byte for byte, in the vendored
@@ -1388,6 +1391,36 @@ export const terms = [
       "CII-SR-465 mentions 'BT-41 element' for SellerTradeParty/DefinedTradeContact/PersonName|DepartmentName; BR-DE-2 requires the DefinedTradeContact group to exist",
   },
   {
+    id: "BT-35",
+    name: "Seller address line 1",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "SellerParty",
+    verified: "e-invoice-eu-schema",
+    source:
+      '@e-invoice-eu/core@3.3.0 dist/e-invoice-eu.esm.js: title:"Seller address line 1" on the cbc:StreetName schema node ' +
+      'whose description ends "Business terms: BT-35" — the same description text ("The main address line in an address.") ' +
+      "also appears verbatim on docs.peppol.eu's own cac:AccountingSupplierParty/cac:Party/cac:PostalAddress/cbc:StreetName page (Peppol BIS Billing 3.0 UBL " +
+      "syntax, which names BT-35 there too), independently. No rule in the vendored Schematron names it.",
+  },
+  {
+    id: "BT-36",
+    name: "Seller address line 2",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "SellerParty",
+    verified: "e-invoice-eu-schema",
+    source:
+      '@e-invoice-eu/core@3.3.0 dist/e-invoice-eu.esm.js: title:"Seller address line 2" on the cbc:AdditionalStreetName schema node ' +
+      'whose description ends "Business terms: BT-36" — the same description text ("An additional address line in an address that can be used…") ' +
+      "also appears verbatim on docs.peppol.eu's own cac:AccountingSupplierParty/cac:Party/cac:PostalAddress/cbc:AdditionalStreetName page (Peppol BIS Billing 3.0 UBL " +
+      "syntax, which names BT-36 there too), independently. No rule in the vendored Schematron names it.",
+  },
+  {
     id: "BT-37",
     name: "Seller city",
     kind: "BT",
@@ -1408,6 +1441,36 @@ export const terms = [
     group: "SellerParty",
     verified: "kosit-xrechnung",
     source: "BR-DE-4: 'Das Element \"Seller post code\" (BT-38) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-50",
+    name: "Buyer address line 1",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "BuyerParty",
+    verified: "e-invoice-eu-schema",
+    source:
+      '@e-invoice-eu/core@3.3.0 dist/e-invoice-eu.esm.js: title:"Buyer address line 1" on the cbc:StreetName schema node ' +
+      'whose description ends "Business terms: BT-50" — the same description text ("The main address line in an address.") ' +
+      "also appears verbatim on docs.peppol.eu's own cac:AccountingCustomerParty/cac:Party/cac:PostalAddress/cbc:StreetName page (Peppol BIS Billing 3.0 UBL " +
+      "syntax, which names BT-50 there too), independently. No rule in the vendored Schematron names it.",
+  },
+  {
+    id: "BT-51",
+    name: "Buyer address line 2",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "BuyerParty",
+    verified: "e-invoice-eu-schema",
+    source:
+      '@e-invoice-eu/core@3.3.0 dist/e-invoice-eu.esm.js: title:"Buyer address line 2" on the cbc:AdditionalStreetName schema node ' +
+      'whose description ends "Business terms: BT-51" — the same description text ("An additional address line in an address that can be used…") ' +
+      "also appears verbatim on docs.peppol.eu's own cac:AccountingCustomerParty/cac:Party/cac:PostalAddress/cbc:AdditionalStreetName page (Peppol BIS Billing 3.0 UBL " +
+      "syntax, which names BT-51 there too), independently. No rule in the vendored Schematron names it.",
   },
   {
     id: "BT-52",
@@ -1454,6 +1517,36 @@ export const terms = [
     verified: "kosit-xrechnung",
     source:
       "BR-DE-7: 'Das Element \"Seller contact email address\" (BT-43) muss übermittelt werden.'",
+  },
+  {
+    id: "BT-75",
+    name: "Deliver to address line 1",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "Delivery",
+    verified: "e-invoice-eu-schema",
+    source:
+      '@e-invoice-eu/core@3.3.0 dist/e-invoice-eu.esm.js: title:"Deliver to address line 1" on the cbc:StreetName schema node ' +
+      'whose description ends "Business terms: BT-75" — the same description text ("The main address line in an address.") ' +
+      "also appears verbatim on docs.peppol.eu's own cac:Delivery/cac:DeliveryLocation/cac:Address/cbc:StreetName page (Peppol BIS Billing 3.0 UBL " +
+      "syntax, which names BT-75 there too), independently. No rule in the vendored Schematron names it.",
+  },
+  {
+    id: "BT-76",
+    name: "Deliver to address line 2",
+    kind: "BT",
+    tsType: "string",
+    required: false,
+    repeats: false,
+    group: "Delivery",
+    verified: "e-invoice-eu-schema",
+    source:
+      '@e-invoice-eu/core@3.3.0 dist/e-invoice-eu.esm.js: title:"Deliver to address line 2" on the cbc:AdditionalStreetName schema node ' +
+      'whose description ends "Business terms: BT-76" — the same description text ("An additional address line in an address that can be used…") ' +
+      "also appears verbatim on docs.peppol.eu's own cac:Delivery/cac:DeliveryLocation/cac:Address/cbc:AdditionalStreetName page (Peppol BIS Billing 3.0 UBL " +
+      "syntax, which names BT-76 there too), independently. No rule in the vendored Schematron names it.",
   },
   {
     id: "BT-77",

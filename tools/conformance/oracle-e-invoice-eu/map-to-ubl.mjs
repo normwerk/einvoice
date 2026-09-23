@@ -26,6 +26,8 @@ function amountAttrs(node, key, value, currencyCode) {
 function mapParty(party, { isSeller }) {
   const node = {
     "cac:PostalAddress": {
+      ...(party.addressLine1 ? { "cbc:StreetName": party.addressLine1 } : {}),
+      ...(party.addressLine2 ? { "cbc:AdditionalStreetName": party.addressLine2 } : {}),
       "cbc:CityName": party.city,
       "cbc:PostalZone": party.postCode,
       "cac:Country": { "cbc:IdentificationCode": party.countryCode },
@@ -254,6 +256,8 @@ export function mapInvoiceToUbl(invoice) {
   if (invoice.delivery) {
     const d = invoice.delivery;
     const address = {};
+    if (d.deliverToAddressLine1) address["cbc:StreetName"] = d.deliverToAddressLine1;
+    if (d.deliverToAddressLine2) address["cbc:AdditionalStreetName"] = d.deliverToAddressLine2;
     if (d.deliverToCity) address["cbc:CityName"] = d.deliverToCity;
     if (d.deliverToPostCode) address["cbc:PostalZone"] = d.deliverToPostCode;
     if (d.deliverToCountryCode)

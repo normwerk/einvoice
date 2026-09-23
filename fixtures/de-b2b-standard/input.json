@@ -10,6 +10,7 @@
     "name": "Musterfirma GmbH",
     "vatIdentifier": "DE123456789",
     "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
     "city": "Berlin",
     "postCode": "10115",
     "electronicAddress": "rechnung@musterfirma.example",
@@ -23,6 +24,8 @@
   "buyer": {
     "name": "Beispielkunde GmbH",
     "countryCode": "DE",
+    "addressLine1": "Beispielweg 2",
+    "addressLine2": "Gebäude B",
     "city": "Hamburg",
     "postCode": "20095",
     "electronicAddress": "ap@de-b2b-standard.example",

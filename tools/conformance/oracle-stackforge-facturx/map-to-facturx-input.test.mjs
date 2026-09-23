@@ -150,3 +150,21 @@ test("optional header fields are omitted, not emitted as empty/undefined", () =>
   assert.ok(!("allowancesCharges" in input));
   assert.ok(!("references" in input));
 });
+
+test("address lines map to line1/line2; a party without a street keeps line1 empty (P-60)", () => {
+  const input = mapInvoiceToFacturXInput({
+    ...BASE,
+    seller: { ...BASE.seller, addressLine1: "Musterstraße 1", addressLine2: "Aufgang B" },
+    delivery: {
+      deliverToCountryCode: "DE",
+      deliverToCity: "Köln",
+      deliverToPostCode: "50667",
+      deliverToAddressLine1: "Lagerstraße 3",
+    },
+  });
+  assert.equal(input.seller.address.line1, "Musterstraße 1");
+  assert.equal(input.seller.address.line2, "Aufgang B");
+  assert.equal(input.buyer.address.line1, "");
+  assert.equal("line2" in input.buyer.address, false);
+  assert.equal(input.delivery.location.line1, "Lagerstraße 3");
+});

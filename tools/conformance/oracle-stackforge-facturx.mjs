@@ -68,32 +68,30 @@ function isOurEmptyDeliveryContainer(e) {
 
 const LINE_ONE_BUG =
   "**Real, verified bug in `@stackforge-eu/factur-x` — confirmed by an actual KoSIT run, not by reading a " +
-  "spec — triggered here by a real, pre-existing gap in `einvoice-model` (not new).** `einvoice-model` has no " +
-  "street-address field at all (BT-35/50), and no city/postcode for the tax representative party either " +
-  "(T-093 only modeled name/VAT-ID/country there) — the mapper cannot invent either, so it passes empty " +
-  'strings (`address.line1: ""`, and for the tax representative also `city: ""`, see ' +
+  "spec — triggered here by a gap in `einvoice-model`.** The model has no street, city or post code for the " +
+  "seller's tax representative (BG-11 carries its name, VAT-ID and country only), and the mapper cannot " +
+  'invent them, so it passes empty strings (`address.line1: ""`, `city: ""`, see ' +
   "map-to-facturx-input.mjs). With `validate: false`, `toXRechnung()` renders those as literal empty " +
   "`<ram:LineOne></ram:LineOne>` / `<ram:CityName></ram:CityName>` elements — and that failure mode is " +
   "invisible to the library's own default validation too: calling `toXRechnung()` with `validate: true` (its " +
-  "default) on this exact input does NOT flag either empty field as an error. Isolated and confirmed with a " +
-  'real KoSIT run: the *same* generated document, with only `line1` changed from `""` to a real placeholder ' +
-  "street and nothing else touched, passes KoSIT with zero errors; with the empty string(s), KoSIT rejects it " +
-  'with `PEPPOL-EN16931-R008` ("Document MUST not contain empty elements") — one error per empty element ' +
-  "(confirmed at both 2 and 5 occurrences across different fixtures, matching the diff's own count each time). " +
-  "Not a flaw in our own CII output: our serializer never emits `LineOne`/`CityName` at all when the " +
-  "underlying field is absent, which is schema-legal (both elements are optional).";
+  "default) on this exact input does NOT flag either empty field as an error. KoSIT rejects the document with " +
+  '`PEPPOL-EN16931-R008` ("Document MUST not contain empty elements"), one error per empty element; the same ' +
+  "document with a real street and city passes. Until the model had address lines for the seller and buyer, " +
+  "every fixture showed this for their street too; since then only the tax representative does (re-run " +
+  "2026-09-23: every other fixture's generated document passes KoSIT). Not a flaw in our own CII output: our " +
+  "serializer never emits `LineOne`/`CityName` when the underlying field is absent, which is schema-legal " +
+  "(both elements are optional).";
 
 const DELIVERY_DATE_VARIATION =
-  "**Permissible variation, not a bug on either side — isolated and confirmed with a real KoSIT run, not " +
-  "assumed.** When the invoice has no `delivery.actualDeliveryDate` (BT-72), `@stackforge-eu/factur-x` " +
-  "synthesizes `ActualDeliverySupplyChainEvent/OccurrenceDateTime` defaulting to the invoice's issue date; we " +
-  "deliberately emit nothing beyond the XSD-required empty `ApplicableHeaderTradeDelivery` container (see " +
-  "`docs/l4-oracle-eu-report.md`, T-041/D-21, for why that container itself is required even when empty), " +
-  "since BT-72 genuinely wasn't given and inventing a delivery date would be fabricating data. Confirmed this " +
-  "defaulting itself is not what breaks KoSIT: the isolation test above (real street address supplied, " +
-  "delivery-date synthesis left untouched) passes KoSIT cleanly — the LineOne bug above is what fails, not " +
-  'this. BT-72 is optional and EN 16931 doesn\'t say what to do in its absence; "leave it unstated" (ours) ' +
-  'and "assume the issue date" (theirs) are both legitimate readings.';
+  "**Permissible variation, not a bug on either side — confirmed with a real KoSIT run, not assumed.** When the " +
+  "invoice has no `delivery.actualDeliveryDate` (BT-72), `@stackforge-eu/factur-x` synthesizes " +
+  "`ActualDeliverySupplyChainEvent/OccurrenceDateTime` defaulting to the invoice's issue date; we deliberately " +
+  "emit nothing beyond the XSD-required empty `ApplicableHeaderTradeDelivery` container (see " +
+  "`docs/l4-oracle-eu-report.md` for why that container itself is required even when empty), since BT-72 " +
+  "genuinely wasn't given and inventing a delivery date would be fabricating data. The defaulting itself does " +
+  "not break KoSIT: their generated document for each fixture whose only difference is this one passes KoSIT " +
+  "(re-run 2026-09-23). BT-72 is optional and EN 16931 doesn't say what to do in its absence; \"leave it " +
+  'unstated" (ours) and "assume the issue date" (theirs) are both legitimate readings.';
 
 /**
  * Hand-written classifications (AGENTS.md §8 rule 2) for diff *shapes*
@@ -119,10 +117,12 @@ function classifyKnownDiff(diff) {
   // require them to appear together, not independently, so this doesn't
   // over-match a differently-shaped diff.
   const deliveryCaseConsistent = (diff.onlyInOurs.length === 1) === hasDeliverySynth;
-  if (!theirsExplained || !oursExplained || !deliveryCaseConsistent || !hasEmptyAddressField)
-    return null;
-
-  return hasDeliverySynth ? `${LINE_ONE_BUG}\n\n${DELIVERY_DATE_VARIATION}` : LINE_ONE_BUG;
+  if (!theirsExplained || !oursExplained || !deliveryCaseConsistent) return null;
+  if (hasEmptyAddressField && hasDeliverySynth)
+    return `${LINE_ONE_BUG}\n\n${DELIVERY_DATE_VARIATION}`;
+  if (hasEmptyAddressField) return LINE_ONE_BUG;
+  if (hasDeliverySynth) return DELIVERY_DATE_VARIATION;
+  return null;
 }
 
 function formatDiffSection(title, entries, valueLabel) {

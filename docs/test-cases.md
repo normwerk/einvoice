@@ -16,14 +16,16 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/fixtures.test.ts` — every fixture in `fixtures/` (T-050/T-022) validates against that same generated
   schema — the model-level counterpart to the conformance suite's real KoSIT run below.
 
-### `einvoice-commerce` (111 tests)
+### `einvoice-commerce` (114 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
   decided by where the goods go (row 4), domestic and cross-border reverse charge (rows 5 and 12, the latter
   needing BT-48), shipping/discount rates following the lines' rate, line-level discounts (BG-27), credit
   notes (row 10, T-064), Leitweg-ID validation (T-062), input validation, BT-158/BT-159 customs fields (T-060
-  continuation), and defensive behavior against a malformed non-TypeScript caller (ADR-003, T-060).
+  continuation), the parties' address lines (a seller without a street refused, a buyer without one
+  warned about above EUR 250), and defensive behavior against a malformed non-TypeScript caller (ADR-003,
+  T-060).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany).
@@ -41,24 +43,26 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/vat-id-verifier.test.ts` — `StaticVatIdVerifier` (the three real VIES outcomes: valid, invalid,
   service unavailable — D-19 acceptance) and `MapVatIdVerifier`.
 
-### `einvoice-cii` (18 tests)
+### `einvoice-cii` (19 tests)
 
 - `src/index.test.ts` — `serializeCii`: the serialization plan (`src/generated/plan.ts`, written by hand in
   generated style — there is no generator for it yet) producing the expected CII elements for the
   repository's fixtures, deterministically, and never an empty optional container (no empty
-  `URIUniversalCommunication`, BR-62/63; no empty deliver-to address, BR-57). The tests call the
+  `URIUniversalCommunication`, BR-62/63; no empty deliver-to address, BR-57), with each address's lines
+  between post code and city. The tests call the
   `en16931-cii` profile only; `serializeCii` does not yet vary its output by profile.
 
-### `einvoice-pdfa` (16 tests)
+### `einvoice-pdfa` (17 tests)
 
 - `src/index.test.ts` — `buildXmpPacket` (the hand-written XMP packet, both ZUGFeRD/Factur-X profiles) and
   `embedInvoiceInPdfA3` (determinism — two calls on the same input give byte-identical output — that
   the Info dictionary is left untouched, ADR-004, and that the XMP stream is valid UTF-8 with a non-ASCII
   title intact).
 - `src/render-invoice.test.ts` — `renderInvoicePdf`: real embedded-font rendering, determinism, every real
-  fixture rendering without throwing, and non-ASCII text (umlauts, ß, —, ½, Ø).
+  fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
+  lines above post code and city.
 
-### `einvoice-medusa` (158 tests)
+### `einvoice-medusa` (160 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -77,7 +81,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   result: [`packages/einvoice-medusa/fixtures/tax-matrix/README.md`](../packages/einvoice-medusa/fixtures/tax-matrix/README.md).
 - `src/modules/einvoice/service.test.ts` — `EinvoiceModuleService`'s constructor-time option validation
   (`assertValidOptions`): every field a real KoSIT rejection found mandatory (T-071), seller contact
-  included, and that `standalone.basePdf` passes through unchanged (T-073); and `recordDocumentIfAbsent`
+  and street included, and that `standalone.basePdf` passes through unchanged (T-073); and `recordDocumentIfAbsent`
   telling a lost idempotency race (the key exists after a failed insert) from a real failure.
 - `src/mapping/credit-note.test.ts` — `decideCreditScope` (a refund credits at most what is still
   outstanding on the invoice; the whole order is restated only when nothing was credited before),

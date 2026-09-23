@@ -90,6 +90,10 @@ export interface BuyerParty {
   readonly electronicAddress?: string | undefined;
   /** BT-49-1 Buyer electronic address scheme identifier (name not independently quoted in our extraction — see terms.mjs) */
   readonly electronicAddressScheme?: EasCode | undefined;
+  /** BT-50 Buyer address line 1 (name not independently quoted in our extraction — see terms.mjs) */
+  readonly addressLine1?: string | undefined;
+  /** BT-51 Buyer address line 2 (name not independently quoted in our extraction — see terms.mjs) */
+  readonly addressLine2?: string | undefined;
   /** BT-52 Buyer city (name not independently quoted in our extraction — see terms.mjs) */
   readonly city: string;
   /** BT-53 Buyer post code (name not independently quoted in our extraction — see terms.mjs) */
@@ -102,6 +106,10 @@ export interface Delivery {
   readonly actualDeliveryDate?: IsoDate | undefined;
   /** BT-80 Deliver to country code */
   readonly deliverToCountryCode?: CountryCode | undefined;
+  /** BT-75 Deliver to address line 1 (name not independently quoted in our extraction — see terms.mjs) */
+  readonly deliverToAddressLine1?: string | undefined;
+  /** BT-76 Deliver to address line 2 (name not independently quoted in our extraction — see terms.mjs) */
+  readonly deliverToAddressLine2?: string | undefined;
   /** BT-77 Deliver to city (name not independently quoted in our extraction — see terms.mjs) */
   readonly deliverToCity?: string | undefined;
   /** BT-78 Deliver to post code (name not independently quoted in our extraction — see terms.mjs) */
@@ -304,6 +312,10 @@ export interface SellerParty {
   readonly electronicAddressScheme?: EasCode | undefined;
   /** BG-6 Seller contact (name not independently quoted in our extraction — see terms.mjs) */
   readonly contact?: SellerContact | undefined;
+  /** BT-35 Seller address line 1 (name not independently quoted in our extraction — see terms.mjs) */
+  readonly addressLine1?: string | undefined;
+  /** BT-36 Seller address line 2 (name not independently quoted in our extraction — see terms.mjs) */
+  readonly addressLine2?: string | undefined;
   /** BT-37 Seller city (name not independently quoted in our extraction — see terms.mjs) */
   readonly city: string;
   /** BT-38 Seller post code (name not independently quoted in our extraction — see terms.mjs) */

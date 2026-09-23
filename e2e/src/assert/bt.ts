@@ -112,3 +112,15 @@ export function lineAllowances(xml: string): readonly { amount: number; reason: 
     ].map((match) => ({ amount: Number(match[1]), reason: match[2] as string })),
   );
 }
+
+/** BT-35 (seller) / BT-50 (buyer): a party's first address line, `ram:PostalTradeAddress > ram:LineOne`. */
+export function addressLineOne(
+  xml: string,
+  party: "SellerTradeParty" | "BuyerTradeParty",
+): string | undefined {
+  const start = xml.indexOf(`<ram:${party}>`);
+  const end = xml.indexOf(`</ram:${party}>`, start);
+  return xml
+    .slice(start, end)
+    .match(/<ram:PostalTradeAddress>[\s\S]*?<ram:LineOne>([^<]+)<\/ram:LineOne>/)?.[1];
+}

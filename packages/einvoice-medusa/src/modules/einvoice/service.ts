@@ -186,6 +186,14 @@ function assertValidOptions(options: EinvoiceModuleOptions): void {
         "rejects an invoice missing either (confirmed against a real KoSIT Validator run).",
     );
   }
+  if (!options.seller.addressLine1?.trim()) {
+    // §14 Abs. 4 Satz 1 Nr. 1 UStG: the seller's full address on every invoice. `buildInvoice` refuses
+    // without it, but only once an order arrives — checked here so the plugin fails at boot instead.
+    throw new InvalidEinvoiceModuleOptionsError(
+      "options.seller.addressLine1 is required — the street and house number (or a PO box) of the seller; " +
+        "§14 Abs. 4 Satz 1 Nr. 1 UStG requires the seller's full address on every invoice.",
+    );
+  }
   const contact = options.seller.contact;
   if (!contact?.name?.trim() || !contact.telephone?.trim() || !contact.email?.trim()) {
     // BR-DE-2: every document this plugin builds declares the XRechnung 3.0 CIUS, which makes seller

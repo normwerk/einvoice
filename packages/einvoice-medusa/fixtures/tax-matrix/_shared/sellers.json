@@ -2,6 +2,7 @@
   "de": {
     "name": "Musterfirma GmbH",
     "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
     "city": "Berlin",
     "postCode": "10115",
     "vatIdentifier": "DE123456789",
@@ -16,6 +17,7 @@
   "fr": {
     "name": "Exemple SARL",
     "countryCode": "FR",
+    "addressLine1": "1 Rue de l'Exemple",
     "city": "Paris",
     "postCode": "75001",
     "vatIdentifier": "FR12345678901",

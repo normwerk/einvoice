@@ -10,6 +10,7 @@
     "name": "Muster Handels AG",
     "legalRegistrationIdentifier": "CHE-123.456.789",
     "countryCode": "CH",
+    "addressLine1": "Bahnhofstrasse 1",
     "city": "Zürich",
     "postCode": "8001",
     "electronicAddress": "rechnung@muster-handels.example",
@@ -29,6 +30,7 @@
     "name": "Exemple Client SARL",
     "vatIdentifier": "FR12345678901",
     "countryCode": "FR",
+    "addressLine1": "8 Rue de l'Exemple",
     "city": "Paris",
     "postCode": "75008",
     "electronicAddress": "ap@de-fiscal-representative.example",
@@ -37,6 +39,7 @@
   "delivery": {
     "actualDeliveryDate": "2026-09-11",
     "deliverToCountryCode": "FR",
+    "deliverToAddressLine1": "1 Rue du Dépôt",
     "deliverToCity": "Paris",
     "deliverToPostCode": "75001"
   },

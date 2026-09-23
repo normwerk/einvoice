@@ -75,6 +75,8 @@ export interface CommerceInvoiceInput {
         readonly deliverToCountryCode?: CountryCode | undefined;
         readonly deliverToCity?: string | undefined;
         readonly deliverToPostCode?: string | undefined;
+        readonly deliverToAddressLine1?: string | undefined; // BT-75
+        readonly deliverToAddressLine2?: string | undefined; // BT-76
       }
     | undefined;
   readonly taxContext: TaxContext;
@@ -99,6 +101,12 @@ export interface CommerceParty {
    * (`@normwerk/einvoice-model`) require it structurally; there is no v0.1 scenario without it. */
   readonly city: string;
   readonly postCode: string;
+  /** BT-35 (seller) / BT-50 (buyer): the street and house number, or a PO box. `buildInvoice` requires it
+   * on the seller — §14 Abs. 4 Satz 1 Nr. 1 UStG needs the seller's full address on every invoice, a
+   * small-amount one (§33 UStDV) included — and warns when the buyer's is missing above EUR 250. */
+  readonly addressLine1?: string | undefined;
+  /** BT-36 (seller) / BT-51 (buyer): a second address line. */
+  readonly addressLine2?: string | undefined;
   readonly vatIdentifier?: string | undefined;
   readonly legalRegistrationIdentifier?: string | undefined;
   readonly electronicAddress?: string | undefined;

@@ -9,6 +9,7 @@
   "seller": {
     "name": "Musterfirma GmbH",
     "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
     "city": "Berlin",
     "postCode": "10115",
     "vatIdentifier": "DE123456789",
@@ -23,6 +24,7 @@
   "buyer": {
     "name": "Exemple Client SARL",
     "countryCode": "FR",
+    "addressLine1": "8 Rue de l'Exemple",
     "city": "Paris",
     "postCode": "75008",
     "vatIdentifier": "FR12345678901",
@@ -41,6 +43,7 @@
   "delivery": {
     "actualDeliveryDate": "2026-09-10",
     "deliverToCountryCode": "FR",
+    "deliverToAddressLine1": "1 Rue du Dépôt",
     "deliverToCity": "Paris",
     "deliverToPostCode": "75001"
   },

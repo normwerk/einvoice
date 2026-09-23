@@ -160,6 +160,21 @@ export class MissingSellerContactError extends Error {
   }
 }
 
+/** §33 UStDV: the gross amount up to which an invoice may leave out the buyer's name and address. */
+const SMALL_AMOUNT_INVOICE_LIMIT = "250.00";
+
+export class MissingSellerAddressError extends Error {
+  constructor() {
+    super(
+      "seller.addressLine1 (street and house number, or a PO box) is required — §14 Abs. 4 Satz 1 Nr. 1 " +
+        "UStG requires the seller's full address on every invoice, and §33 UStDV keeps that requirement " +
+        "for small-amount invoices too. EN 16931 and the XRechnung rules leave the street optional, so " +
+        "a validator would not catch its absence.",
+    );
+    this.name = "MissingSellerAddressError";
+  }
+}
+
 export class InvalidAssembledInvoiceError extends Error {
   constructor(readonly errors: readonly string[]) {
     super(`buildInvoice assembled an Invoice that fails validateModel(): ${errors.join("; ")}`);
@@ -190,6 +205,8 @@ function mapParty(party: CommerceParty) {
   return {
     name: party.name,
     countryCode: party.countryCode,
+    addressLine1: party.addressLine1,
+    addressLine2: party.addressLine2,
     city: party.city,
     postCode: party.postCode,
     vatIdentifier: party.vatIdentifier,
@@ -271,6 +288,9 @@ export function buildInvoice(
   }
   if (input.seller.contact === undefined) {
     throw new MissingSellerContactError();
+  }
+  if (input.seller.addressLine1 === undefined || input.seller.addressLine1.trim() === "") {
+    throw new MissingSellerAddressError();
   }
   const buyerReference = input.references?.buyerReference;
   if (buyerReference !== undefined && looksLikeLeitwegId(buyerReference)) {
@@ -456,6 +476,21 @@ export function buildInvoice(
   const totalVatAmount = sumAmounts(vatBreakdown.map((g) => g.taxAmount));
   const totalAmountWithVat = sumAmounts([totalAmountWithoutVat, totalVatAmount]);
   const amountDueForPayment = totalAmountWithVat;
+
+  // §14 Abs. 4 Satz 1 Nr. 1 UStG needs the buyer's full address too, except on a small-amount invoice
+  // (§33 UStDV: up to EUR 250 including VAT). The street cannot be made up here, so it is a warning.
+  const buyerStreet = input.buyer.addressLine1;
+  if (
+    (buyerStreet === undefined || buyerStreet.trim() === "") &&
+    compareAmounts(totalAmountWithVat, SMALL_AMOUNT_INVOICE_LIMIT) > 0
+  ) {
+    warnings.push({
+      code: "buyer-street-missing",
+      message:
+        `The buyer's address has no street line (BT-50). Above EUR ${SMALL_AMOUNT_INVOICE_LIMIT} including ` +
+        "VAT, §14 Abs. 4 Satz 1 Nr. 1 UStG requires the buyer's full address on the invoice.",
+    });
+  }
 
   const invoice: Invoice = {
     number: input.document.number,

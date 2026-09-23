@@ -10,6 +10,7 @@
   "seller": {
     "name": "Musterfirma GmbH",
     "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
     "city": "Berlin",
     "postCode": "10115",
     "vatIdentifier": "DE123456789",
@@ -24,6 +25,7 @@
   "buyer": {
     "name": "Beispielkunde GmbH",
     "countryCode": "DE",
+    "addressLine1": "Beispielweg 2",
     "city": "Hamburg",
     "postCode": "20095",
     "electronicAddress": "ap@commerce-credit-note.example",

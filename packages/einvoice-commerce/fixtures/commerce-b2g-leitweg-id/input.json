@@ -9,6 +9,7 @@
   "seller": {
     "name": "Musterfirma GmbH",
     "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
     "city": "Berlin",
     "postCode": "10115",
     "vatIdentifier": "DE123456789",
@@ -23,6 +24,7 @@
   "buyer": {
     "name": "Musterbehörde",
     "countryCode": "DE",
+    "addressLine1": "Amtsplatz 3",
     "city": "Bonn",
     "postCode": "53113",
     "electronicAddress": "ap@commerce-b2g-leitweg-id.example",

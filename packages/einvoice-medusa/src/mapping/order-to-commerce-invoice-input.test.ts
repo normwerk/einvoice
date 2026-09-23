@@ -11,6 +11,7 @@ import {
 const SELLER = {
   name: "Musterfirma GmbH",
   countryCode: "DE" as const,
+  addressLine1: "Musterstraße 1",
   city: "Berlin",
   postCode: "10115",
   vatIdentifier: "DE123456789",
@@ -74,6 +75,8 @@ describe("mapOrderToCommerceInvoiceInput", () => {
     expect(input.buyer).toEqual({
       name: "Buyer GmbH",
       countryCode: "DE",
+      addressLine1: "Beispielstraße 1",
+      addressLine2: undefined,
       city: "Munich",
       postCode: "80331",
       vatIdentifier: undefined,
@@ -193,6 +196,30 @@ describe("mapOrderToCommerceInvoiceInput", () => {
     const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
     expect(input.buyer.name).toBe("Max Mustermann");
     expect(input.taxContext.buyerIsBusiness).toBe(false);
+  });
+
+  it("carries the street lines of the billing and shipping addresses — BT-50/51, BT-75/76 (P-60)", () => {
+    const order = baseOrder({
+      billing_address: {
+        country_code: "de",
+        city: "Munich",
+        postal_code: "80331",
+        address_1: "Beispielstraße 1",
+        address_2: "Hinterhaus",
+      },
+      shipping_address: {
+        country_code: "de",
+        city: "Köln",
+        postal_code: "50667",
+        address_1: "Lagerstraße 3",
+        address_2: null,
+      },
+    });
+    const input = mapOrderToCommerceInvoiceInput(order, baseOptions());
+    expect(input.buyer.addressLine1).toBe("Beispielstraße 1");
+    expect(input.buyer.addressLine2).toBe("Hinterhaus");
+    expect(input.delivery?.deliverToAddressLine1).toBe("Lagerstraße 3");
+    expect(input.delivery?.deliverToAddressLine2).toBeUndefined();
   });
 
   it("names a guest buyer after the billing address, not the email (a guest has no customer name)", () => {

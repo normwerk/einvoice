@@ -10,6 +10,7 @@
     "name": "Musterfirma GmbH",
     "vatIdentifier": "DE123456789",
     "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
     "city": "Berlin",
     "postCode": "10115",
     "electronicAddress": "rechnung@musterfirma.example",
@@ -23,6 +24,7 @@
   "buyer": {
     "name": "Käufer & Söhne \"GmbH\" <Filiale Nord>",
     "countryCode": "DE",
+    "addressLine1": "Hafenstraße 1 & 2 <Hinterhaus>",
     "city": "Hamburg",
     "postCode": "20095",
     "electronicAddress": "ap@de-special-chars.example",

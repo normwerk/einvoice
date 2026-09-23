@@ -22,10 +22,11 @@ Generated EN 16931 types, code lists, and JSON Schema (`AGENTS.md` §6, ADR-002)
 pnpm codegen:model
 ```
 
-Coverage note: this first pass covers every BT/BG term that has its own explicit business rule in the base
-EN 16931 CII Schematron (96 terms) — enough to model all 10 scenarios in `docs/tax-semantics.md`, not yet
-the full ~155/35 BT/BG set (full postal addresses beyond the seller's country code are the main gap). See
-the coverage note at the top of `tools/codegen/model/terms.mjs` for specifics and why.
+Coverage note: the model has 124 BT/BG terms — every term with its own explicit business rule in the base
+EN 16931 CII Schematron, the ones the XRechnung rules require, and the first two address lines of each
+address — enough to model every scenario in `docs/tax-semantics.md`, not yet the full ~155/35 BT/BG set (a
+third address line and several optional groups are missing). See the coverage note at the top of
+`tools/codegen/model/terms.mjs` for specifics and why.
 
 Every generated field cites its BT/BG number and is cross-checked against the vendored artifact text before
 generation — `tools/codegen/model/generate.mjs` refuses to run if a curated term's name doesn't actually

@@ -64,6 +64,7 @@ module.exports = defineConfig({
         seller: {
           name: "Normwerk Test GmbH",
           countryCode: "DE",
+          addressLine1: "Teststraße 1",
           city: "Berlin",
           postCode: "10115",
           vatIdentifier: "DE123456789",

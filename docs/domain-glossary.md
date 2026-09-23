@@ -72,6 +72,13 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   half-model the pair — `baseAmount` was informational, not required by any base BR-\* rule.
 - **"Gutschrift" ≠ credit note (P-04, T-034).** In UStG terms it is a self-billed invoice (389). Use
   "Rechnungskorrektur" for 381 in anything a human reads; keep code 381 in XML.
+- **No validator asks for a street, and German law does.** EN 16931 leaves every address line optional
+  (BT-35/36 seller, BT-50/51 buyer, BT-75/76 deliver-to) and the XRechnung rules require only city and post
+  code (BR-DE-3/4/8/9), so a street-less invoice is KoSIT-green — while §14 Abs. 4 Satz 1 Nr. 1 UStG needs
+  the full address of both parties (and §33 UStDV still the seller's on a small-amount invoice). In CII the
+  lines are `ram:LineOne`/`ram:LineTwo`, between `ram:PostcodeCode` and `ram:CityName` in
+  `TradeAddressType`'s sequence. No rule in the vendored Schematron names BT-35/36/50/51/75/76; their names
+  were taken from `@e-invoice-eu/core`'s schema and confirmed on each element's docs.peppol.eu page.
 
 ## Medusa v2 (`einvoice-medusa`, T-070/T-071/T-072/T-073/T-074, W10)
 

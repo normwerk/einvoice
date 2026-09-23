@@ -11,6 +11,7 @@ import {
   MissingCorrectedInvoiceReferenceError,
   MissingDeliveryInfoForIntraCommunitySupplyError,
   MissingDocumentNumberError,
+  MissingSellerAddressError,
   MissingSellerContactError,
   UnsupportedSchemaVersionError,
   buildInvoice,
@@ -20,6 +21,7 @@ import type { CommerceInvoiceInput } from "./types.js";
 const SELLER = {
   name: "Musterfirma GmbH",
   countryCode: "DE" as const,
+  addressLine1: "Musterstraße 1",
   city: "Berlin",
   postCode: "10115",
   vatIdentifier: "DE123456789",
@@ -35,7 +37,13 @@ function domesticInput(overrides: Partial<CommerceInvoiceInput> = {}): CommerceI
     schemaVersion: 1,
     document: { kind: "invoice", number: "RE-2026-0001", issueDate: "2026-09-14", currency: "EUR" },
     seller: SELLER,
-    buyer: { name: "Beispielkunde GmbH", countryCode: "DE", city: "Hamburg", postCode: "20095" },
+    buyer: {
+      name: "Beispielkunde GmbH",
+      countryCode: "DE",
+      addressLine1: "Beispielweg 2",
+      city: "Hamburg",
+      postCode: "20095",
+    },
     lines: [
       {
         quantity: "2",
@@ -519,6 +527,70 @@ describe("buildInvoice — input validation", () => {
   it("requires seller.contact (BR-DE-2, unconditional — every invoice declares the XRechnung 3.0 CIUS)", () => {
     const input = domesticInput({ seller: { ...SELLER, contact: undefined } });
     expect(() => buildInvoice(input)).toThrow(MissingSellerContactError);
+  });
+
+  it("carries every address line into the invoice — BT-35/36, BT-50/51, BT-75/76 (P-60)", () => {
+    const input = domesticInput({
+      seller: { ...SELLER, addressLine2: "Aufgang B" },
+      buyer: {
+        name: "Beispielkunde GmbH",
+        countryCode: "DE",
+        addressLine1: "Beispielweg 2",
+        addressLine2: "3. OG",
+        city: "Hamburg",
+        postCode: "20095",
+      },
+      delivery: {
+        deliverToCountryCode: "DE",
+        deliverToCity: "Köln",
+        deliverToPostCode: "50667",
+        deliverToAddressLine1: "Lagerstraße 3",
+        deliverToAddressLine2: "Tor 4",
+      },
+    });
+    const { invoice } = buildInvoice(input);
+    expect(invoice.seller.addressLine1).toBe("Musterstraße 1");
+    expect(invoice.seller.addressLine2).toBe("Aufgang B");
+    expect(invoice.buyer.addressLine1).toBe("Beispielweg 2");
+    expect(invoice.buyer.addressLine2).toBe("3. OG");
+    expect(invoice.delivery?.deliverToAddressLine1).toBe("Lagerstraße 3");
+    expect(invoice.delivery?.deliverToAddressLine2).toBe("Tor 4");
+  });
+
+  it("requires the seller's street — §14 Abs. 4 Nr. 1 UStG needs the seller's full address on every invoice (P-60)", () => {
+    expect(() =>
+      buildInvoice(domesticInput({ seller: { ...SELLER, addressLine1: undefined } })),
+    ).toThrow(MissingSellerAddressError);
+    expect(() =>
+      buildInvoice(domesticInput({ seller: { ...SELLER, addressLine1: "  " } })),
+    ).toThrow(MissingSellerAddressError);
+  });
+
+  it("warns when the buyer has no street and the invoice is above EUR 250 — below it §33 UStDV needs none (P-60)", () => {
+    const buyer = {
+      name: "Beispielkunde GmbH",
+      countryCode: "DE" as const,
+      city: "Hamburg",
+      postCode: "20095",
+    };
+    const large = buildInvoice(
+      domesticInput({
+        buyer,
+        lines: [
+          {
+            quantity: "3",
+            unitCode: "C62",
+            netPrice: "100.00",
+            itemName: "Widget",
+            taxRateKind: "standard",
+          },
+        ],
+      }),
+    );
+    expect(large.warnings.map((w) => w.code)).toContain("buyer-street-missing");
+    const small = buildInvoice(domesticInput({ buyer }));
+    expect(small.invoice.totals.totalAmountWithVat).toBe("119.00");
+    expect(small.warnings.map((w) => w.code)).not.toContain("buyer-street-missing");
   });
 
   it("surfaces unmapped-field warnings rather than silently dropping them", () => {

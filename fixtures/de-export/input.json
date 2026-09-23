@@ -10,6 +10,7 @@
     "name": "Musterfirma GmbH",
     "vatIdentifier": "DE123456789",
     "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
     "city": "Berlin",
     "postCode": "10115",
     "electronicAddress": "rechnung@musterfirma.example",
@@ -23,6 +24,7 @@
   "buyer": {
     "name": "Beispiel AG",
     "countryCode": "CH",
+    "addressLine1": "Beispielstrasse 5",
     "city": "Zürich",
     "postCode": "8002",
     "electronicAddress": "ap@de-export.example",
@@ -31,6 +33,7 @@
   "delivery": {
     "actualDeliveryDate": "2026-09-08",
     "deliverToCountryCode": "CH",
+    "deliverToAddressLine1": "Lagerstrasse 7",
     "deliverToCity": "Zürich",
     "deliverToPostCode": "8001"
   },

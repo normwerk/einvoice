@@ -140,3 +140,24 @@ test("optional header fields are omitted, not emitted as empty/undefined", () =>
   assert.ok(!("cac:PaymentMeans" in ubl));
   assert.ok(!("cac:AllowanceCharge" in ubl));
 });
+
+test("address lines map to StreetName/AdditionalStreetName, and are omitted when absent (P-60)", () => {
+  const ubl = mapInvoiceToUbl({
+    ...BASE,
+    seller: { ...BASE.seller, addressLine1: "Musterstraße 1", addressLine2: "Aufgang B" },
+    delivery: {
+      deliverToCountryCode: "DE",
+      deliverToCity: "Köln",
+      deliverToPostCode: "50667",
+      deliverToAddressLine1: "Lagerstraße 3",
+    },
+  })["ubl:Invoice"];
+  const seller = ubl["cac:AccountingSupplierParty"]["cac:Party"]["cac:PostalAddress"];
+  assert.equal(seller["cbc:StreetName"], "Musterstraße 1");
+  assert.equal(seller["cbc:AdditionalStreetName"], "Aufgang B");
+  const buyer = ubl["cac:AccountingCustomerParty"]["cac:Party"]["cac:PostalAddress"];
+  assert.equal("cbc:StreetName" in buyer, false);
+  const delivery = ubl["cac:Delivery"]["cac:DeliveryLocation"]["cac:Address"];
+  assert.equal(delivery["cbc:StreetName"], "Lagerstraße 3");
+  assert.equal("cbc:AdditionalStreetName" in delivery, false);
+});

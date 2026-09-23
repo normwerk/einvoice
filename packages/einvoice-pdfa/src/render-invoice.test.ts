@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PDFDict, PDFDocument, PDFName, PDFRawStream, PDFRef, PDFStream } from "pdf-lib";
 import type { Invoice } from "@normwerk/einvoice-model";
-import { renderInvoicePdf } from "./render-invoice.js";
+import { partyAddressLines, renderInvoicePdf } from "./render-invoice.js";
 
 // Same fixtures/ location as einvoice-model's fixtures.test.ts and this
 // package's own conformance script (tools/conformance/pdfa-embed-and-validate.mjs).
@@ -87,6 +87,21 @@ describe("renderInvoicePdf", () => {
     // WinAnsi-limited StandardFonts entry (module doc comment).
     const reloaded = await PDFDocument.load(bytes);
     expect(reloaded.getPageCount()).toBe(1);
+  });
+
+  it("prints each party's address lines above post code and city (P-60)", () => {
+    expect(
+      partyAddressLines({
+        addressLine1: "Musterstraße 1",
+        addressLine2: "Aufgang B",
+        city: "Berlin",
+        postCode: "10115",
+        countryCode: "DE",
+      }),
+    ).toEqual(["Musterstraße 1", "Aufgang B", "10115 Berlin, DE"]);
+    expect(partyAddressLines({ city: "Hamburg", postCode: "20095", countryCode: "DE" })).toEqual([
+      "20095 Hamburg, DE",
+    ]);
   });
 
   it("paginates onto additional pages once the line items overflow one page", async () => {

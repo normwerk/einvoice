@@ -41,6 +41,7 @@ describe("S9: DE private buyer, guest checkout", () => {
     const xml = xmlBytes.toString("utf-8");
 
     expect(bt.buyerName(xml)).toBe("Erika Musterfrau");
+    expect(bt.addressLineOne(xml, "BuyerTradeParty")).toBe("Teststr. 9");
     expect(bt.vatCategoryCode(xml)).toBe("S");
     expect(bt.buyerVatId(xml)).toBeUndefined();
     const order = await getOrder(admin, orderId);

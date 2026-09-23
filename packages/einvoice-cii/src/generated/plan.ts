@@ -312,12 +312,14 @@ export const invoicePlan: PlanNode = {
               children: [
                 {
                   // TradeAddressType sequence: ..., PostcodeCode, ...,
-                  // CityName, ..., CountryID, ... — Postcode and City
-                  // precede Country.
+                  // LineOne, LineTwo, ..., CityName, ..., CountryID, ... —
+                  // Postcode, address lines and City precede Country.
                   kind: "element",
                   name: ram("PostalTradeAddress"),
                   children: [
                     { kind: "value", name: ram("PostcodeCode"), from: "deliverToPostCode", bt: "BT-78" },
+                    { kind: "value", name: ram("LineOne"), from: "deliverToAddressLine1", bt: "BT-75" },
+                    { kind: "value", name: ram("LineTwo"), from: "deliverToAddressLine2", bt: "BT-76" },
                     { kind: "value", name: ram("CityName"), from: "deliverToCity", bt: "BT-77" },
                     { kind: "value", name: ram("CountryID"), from: "deliverToCountryCode", bt: "BT-80" },
                   ],
@@ -401,7 +403,10 @@ function sellerPartyNode(): PlanNode {
         kind: "element",
         name: ram("PostalTradeAddress"),
         children: [
+          // TradeAddressType sequence: PostcodeCode, ..., LineOne, LineTwo, ..., CityName, ..., CountryID (P-60).
           { kind: "value", name: ram("PostcodeCode"), from: "postCode", bt: "BT-38" },
+          { kind: "value", name: ram("LineOne"), from: "addressLine1", bt: "BT-35" },
+          { kind: "value", name: ram("LineTwo"), from: "addressLine2", bt: "BT-36" },
           { kind: "value", name: ram("CityName"), from: "city", bt: "BT-37" },
           { kind: "value", name: ram("CountryID"), from: "countryCode", bt: "BT-40" },
         ],
@@ -459,6 +464,8 @@ function buyerPartyNode(): PlanNode {
         name: ram("PostalTradeAddress"),
         children: [
           { kind: "value", name: ram("PostcodeCode"), from: "postCode", bt: "BT-53" },
+          { kind: "value", name: ram("LineOne"), from: "addressLine1", bt: "BT-50" },
+          { kind: "value", name: ram("LineTwo"), from: "addressLine2", bt: "BT-51" },
           { kind: "value", name: ram("CityName"), from: "city", bt: "BT-52" },
           { kind: "value", name: ram("CountryID"), from: "countryCode", bt: "BT-55" },
         ],

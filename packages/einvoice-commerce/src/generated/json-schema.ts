@@ -128,6 +128,12 @@ export const commerceInvoiceInputJsonSchema = {
         },
         "deliverToPostCode": {
           "type": "string"
+        },
+        "deliverToAddressLine1": {
+          "type": "string"
+        },
+        "deliverToAddressLine2": {
+          "type": "string"
         }
       },
       "additionalProperties": false
@@ -367,6 +373,12 @@ export const commerceInvoiceInputJsonSchema = {
           "type": "string"
         },
         "postCode": {
+          "type": "string"
+        },
+        "addressLine1": {
+          "type": "string"
+        },
+        "addressLine2": {
           "type": "string"
         },
         "vatIdentifier": {

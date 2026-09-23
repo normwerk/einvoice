@@ -102,12 +102,19 @@ function formatAmount(value: string | undefined): string {
   return value;
 }
 
-function partyAddressLine(party: {
+/** A party's postal address as printed: its address lines (BT-35/36, BT-50/51), then post code, city and
+ * country. Exported for tests — the rendered text itself is not extractable from the subset font. */
+export function partyAddressLines(party: {
+  readonly addressLine1?: string | undefined;
+  readonly addressLine2?: string | undefined;
   readonly city: string;
   readonly postCode: string;
   readonly countryCode: string;
-}): string {
-  return `${party.postCode} ${party.city}, ${party.countryCode}`;
+}): readonly string[] {
+  const street = [party.addressLine1, party.addressLine2].filter(
+    (line): line is string => line !== undefined && line.trim() !== "",
+  );
+  return [...street, `${party.postCode} ${party.city}, ${party.countryCode}`];
 }
 
 function drawParty(
@@ -116,15 +123,17 @@ function drawParty(
   x: number,
   heading: string,
   name: string,
-  addressLine: string,
+  addressLines: readonly string[],
   vatIdentifier: string | undefined,
 ): void {
   text(cursor, fonts, heading, x, { size: LABEL_SIZE, color: GREY });
   cursor.y -= LINE_GAP;
   text(cursor, fonts, name, x, { bold: true });
   cursor.y -= LINE_GAP;
-  text(cursor, fonts, addressLine, x);
-  cursor.y -= LINE_GAP;
+  for (const addressLine of addressLines) {
+    text(cursor, fonts, addressLine, x);
+    cursor.y -= LINE_GAP;
+  }
   if (vatIdentifier !== undefined) {
     text(cursor, fonts, `VAT ${vatIdentifier}`, x);
     cursor.y -= LINE_GAP;
@@ -228,7 +237,7 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Uint8Array> {
     MARGIN,
     "SELLER",
     invoice.seller.name,
-    partyAddressLine(invoice.seller),
+    partyAddressLines(invoice.seller),
     invoice.seller.vatIdentifier,
   );
   const sellerBottomY = cursor.y;
@@ -239,7 +248,7 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Uint8Array> {
     MARGIN + 300,
     "BUYER",
     invoice.buyer.name,
-    partyAddressLine(invoice.buyer),
+    partyAddressLines(invoice.buyer),
     invoice.buyer.vatIdentifier,
   );
   cursor.y = Math.min(cursor.y, sellerBottomY) - LINE_GAP;
