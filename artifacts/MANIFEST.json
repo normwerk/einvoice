@@ -1,5 +1,5 @@
 {
-  "$comment": "Rule (AGENTS.md §5.1, §9): no artifact is used until it is recorded here with every field. Updating an artifact's version is its own task, with the fixture diff reviewed. See docs/sources.md for the full licensing research.",
+  "$comment": "Rule (AGENTS.md §5.1, §9): no artifact is used until it is recorded here with every field. `sha256` is null only on an entry that is not a file any build or check reads (a reference page, a repository read for orientation), and such an entry says why in `unpinned_reason`. Updating an artifact's version is its own task, with the fixture diff reviewed. See docs/sources.md for the full licensing research.",
   "artifacts": [
     {
       "id": "cii-d16b-xsd",
@@ -96,14 +96,15 @@
       "id": "xrechnung-schematron",
       "url": "https://github.com/itplr-kosit/xrechnung-schematron/releases/download/v2.6.0/xrechnung-3.0.2-schematron-2.6.0.zip",
       "version": "XRechnung 3.0.2, xrechnung-schematron release v2.6.0",
-      "sha256": null,
+      "sha256": "ca5e07afd04e72cd283d581590ffff3a15f4aac9d2f40c993345d78e67ea22b4",
       "licence": "Apache-2.0",
       "vendored": false,
       "vendored_path": null,
       "fetched_at": "2026-09-12",
       "used_for": [
         "BR-DE-* rules for einvoice-cii's XRechnung profile prechecks (profileViolations) — not implemented yet"
-      ]
+      ],
+      "sha256_checked_at": "2026-09-23"
     },
     {
       "id": "ubl-2.1-invoice-xsd",
@@ -125,7 +126,8 @@
       "vendored": false,
       "vendored_path": null,
       "fetched_at": "2026-09-12",
-      "used_for": "reference only — read to derive our own UBL/Peppol mapping notes, do not copy .sch/codelist files verbatim. Out of scope for v0.1 (UBL/Peppol deferred to v0.2)."
+      "used_for": "reference only — read to derive our own UBL/Peppol mapping notes, do not copy .sch/codelist files verbatim. Out of scope for v0.1 (UBL/Peppol deferred to v0.2).",
+      "unpinned_reason": "Not a file this repository uses: read as a reference only, and the repository has no tagged release to pin — a hash of a moving branch would pin nothing. Pinned by release and hash once the UBL/Peppol work in v0.2 consumes a file from it."
     },
     {
       "id": "en16931-codelist-registry",
@@ -136,7 +138,8 @@
       "vendored": false,
       "vendored_path": null,
       "fetched_at": "2026-09-12",
-      "used_for": "reference only. Prefer consuming the same code lists already mirrored in the ConnectingEurope (EUPL-1.2) or OpenPEPPOL repos over the raw EC files, per docs/sources.md."
+      "used_for": "reference only. Prefer consuming the same code lists already mirrored in the ConnectingEurope (EUPL-1.2) or OpenPEPPOL repos over the raw EC files, per docs/sources.md.",
+      "unpinned_reason": "Not a file this repository uses: a web page read for orientation. The code lists the model is generated from come from the vendored ConnectingEurope Schematron (cii-d16b-en16931-codes-schematron), which is pinned by hash."
     },
     {
       "id": "zugferd-factur-x-spec",
@@ -147,7 +150,8 @@
       "vendored": false,
       "vendored_path": null,
       "fetched_at": "2026-09-12",
-      "used_for": "not used directly — einvoice-pdfa embeds the CII XML we generate ourselves in a PDF/A-3b; FeRD's own schema ZIP is not needed for that. The embedding is checked by veraPDF and Mustang in pnpm conformance:pdfa (docs/pdfa.md)."
+      "used_for": "not used directly — einvoice-pdfa embeds the CII XML we generate ourselves in a PDF/A-3b; FeRD's own schema ZIP is not needed for that. The embedding is checked by veraPDF and Mustang in pnpm conformance:pdfa (docs/pdfa.md).",
+      "unpinned_reason": "Not a file this repository uses: the embedding follows the PDF/A-3 and XMP rules checked by veraPDF and Mustang, whose images are pinned by hash (docker/images.lock); FeRD's specification ZIP is never read by any build or check."
     },
     {
       "id": "pdfa-srgb-icc",
@@ -173,7 +177,8 @@
       "used_for": [
         "not vendored (we author our own XMP builder, ADR-004 style) — read directly to get real, non-guessed values: the fx:/zf: XMP namespace URNs per profile (XMPSchemaZugferd.java), the exact PDFAExtensionSchema RDF structure required for a custom XMP schema (XMPSchemaPDFAExtensions.java, — this is the ISO 19005-3 Annex E mechanism the first PDF/A-3b prototype flagged as a veraPDF pitfall), and the profile name/URN table confirming our XRechnung 3.0 specificationIdentifier already matches Mustang's own XRECHNUNG profile URN (Profiles.java, Profile.java). File hashes at the pinned commit: XMPSchemaZugferd.java f927d427a632da4dbdac3693f7c10ce45cf05aa228f4e06c80e0ad7911a0214f; XMPSchemaPDFAExtensions.java c8560653422a6e079c10956df68f2f97fc5e3a6503caaba5a60d1bf9ca1c2479; Profiles.java a90a234f5c7d6e7f4ca87279d74f5bab52b4ddb50460a2810c48daa55af609d0; Profile.java 28d8692aa3f4ca77ddf60ed81005be090c8b39ac7a53793056f6a05736868d32."
       ],
-      "fetched_at": "2026-09-14"
+      "fetched_at": "2026-09-14",
+      "unpinned_reason": "Pinned by git commit (the commit id is itself a hash of the tree); the hashes of the four files read are recorded in used_for."
     },
     {
       "id": "pdfa-liberation-sans-font",

@@ -2,9 +2,11 @@
 
 Every official artifact used to generate or validate code in this repository is recorded here and in
 [`artifacts/MANIFEST.json`](../artifacts/MANIFEST.json), per `AGENTS.md` §5.1 and §9. Every entry has a URL,
-version and licence; every vendored artifact also has a SHA-256 hash. Five entries for sources that are
-read but not vendored (the XRechnung Schematron, Peppol BIS Billing 3.0, the EN 16931 code list registry, the
-ZUGFeRD/Factur-X specification and Mustang's XMP writer) have no hash recorded yet.
+version and licence, and a SHA-256 hash — every vendored artifact, and the XRechnung Schematron release
+archive, which is not vendored. Four entries have none, each with its reason in `unpinned_reason`: Peppol
+BIS Billing 3.0, the EN 16931 code list registry and the ZUGFeRD/Factur-X specification are references no
+build or check reads, and Mustang's XMP writer is pinned by git commit, with the hashes of the files read
+recorded next to it.
 
 **Why this document exists.** EN 16931-1 (the semantic data model) and EN 16931-3-2 / -3-3 (the UBL/CII
 syntax binding tables) are paid CEN standards sold by national bodies (DIN/Beuth, NEN, SFS, …). This
