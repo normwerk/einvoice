@@ -10,6 +10,7 @@ import {
 } from "../api/orders.js";
 import { loadCatalog, requireVariantId, type Catalog } from "../seed/catalog.js";
 import { waitFor } from "../harness/wait-for.js";
+import { FIXED_NOW } from "../harness/env.js";
 import * as bt from "../assert/bt.js";
 import { validateBytes } from "../assert/conformance.js";
 
@@ -70,11 +71,15 @@ describe("S1: DE -> DE B2B, 19%", () => {
     expect(bt.vatCategoryCode(xml)).toBe("S");
     // The seeded "SHIRT-S-BLACK" variant (EUR 10) plus the seeded "Standard Shipping" option (EUR 10), both
     // at the standard 19% DE rate: shipping is on the invoice as a document-level charge (P-39) and takes
-    // the rate of the goods it ships (P-40). Not compared with `order.total`: this stand's tax regions carry
-    // no rate, so Medusa itself charged no VAT at all — the subscriber logs exactly that mismatch.
+    // the rate of the goods it ships (P-40). The stand's German tax region charges 19% (P-59), so the
+    // invoice must total exactly what Medusa charged.
     expect(bt.shippingChargeAmount(xml)).toBeCloseTo(10, 2);
     expect(bt.grandTotalAmount(xml)).toBeCloseTo(23.8, 2);
+    expect(bt.grandTotalAmount(xml)).toBeCloseTo(order.total, 2);
     expect(order.currencyCode).toBe("eur");
+    // The billing address names the buyer (BT-44); the stand's fixed clock dates the document (BT-2).
+    expect(bt.buyerName(xml)).toBe("Musterfirma GmbH");
+    expect(bt.issueDate(xml)).toBe(FIXED_NOW.slice(0, 10));
 
     const xmlReport = await validateBytes(xmlBytes, "s1-invoice.xml");
     expect(xmlReport.valid, JSON.stringify(xmlReport.messages)).toBe(true);

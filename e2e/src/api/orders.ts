@@ -1,5 +1,6 @@
 import type { AdminSession } from "./admin.js";
 import { adminFetch, adminGetJson, adminPostJson } from "./admin.js";
+import { waitFor } from "../harness/wait-for.js";
 
 export interface OrderSummary {
   readonly id: string;
@@ -7,6 +8,7 @@ export interface OrderSummary {
   readonly total: number;
   readonly currencyCode: string;
   readonly itemIds: readonly string[];
+  readonly items: readonly { readonly id: string; readonly quantity: number }[];
 }
 
 export async function getOrder(admin: AdminSession, orderId: string): Promise<OrderSummary> {
@@ -16,7 +18,7 @@ export async function getOrder(admin: AdminSession, orderId: string): Promise<Or
       readonly display_id: number;
       readonly total: number;
       readonly currency_code: string;
-      readonly items: readonly { readonly id: string }[];
+      readonly items: readonly { readonly id: string; readonly quantity: number }[];
     };
   }>(admin, `/admin/orders/${orderId}?fields=id,display_id,total,currency_code,*items`);
   return {
@@ -25,6 +27,7 @@ export async function getOrder(admin: AdminSession, orderId: string): Promise<Or
     total: response.order.total,
     currencyCode: response.order.currency_code,
     itemIds: response.order.items.map((item) => item.id),
+    items: response.order.items.map((item) => ({ id: item.id, quantity: item.quantity })),
   };
 }
 
@@ -39,7 +42,7 @@ export async function fulfillOrder(
   const order = await getOrder(admin, orderId);
   await adminPostJson(admin, `/admin/orders/${orderId}/fulfillments`, {
     location_id: stockLocationId,
-    items: order.itemIds.map((id) => ({ id, quantity: 1 })),
+    items: order.items.map(({ id, quantity }) => ({ id, quantity })),
   });
 }
 
@@ -103,4 +106,35 @@ export async function cancelOrder(admin: AdminSession, orderId: string): Promise
   const fulfillmentId = await getOrderFulfillmentId(admin, orderId);
   await adminPostJson(admin, `/admin/orders/${orderId}/fulfillments/${fulfillmentId}/cancel`, {});
   await adminPostJson(admin, `/admin/orders/${orderId}/cancel`, {});
+}
+
+/** Sets `order.metadata` the way a merchant records an order-level declaration such as
+ * `regime_override` (`docs/quickstart-medusa.md`) — real `POST /admin/orders/:id`. */
+export async function setOrderMetadata(
+  admin: AdminSession,
+  orderId: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  await adminPostJson(admin, `/admin/orders/${orderId}`, { metadata });
+}
+
+/** Waits for the order's first document of a type and returns it with its XML. */
+export async function waitForDocumentXml(
+  admin: AdminSession,
+  orderId: string,
+  type: EinvoiceDocumentSummary["type"],
+): Promise<{ readonly document: EinvoiceDocumentSummary; readonly xmlBytes: Buffer }> {
+  let document: EinvoiceDocumentSummary | undefined;
+  await waitFor(
+    `${type} for order ${orderId}`,
+    async () => {
+      document = (await listEinvoiceDocuments(admin, orderId)).find((d) => d.type === type);
+      return document !== undefined;
+    },
+    { timeoutMs: 30_000 },
+  );
+  if (document === undefined) {
+    throw new Error("unreachable: waitFor guarantees the document exists");
+  }
+  return { document, xmlBytes: await downloadEinvoiceFile(admin, orderId, document.id, "xml") };
 }

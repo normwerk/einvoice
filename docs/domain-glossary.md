@@ -147,6 +147,17 @@ at the time) or a real installed `@medusajs/*` package's compiled source.
 - **A refund's amount is `payment.refunds[].amount`, gross.** Crediting it takes the net amount whose VAT at
   the invoice's rate brings it back to that gross sum (`netFromGross` in `einvoice-commerce`) — at 2-decimal
   precision a few gross sums have no exact net (0.03 at 19%), and the credit note then totals a cent less.
+- **A guest checkout's customer record has no name.** Medusa creates it from the email alone — no
+  `first_name`, `last_name` or `company_name`; the buyer's name lives only on the order's billing and
+  shipping addresses. Reading names from `order.customer` alone names every guest after their email.
+- **An order of services ships nothing and is still fulfilled.** A product with no shipping profile whose
+  variant has `manage_inventory: false` gets `requires_shipping: false` lines; a cart of only such lines
+  completes without a shipping method, and `POST /admin/orders/:id/fulfillments` accepts it without a
+  `shipping_option_id` and emits `order.fulfillment_created` (verified on 2.21.0). Such an order is invoiced
+  when the merchant fulfills it, not before.
+- **A tax region without a default rate charges no VAT, silently.** `createTaxRegionsWorkflow` accepts a
+  country with `provider_id` only; the system tax provider then charges 0 on every order shipped there.
+  The e2e stand's own seed had exactly that until an invoice total was compared with `order.total`.
 
 ### T-071 (subscribers, idempotency, W10)
 

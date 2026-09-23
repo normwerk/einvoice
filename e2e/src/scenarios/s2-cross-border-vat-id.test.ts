@@ -2,7 +2,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { adminLogin, type AdminSession } from "../api/admin.js";
 import { registerCustomer, setCustomerVatId } from "../api/customer.js";
 import { checkoutToOrder } from "../api/checkout.js";
-import { downloadEinvoiceFile, fulfillOrder, listEinvoiceDocuments } from "../api/orders.js";
+import {
+  downloadEinvoiceFile,
+  fulfillOrder,
+  getOrder,
+  listEinvoiceDocuments,
+} from "../api/orders.js";
 import { loadCatalog, requireVariantId, type Catalog } from "../seed/catalog.js";
 import { waitFor } from "../harness/wait-for.js";
 import { VALID_VAT_ID } from "../harness/env.js";
@@ -71,6 +76,9 @@ describe("S2: DE -> FR B2B with VAT-ID", () => {
 
     expect(bt.vatCategoryCode(xml)).toBe("K");
     expect(bt.buyerVatId(xml)).toBe(VALID_VAT_ID);
+    // France has no rate on this stand, so Medusa charges no VAT — as category K requires (P-59).
+    const order = await getOrder(admin, orderId);
+    expect(bt.grandTotalAmount(xml)).toBeCloseTo(order.total, 2);
 
     const report = await validateBytes(xmlBytes, "s2-invoice.xml");
     expect(report.valid, JSON.stringify(report.messages)).toBe(true);

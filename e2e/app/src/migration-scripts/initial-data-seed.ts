@@ -112,10 +112,16 @@ export default async function initial_data_seed({
   logger.info("Finished seeding regions.");
 
   logger.info("Seeding tax regions...");
+  // einvoice e2e: Germany charges its standard rate, so an invoice's total can be compared with what
+  // Medusa actually charged. The other countries keep no rate: Medusa's system tax provider knows nothing
+  // of intra-EU reverse charge, so a French business buyer is charged no VAT — matching category K.
   await createTaxRegionsWorkflow(container).run({
     input: countries.map((country_code) => ({
       country_code,
       provider_id: "tp_system",
+      ...(country_code === "de"
+        ? { default_tax_rate: { rate: 19, code: "DE19", name: "Umsatzsteuer 19 %" } }
+        : {}),
     })),
   });
   logger.info("Finished seeding tax regions.");

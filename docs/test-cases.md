@@ -58,11 +58,12 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/render-invoice.test.ts` — `renderInvoicePdf`: real embedded-font rendering, determinism, every real
   fixture rendering without throwing, and non-ASCII text (umlauts, ß, —, ½, Ø).
 
-### `einvoice-medusa` (155 tests)
+### `einvoice-medusa` (158 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
-  [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) (buyer name/address fallback chains,
+  [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) (buyer name/address fallback chains —
+  a guest buyer named from the billing address, not the email —
   tax-inclusive price backing-out, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
   methods as one document-level charge and promotions as line allowances), `describeOrderTotalMismatch`
   (invoice total vs `order.total`) and `issueDateInSellerTimeZone` (the invoice date in Berlin, not UTC).
@@ -150,11 +151,13 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 9 files / 15 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 12 files / 18 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
-it), idempotency (event redelivery), Store API ownership, incomplete-config boot refusal, and tarball
-contents across all six published packages.
+it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
+(private guest buyer), idempotency (event redelivery), Store API ownership, incomplete-config boot refusal,
+and tarball contents across all six published packages. Every invoice scenario also checks that the
+invoice totals what Medusa charged (`order.total`) — the stand's German tax region charges 19%.
 
 ## CI wiring
 

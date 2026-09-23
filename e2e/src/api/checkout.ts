@@ -15,10 +15,14 @@ export interface CheckoutInput {
   readonly regionId: string;
   readonly salesChannelId: string;
   readonly variantId: string;
-  readonly shippingOptionId: string;
+  /** Omitted for a cart whose items need no shipping (a service) — Medusa then completes it without a
+   * shipping method. */
+  readonly shippingOptionId?: string;
   readonly email: string;
   readonly address: BuyerAddress;
   readonly quantity?: number;
+  /** Promotion codes applied to the cart before checkout (`POST /store/carts/:id/promotions`). */
+  readonly promoCodes?: readonly string[];
   /** A registered customer's own session token (`customer.ts`) — attaches `customer_id` to the cart/order
    * (verified against a real run: carrying this bearer token on cart creation is what does it, not a
    * separate "claim this cart" call). Omitted for a guest checkout (S1). */
@@ -75,12 +79,23 @@ export async function checkoutToOrder(input: CheckoutInput): Promise<CheckoutRes
     customerToken,
   );
 
-  await storePostJson(
-    publishableKey,
-    `/store/carts/${cartId}/shipping-methods`,
-    { option_id: input.shippingOptionId },
-    customerToken,
-  );
+  if (input.promoCodes !== undefined) {
+    await storePostJson(
+      publishableKey,
+      `/store/carts/${cartId}/promotions`,
+      { promo_codes: input.promoCodes },
+      customerToken,
+    );
+  }
+
+  if (input.shippingOptionId !== undefined) {
+    await storePostJson(
+      publishableKey,
+      `/store/carts/${cartId}/shipping-methods`,
+      { option_id: input.shippingOptionId },
+      customerToken,
+    );
+  }
 
   const paymentCollection = await storePostJson<{
     readonly payment_collection: { readonly id: string };

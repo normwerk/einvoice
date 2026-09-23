@@ -81,3 +81,34 @@ export function correctedInvoiceNumber(xml: string): string | undefined {
 export function lineCount(xml: string): number {
   return xml.match(/<ram:IncludedSupplyChainTradeLineItem>/g)?.length ?? 0;
 }
+
+/** BT-2: the issue date, `rsm:ExchangedDocument > ram:IssueDateTime`, as `YYYY-MM-DD`. */
+export function issueDate(xml: string): string {
+  const digits = requireMatch(
+    xml,
+    /<ram:IssueDateTime>\s*<udt:DateTimeString[^>]*>(\d{8})<\/udt:DateTimeString>/,
+    "BT-2 (issue date)",
+  );
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
+/** BT-44: the buyer's name, `ram:BuyerTradeParty > ram:Name`. */
+export function buyerName(xml: string): string {
+  return requireMatch(xml, /<ram:BuyerTradeParty>\s*<ram:Name>([^<]+)<\/ram:Name>/, "BT-44");
+}
+
+/** BG-27: every line-level allowance, as `{ amount, reason }` (BT-136, BT-139) — an allowance is a
+ * line's `ram:SpecifiedTradeAllowanceCharge` whose `ram:ChargeIndicator` is `false`. */
+export function lineAllowances(xml: string): readonly { amount: number; reason: string }[] {
+  const lines =
+    xml.match(
+      /<ram:IncludedSupplyChainTradeLineItem>[\s\S]*?<\/ram:IncludedSupplyChainTradeLineItem>/g,
+    ) ?? [];
+  return lines.flatMap((line) =>
+    [
+      ...line.matchAll(
+        /<ram:SpecifiedTradeAllowanceCharge><ram:ChargeIndicator><udt:Indicator>false<\/udt:Indicator><\/ram:ChargeIndicator>(?:(?!<\/ram:SpecifiedTradeAllowanceCharge>).)*?<ram:ActualAmount>([^<]+)<\/ram:ActualAmount>(?:(?!<\/ram:SpecifiedTradeAllowanceCharge>).)*?<ram:Reason>([^<]+)<\/ram:Reason>/g,
+      ),
+    ].map((match) => ({ amount: Number(match[1]), reason: match[2] as string })),
+  );
+}

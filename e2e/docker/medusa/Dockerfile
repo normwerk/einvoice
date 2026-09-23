@@ -1,7 +1,8 @@
 # T-078 "fast" profile: builds the committed e2e/app/ scaffold (docs/quickstart-medusa.md's pinned
-# `create-medusa-app@2.19.0`) with the plugin packages installed from the stand's own Verdaccio — never
-# workspace-linked (plan-e2e.md §2). Digest tracked in e2e/docker/images.lock, same convention as
-# docker/images.lock for the conformance validator images (AGENTS.md §7).
+# `create-medusa-app@2.19.0`; its `@medusajs/*` packages are pinned to 2.21.0) with the plugin packages
+# installed from the stand's own Verdaccio — never workspace-linked (plan-e2e.md §2). Digest tracked in
+# e2e/docker/images.lock, same convention as docker/images.lock for the conformance validator images
+# (AGENTS.md §7).
 FROM node@sha256:b6f26b36c8ff49624cfdac716b8ea1138d606df02586a77d364bb5536a634f85
 
 # Medusa's own dependency tree pulls in native addons (argon2, etc.) that need a real toolchain on alpine.

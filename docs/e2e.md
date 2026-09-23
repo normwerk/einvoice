@@ -45,11 +45,20 @@ running it repeatedly.
 ✓ src/scenarios/s4-credit-note.test.ts       — a refund produces a credit note referencing the invoice
 ✓ src/scenarios/s5-partial-refund.test.ts    — a partial refund is credited for its own amount, one line
 ✓ src/scenarios/s6-cancel-after-invoice.test.ts — cancelling an invoiced order reverses the invoice
+✓ src/scenarios/s7-promotion.test.ts         — a promotion code becomes a line discount named after it
+✓ src/scenarios/s8-service-reverse-charge.test.ts — a services-only order to an EU business, category AE
+✓ src/scenarios/s9-b2c-guest.test.ts         — a private guest buyer, named from the billing address
 ✓ src/scenarios/idempotency.test.ts          — redelivering an event never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot with a missing required option
 ✓ src/scenarios/tarball-contents.test.ts     — no test/fixture files leak into any published package
 ```
+
+Every invoice is also compared with what Medusa charged (`order.total`), so the stand charges real VAT: its
+German tax region carries the 19% standard rate. The other countries carry no rate — Medusa's built-in tax
+provider knows nothing of the intra-EU reverse charge, so a French business buyer is charged no VAT, which
+is what category K and AE invoices show. The stand's clock is fixed (`EINVOICE_E2E_NOW`, 2026-01-15 by
+default), so every document carries the same date on every run.
 
 Every container is torn down both before a run starts and after it finishes — pass, fail, or even a
 previous run that got killed outright (closed terminal, `kill -9`, a cancelled CI job) — so `docker ps`
@@ -77,8 +86,8 @@ should show nothing from this stand at any point you're not actively mid-run.
 
 ## What this doesn't cover yet
 
-This is the `fast` profile only: a committed, pinned Medusa v2 app
-(`create-medusa-app@2.19.0`, `e2e/app/`), not a freshly scaffolded one. It catches wiring bugs (does a real
+This is the `fast` profile only: a committed Medusa v2 app (`e2e/app/`, scaffolded with
+`create-medusa-app@2.19.0`, its `@medusajs/*` packages pinned to 2.21.0), not a freshly scaffolded one. It catches wiring bugs (does a real
 order's data reach the plugin and come back out correctly?), not Medusa scaffold drift or compatibility
 with Medusa versions other than the one this app pins. A `fresh` profile against a newly scaffolded app,
 and a matrix against multiple Medusa versions, are tracked as follow-up work, not implemented here.

@@ -88,6 +88,11 @@ side-panel section lists the invoice, with XML (and PDF, once you've done step 5
 Refund a captured payment and a credit note appears the same way, for the refunded amount; cancel an
 invoiced order and a credit note reverses what is still outstanding.
 
+The invoice is issued when an order is fulfilled — an order of services too. A product with no shipping
+profile whose variants manage no inventory needs no shipping: its cart completes without a shipping method,
+and Medusa accepts a fulfillment for it without a shipping option. Create that fulfillment, and the invoice
+appears the same way.
+
 ## 5. Optional: attach a PDF without your own renderer
 
 ```ts

@@ -76,6 +76,9 @@ describe("S4: return -> credit note", () => {
 
     expect(bt.typeCode(xml)).toBe("381");
     expect(bt.correctedInvoiceNumber(xml)).toBe(invoice.documentNumber);
+    // A full refund restates the whole invoice, shipping included, and totals exactly what was refunded.
+    expect(bt.grandTotalAmount(xml)).toBeCloseTo(payment.amount, 2);
+    expect(bt.shippingChargeAmount(xml)).toBeCloseTo(10, 2);
 
     const report = await validateBytes(xmlBytes, "s4-credit-note.xml");
     expect(report.valid, JSON.stringify(report.messages)).toBe(true);

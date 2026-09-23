@@ -187,6 +187,13 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   what is still outstanding on the invoice. A partial refund on an order whose lines carry different rates
   is refused — splitting it across the rates is not decided yet — and must be credited by hand. An invoiced
   order that is then cancelled gets a credit note for whatever is outstanding.
+- **A validator accepts an invoice without a street address.** §14 Abs. 4 Satz 1 Nr. 1 UStG requires the
+  full name and the full address of both the seller and the buyer; EN 16931 makes the street (BT-35 for the
+  seller, BT-50 for the buyer) optional, and KoSIT checks only city, post code and country. The data model
+  has no street field yet, so no invoice from these packages carries a street line for either party — check
+  whether that is acceptable for your invoices before relying on them. The Medusa adapter names the buyer
+  (BT-44) after the billing address — its company, else the person's first and last name — and falls back
+  to the customer record and, last, the email.
 
 This list is a starting point, not exhaustive — it grows as scenarios are added.
 
