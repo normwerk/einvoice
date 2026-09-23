@@ -49,9 +49,10 @@ running it repeatedly.
 ✓ src/scenarios/s8-service-reverse-charge.test.ts — a services-only order to an EU business, category AE
 ✓ src/scenarios/s9-b2c-guest.test.ts         — a private guest buyer, named from the billing address
 ✓ src/scenarios/s10-prices-incl-vat.test.ts  — prices including VAT: the invoice totals what was charged
-✓ src/scenarios/idempotency.test.ts          — redelivering an event never creates a duplicate document
+✓ src/scenarios/s11-b2g-leitweg-id.test.ts   — a public-sector buyer's Leitweg-ID: BT-10 and the XRechnung profile
+✓ src/scenarios/idempotency.test.ts          — delivering an event a second time never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
-✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot with a missing required option
+✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot without a required option, or with a seller outside Germany
 ✓ src/scenarios/tarball-contents.test.ts     — no test/fixture files leak into any published package
 ```
 
@@ -68,8 +69,8 @@ should show nothing from this stand at any point you're not actively mid-run.
 ## If it fails
 
 - **A container never becomes healthy / the run times out**: check `e2e/.artifacts/medusa.log` (and
-  `postgres.log`, `verdaccio.log`) — written after every run, not only on failure — for the real container
-  output.
+  `postgres.log`, `verdaccio.log`) — written after every run, and before the stand is torn down when it
+  fails to come up — for the real container output.
 - **`npm install` inside the `medusa` container fails with `ERESOLVE`**: some `@medusajs/*` package resolving
   to a newer Medusa patch than the exact version this app pins (`@medusajs/framework`) — this app installs
   fresh from the real npm registry (proxied through the stand's own Verdaccio) on every boot, so a new
@@ -77,7 +78,10 @@ should show nothing from this stand at any point you're not actively mid-run.
   `@medusajs/test-utils`, which `@normwerk/einvoice-medusa` used to declare as a required peer dependency;
   the plugin no longer does (it is a test tool, not something a shop needs), and `e2e/app/package.json` pins
   it to the same version as `@medusajs/framework`. If it recurs after a Medusa release, bump the pinned
-  `@medusajs/*` versions together.
+  `@medusajs/*` versions together. `e2e/app` has no lockfile on purpose: the `@normwerk/*` packages are
+  rebuilt and republished for every run, so their integrity hashes change each time and a committed lock
+  would fail the install. The Medusa packages are pinned exactly instead; everything below them resolves
+  fresh, as on a shop's first install.
 - **Port already in use**: this stand uses `55432` (Postgres), `4873` (Verdaccio), and `9500` (Medusa,
   deliberately not `9000`) on the host by default; override with `EINVOICE_E2E_POSTGRES_PORT` /
   `EINVOICE_E2E_VERDACCIO_PORT` / `EINVOICE_E2E_MEDUSA_PORT` if any of those collide with something else

@@ -48,7 +48,10 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   (`PEPPOL-EN16931-R001/R010/R020`) come from rules KoSIT bundles into the "EN16931 (CII)" Schematron step
   itself, not the XRechnung-specific layer, so they fire even outside the DE profile once validated through
   KoSIT's tooling. None of this is discoverable from the base ConnectingEurope EUPL-1.2 Schematron alone —
-  found by serializing real fixtures and reading the KoSIT rejection.
+  found by serializing real fixtures and reading the KoSIT rejection. A buyer without an electronic address
+  fails `PEPPOL-EN16931-R010` even once the empty `URIUniversalCommunication` is gone (checked with KoSIT on
+  2026-09-23), so `buildInvoice` refuses both parties without one (`MissingElectronicAddressError`) — the
+  Medusa adapter's source is the order's email.
 - **`BR-AE-02` (reverse charge) needs identification on _both_ parties**, not just the seller: the seller's
   VAT-ID or tax registration **and** the buyer's VAT-ID or legal registration identifier. Easy to miss
   because `BR-S-02`-style rules for other categories only ever check the seller.
@@ -230,7 +233,7 @@ installed `@medusajs/*` package's compiled source.
   matters for the subscribers' idempotency design: a "redelivered"
   `order.fulfillment_created`/`payment.refunded` in practice means a manual replay, not an automatic retry
   storm — informed how strict the idempotency check needs to be (checked up front, before allocating a
-  document number, to keep `SequentialNumberer`'s gap-free guarantee under the realistic case) versus how
+  document number, so a redelivery does not burn one in the realistic case) versus how
   strict it only needs to be as a backstop (the database-level unique constraint, for the truly-concurrent
   case the local event bus can't even produce).
 - **`payment.refunded`'s payload-only-carries-`{id}` gap (flagged unresolved in the refund entry above)
@@ -271,13 +274,13 @@ installed `@medusajs/*` package's compiled source.
     `seller.electronicAddress`/`electronicAddressScheme`; the mapping (`mapOrderToCommerceInvoiceInput`)
     fills the buyer's from the order's own email with EAS scheme `"EM"` — the same convention every fixture
     in this repo already used for a plain email address.
-  - **BT-10 (buyer reference) is mandatory on every invoice, not just a B2G one (BR-DE-15)** — conflicts
-    with `selectProfile`'s own heuristic ("presence of `buyerReference` signals a B2G buyer"), since always
-    supplying one would make every order resolve to `XRECHNUNG` regardless of `defaultProfile`. Resolved by
-    keeping two distinct values: the _raw_ B2G signal (`resolveB2gBuyerReference`, only a real
-    `customer.metadata.buyer_reference`/Leitweg-ID) is what `selectProfile` is called with; the _mapped_
-    `CommerceInvoiceInput.references.buyerReference` always gets a value — the order's own `display_id`
-    when there's no real B2G reference — to satisfy BR-DE-15 without corrupting profile selection.
+  - **BT-10 (buyer reference) is mandatory on every invoice, not just a B2G one (BR-DE-15)** — so its
+    presence, or its shape, can never be the B2G signal. The first fix kept a separate "raw" reference for
+    `selectProfile`; that still read a Leitweg-ID out of the shape of free text, and an ordinary reference
+    such as `2024-01` has the same shape (refused for failing the check digits, or routed to XRechnung when
+    they happened to add up). A Leitweg-ID is now its own declared field, `references.leitwegId`, from
+    `customer.metadata.leitweg_id`; `buyerReference` is always free text — `customer.metadata.buyer_reference`
+    or the order's `display_id`.
   - **BG-16 (payment instructions) is mandatory on every invoice (BR-DE-1)** — merchant-level bank details
     (which account the buyer should pay into), the same kind of static config as `seller` itself, not
     derivable from an order. Added as a new required `EinvoiceModuleOptions.payment` field
@@ -546,3 +549,8 @@ integrations` itself states the list "is curated from npm," and its own visible 
   verification would still confirm it against a real running instance the way `ORDER_QUERY_FIELDS` was
   checked above, but the type-level check is strong enough evidence for a first-class model column, not a
   computed/admin-only field, to build on without that heavier step.
+- **A Medusa tax line's `rate` is a fact to pass on, never to interpret in the adapter.** The adapter once
+  snapped it to the nearer of Germany's 19% and 7%, so a line Medusa taxed at 0% (a tax region without a
+  default rate) became a 7% line on the invoice. It now passes the summed rate on as
+  `CommerceLine.chargedVatRate`, and `resolveLineRate` in `einvoice-commerce` decides: 19 or 7 on a
+  domestic line, exactly the declared `ossRateOverride` on an OSS line, refusal otherwise.

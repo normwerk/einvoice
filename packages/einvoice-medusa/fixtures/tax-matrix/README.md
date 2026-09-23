@@ -86,7 +86,7 @@ outcome per axis.
 
 - **Fast, no Docker** — `pnpm --filter @normwerk/einvoice-medusa test` runs the whole package suite,
   including `src/tax-matrix/tax-matrix.test.ts`. To run only the matrix, from
-  `packages/einvoice-medusa`: `npx vitest run src/tax-matrix`. That file has 57 tests: two per
+  `packages/einvoice-medusa`: `npx vitest run src/tax-matrix`. That file has 67 tests: two per
   runnable cell (build axis, profile axis) plus one check that cells were loaded.
 - **Real validator, Docker** — `pnpm conformance:tax-matrix` (`tools/conformance/run-tax-matrix.mjs`).
   It takes every cell whose `expected.build.kind` is `"ok"`, serializes the built invoice with
@@ -96,8 +96,8 @@ outcome per axis.
   covered by the fast suite. Preconditions (package builds, the KoSIT image) are listed at the top
   of the script.
 
-Last recorded result (2026-09-23): all 28 runnable cells match their `expected.json` on both axes,
-and `pnpm conformance:tax-matrix` passes 20/20 validated cells, three times, deterministically. Run
+Last recorded result (2026-09-23): all 33 runnable cells match their `expected.json` on both axes,
+and `pnpm conformance:tax-matrix` passes 22/22 validated cells, three times, deterministically. Run
 both commands rather than relying on this snapshot.
 
 KoSIT checks structure and business rules, not whether the chosen category is the right one: a
@@ -113,28 +113,33 @@ preceding-invoice reference BT-25). The twins of rows 1, 2 and 9 are recorded ag
 (credit note for a return); the other twins against their own row, since the category follows the
 original supply.
 
-| Cell                                             | Row             | Build axis                           | Profile axis                     | What it shows                                                                            |
-| ------------------------------------------------ | --------------- | ------------------------------------ | -------------------------------- | ---------------------------------------------------------------------------------------- |
-| `row-01-domestic-standard` (+ credit note)       | 1 (twin: 10)    | ok, S                                | ok, EN16931                      | Domestic B2B sale at 19%                                                                 |
-| `row-02-domestic-reduced` (+ credit note)        | 2 (twin: 10)    | ok, S                                | ok, EN16931                      | Domestic B2B sale of a book at 7%                                                        |
-| `row-03-intra-eu-goods` (+ credit note)          | 3               | ok, K                                | ok, EN16931                      | DE → FR goods with a positive VIES check; delivery (BG-13) mapped from the order address |
-| `row-03-intra-eu-goods-no-vat-id-evidence`       | 3               | error, `TaxRuleError`                | ok, EN16931                      | Same order without VIES evidence: K is refused on an unverified VAT-ID                   |
-| `row-04-export-goods` (+ credit note)            | 4               | ok, G                                | ok, EN16931                      | DE → CH goods export                                                                     |
-| `row-05-reverse-charge` (+ credit note)          | 5               | ok, AE                               | ok, EN16931                      | Domestic §13b UStG service, `regime_override: { kind: "reverse-charge" }`                |
-| `row-06-exempt` (+ credit note)                  | 6               | ok, E                                | ok, EN16931                      | §4 UStG exempt service, `regime_override: { kind: "exempt", reasonText }`                |
-| `row-07-oss-b2c` (+ credit note)                 | 7               | ok, S                                | ok, EN16931                      | DE → NL B2C distance sale, `ossRegistered: true` and `oss_rate_override: "21"`           |
-| `row-07-oss-b2c-no-rate-override`                | 7               | error, `TaxRuleError`                | ok, EN16931                      | OSS-registered, but no declared destination-country rate: refused                        |
-| `row-08-zero-rated-photovoltaic` (+ credit note) | 8               | ok, Z                                | ok, EN16931                      | §12 Abs. 3 UStG, `regime_override: { kind: "zero-rated" }`                               |
-| `row-09-mixed-rates` (+ credit note)             | 9 (twin: 10)    | ok, S                                | ok, EN16931                      | 19% and 7% lines on one document                                                         |
-| `row-11-corrected-invoice-384`                   | 11              | — (no runnable fixture)              | —                                | Document type 384 cannot be expressed (see [Open](#open))                                |
-| `row-12-eu-b2b-service` (+ credit note)          | 12              | error, `TaxRuleError`                | ok, EN16931                      | DE → FR B2B service without a declared override: refused                                 |
-| `row-12-eu-b2b-service-override`                 | 12              | ok, AE                               | ok, EN16931                      | Same service with `regime_override: { kind: "reverse-charge-cross-border" }`             |
-| `row-13-non-eu-b2b-service` (+ credit note)      | 13              | error, `TaxRuleError`                | error, `UnsupportedCountryError` | DE → US B2B service: category contested, and the buyer country is not supported          |
-| `reject-seller-not-de`                           | — (scope guard) | error, `TaxRuleError`                | ok, EN16931                      | A French seller: only German sellers are covered                                         |
-| `mixed-basket-domestic`                          | — (policy cell) | ok, S                                | ok, EN16931                      | Goods line + service line, DE → DE: a domestic mixed basket is still one category        |
-| `mixed-basket-cross-border`                      | — (policy cell) | error, `MixedSupplyCrossBorderError` | ok, EN16931                      | Goods line + service line, DE → FR: no single category for the document                  |
+| Cell                                             | Row             | Build axis                           | Profile axis                     | What it shows                                                                              |
+| ------------------------------------------------ | --------------- | ------------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------ |
+| `row-01-domestic-standard` (+ credit note)       | 1 (twin: 10)    | ok, S                                | ok, EN16931                      | Domestic B2B sale at 19%                                                                   |
+| `row-01-domestic-untaxed-line`                   | 1               | error, `TaxRuleError`                | ok, EN16931                      | Medusa charged 0% on a domestic line: refused, not invoiced at 7% or 19%                   |
+| `row-02-domestic-reduced` (+ credit note)        | 2 (twin: 10)    | ok, S                                | ok, EN16931                      | Domestic B2B sale of a book at 7%                                                          |
+| `row-03-intra-eu-goods` (+ credit note)          | 3               | ok, K                                | ok, EN16931                      | DE → FR goods with a positive VIES check; delivery (BG-13) mapped from the order address   |
+| `row-03-intra-eu-goods-no-vat-id-evidence`       | 3               | error, `TaxRuleError`                | ok, EN16931                      | Same order without VIES evidence: K is refused on an unverified VAT-ID                     |
+| `row-04-export-goods` (+ credit note)            | 4               | ok, G                                | ok, EN16931                      | DE → CH goods export                                                                       |
+| `row-05-reverse-charge` (+ credit note)          | 5               | ok, AE                               | ok, EN16931                      | Domestic §13b UStG service, `regime_override: { kind: "reverse-charge" }`                  |
+| `row-06-exempt` (+ credit note)                  | 6               | ok, E                                | ok, EN16931                      | §4 UStG exempt service, `regime_override: { kind: "exempt", reasonText }`                  |
+| `row-07-oss-b2c` (+ credit note)                 | 7               | ok, S                                | ok, EN16931                      | DE → NL B2C distance sale, `ossRegistered: true` and `oss_rate_override: "21"`             |
+| `row-07-oss-b2c-no-rate-override`                | 7               | error, `TaxRuleError`                | ok, EN16931                      | OSS-registered, but no declared destination-country rate: refused                          |
+| `row-07-oss-b2c-reduced-line`                    | 7               | error, `TaxRuleError`                | ok, EN16931                      | A second line Medusa taxed at the reduced Dutch 9%: refused, not invoiced at 21%           |
+| `row-07-oss-b2c-service`                         | 7               | error, `TaxRuleError`                | ok, EN16931                      | An OSS sale of a service: refused, the place of supply cannot be read from the order       |
+| `row-08-zero-rated-photovoltaic` (+ credit note) | 8               | ok, Z                                | ok, EN16931                      | §12 Abs. 3 UStG, `regime_override: { kind: "zero-rated" }`                                 |
+| `row-09-mixed-rates` (+ credit note)             | 9 (twin: 10)    | ok, S                                | ok, EN16931                      | 19% and 7% lines on one document                                                           |
+| `row-11-corrected-invoice-384`                   | 11              | — (no runnable fixture)              | —                                | Document type 384 cannot be expressed (see [Open](#open))                                  |
+| `row-12-eu-b2b-service` (+ credit note)          | 12              | error, `TaxRuleError`                | ok, EN16931                      | DE → FR B2B service without a declared override: refused                                   |
+| `row-12-eu-b2b-service-override`                 | 12              | ok, AE                               | ok, EN16931                      | Same service with `regime_override: { kind: "reverse-charge-cross-border" }`               |
+| `row-13-non-eu-b2b-service` (+ credit note)      | 13              | error, `TaxRuleError`                | error, `UnsupportedCountryError` | DE → US B2B service: category contested, and the buyer country is not supported            |
+| `reject-seller-not-de`                           | — (scope guard) | error, `TaxRuleError`                | ok, EN16931                      | A French seller: only German sellers are covered                                           |
+| `mixed-basket-domestic`                          | — (policy cell) | ok, S                                | ok, EN16931                      | Goods line + service line, DE → DE: a domestic mixed basket is still one category          |
+| `mixed-basket-cross-border`                      | — (policy cell) | error, `MixedSupplyCrossBorderError` | ok, EN16931                      | Goods line + service line, DE → FR: no single category for the document                    |
+| `b2g-leitweg-id`                                 | — (policy cell) | ok, S                                | ok, XRECHNUNG                    | A declared Leitweg-ID (`customer.metadata.leitweg_id`) fills BT-10 and routes to XRechnung |
+| `b2g-order-reference-not-leitweg-id`             | — (policy cell) | ok, S                                | ok, EN16931                      | A buyer reference shaped like a Leitweg-ID (`2024-01`) stays an ordinary reference         |
 
-That is 29 directories: 28 runnable cells and one documentation-only entry. The 20 cells whose
+That is 34 directories: 33 runnable cells and one documentation-only entry. The 22 cells whose
 build axis is `ok` form the validated set for `pnpm conformance:tax-matrix`.
 
 Notes on individual cells:
@@ -151,7 +156,9 @@ Notes on individual cells:
 - **Row 7** — OSS needs two declared facts at two tiers: registration is a merchant setting
   (`EinvoiceModuleOptions.ossRegistered`, passed as `MapOrderOptions.ossRegistered`), and the
   destination-country rate is a per-order fact (`order.metadata.oss_rate_override`). This package
-  keeps no table of EU VAT rates, so without a declared rate it refuses.
+  keeps no table of EU VAT rates, so without a declared rate it refuses. The declared rate is the one
+  rate of the whole order: a line Medusa charged at another rate is refused, and so is an OSS sale of
+  services.
 - **Row 8** — the one cell that can catch an exemption reason added where it must not be: `BR-Z-10`
   forbids BT-120/BT-121 on a zero-rated line, the opposite of E, AE, G and K.
 - **Row 10** — `BR-55` does not force a credit note to reference the invoice it corrects.
@@ -165,19 +172,25 @@ Notes on individual cells:
 - **`mixed-basket-domestic`** — the mixed-supply guard applies only to cross-border orders. This cell
   derives `supplyType: "mixed"` and still resolves S, proving that guard does not reach into
   domestic orders.
+- **`b2g-leitweg-id` / `b2g-order-reference-not-leitweg-id`** — a Leitweg-ID is a declared fact, never
+  read out of BT-10: an ordinary reference such as `2024-01` has the same shape. The pair shows the
+  declared one reaching XRechnung and the look-alike staying an ordinary B2B reference.
 - **`reject-seller-not-de`** — the buyer is German on purpose, so the profile axis stays green and the
   cell isolates the seller-side guard.
 
 ## Refusals by design
 
-Eight runnable cells expect a build-axis refusal. None of them is a defect; each is the behaviour
+Eleven runnable cells expect a build-axis refusal. None of them is a defect; each is the behaviour
 `docs/tax-semantics.md` prescribes when the facts needed to pick a category are missing or the
 answer is not settled:
 
 | Cell                                        | Error                         | Why it refuses                                                                                       |
 | ------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `row-03-intra-eu-goods-no-vat-id-evidence`  | `TaxRuleError`                | K needs a positive VIES check or an explicit `intra-eu-confirmed` override                           |
+| `row-01-domestic-untaxed-line`              | `TaxRuleError`                | A domestic line is invoiced at the rate it was charged, and 0% is not a German rate for it           |
 | `row-07-oss-b2c-no-rate-override`           | `TaxRuleError`                | OSS needs the destination country's rate declared                                                    |
+| `row-07-oss-b2c-reduced-line`               | `TaxRuleError`                | A reduced destination rate cannot be declared; only the one declared rate can be invoiced            |
+| `row-07-oss-b2c-service`                    | `TaxRuleError`                | A service moves to the consumer's country only under §3a Abs. 5 UStG, which the order does not show  |
 | `row-12-eu-b2b-service` (+ credit note)     | `TaxRuleError`                | Category AE, but no official artifact example confirms a validator accepts it; needs a declared fact |
 | `row-13-non-eu-b2b-service` (+ credit note) | `TaxRuleError`                | Category contested between AE, O and G; no override exists                                           |
 | `mixed-basket-cross-border`                 | `MixedSupplyCrossBorderError` | Goods and services cross-border need two categories; one document carries one                        |

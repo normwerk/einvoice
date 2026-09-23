@@ -16,41 +16,47 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/fixtures.test.ts` — every fixture in `fixtures/` validates against that same generated
   schema — the model-level counterpart to the conformance suite's real KoSIT run below.
 
-### `einvoice-commerce` (119 tests)
+### `einvoice-commerce` (125 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
   decided by where the goods go (row 4), domestic and cross-border reverse charge (rows 5 and 12, the latter
   needing BT-48), shipping/discount rates following the lines' rate, line-level discounts (BG-27), credit
-  notes (row 10), Leitweg-ID validation, input validation, BT-158/BT-159 customs fields, the parties'
-  address lines (a seller without a street refused, a buyer without one warned about above EUR 250), prices
+  notes (row 10), a declared Leitweg-ID validated and an ordinary buyer reference never read as one, input validation, BT-158/BT-159 customs fields, the parties'
+  address lines (a seller without a street refused, a buyer without one warned about above EUR 250), both
+  parties' electronic address (refused without one: KoSIT rejects it), prices
   including VAT (each rate group's VAT taken out of its gross total, so the invoice totals the gross amounts;
   both a net and a VAT-inclusive amount, or neither, refused), and defensive behavior against a malformed
   non-TypeScript caller (ADR-003).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
-  VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany).
+  VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany, OSS for services,
+  at a rate of zero or with a reduced line) and `resolveLineRate` never invoicing a line at a rate other
+  than the one it was charged at.
 - `src/decimal.test.ts` — exact decimal arithmetic and BR-CO-\* rounding (ties towards +Infinity, ADR-004),
   and the arithmetic for prices including VAT: the VAT contained in a gross amount, a group's net spread
-  over its parts to the cent (largest remainder), and a net unit price from a line amount.
+  over its parts to the cent (largest remainder), a net unit price from a line amount, and comparing rates
+  of any scale.
 - `src/leitweg-id.test.ts` — `validateLeitwegId` against the real KoSIT Leitweg-ID Format-Spezifikation
-  v2.0.2, plus `looksLikeLeitwegId`.
+  v2.0.2.
 - `src/numbering.test.ts` — `SequentialNumberer`, and `InMemoryNumberingStore`'s own concurrency behavior
   (no duplicate or skipped numbers under concurrent calls within one process).
 - `src/profile.test.ts` — `selectProfile`: the ZUGFeRD/Factur-X profile by recipient geography,
-  including the refusal of clearance-model countries (IT, PL).
+  including the refusal of clearance-model countries (IT, PL), and XRechnung only for a declared Leitweg-ID.
 - `src/validate.test.ts` — `validateCommerceInvoiceInput` against the generated `CommerceInvoiceInput` JSON
   Schema.
 - `src/vat-id-verifier.test.ts` — `StaticVatIdVerifier` (the three real VIES outcomes: valid, invalid,
   service unavailable) and `MapVatIdVerifier`.
 
-### `einvoice-cii` (19 tests)
+### `einvoice-cii` (21 tests)
 
 - `src/index.test.ts` — `serializeCii`: the serialization plan (`src/generated/plan.ts`, written by hand in
   generated style — there is no generator for it yet) producing the expected CII elements for the
   repository's fixtures, deterministically, and never an empty optional container (no empty
   `URIUniversalCommunication`, BR-62/63; no empty deliver-to address, BR-57), with each address's lines
-  between post code and city. The tests call the
+  between post code and city; and refusing, instead of silently dropping or emitting unparseable XML, a model
+  field the plan has no place for (`UnmappedInvoiceFieldsError`) and a C0 control character
+  (`UnrepresentableCharacterError`). The tests call the
   `en16931-cii` profile only; `serializeCii` does not yet vary its output by profile.
 
 ### `einvoice-pdfa` (17 tests)
@@ -63,16 +69,17 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (161 tests)
+### `einvoice-medusa` (172 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
   [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) (buyer name/address fallback chains —
   a guest buyer named from the billing address, not the email —
-  tax-inclusive prices, discounts and shipping passed on VAT-inclusive, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
+  tax-inclusive prices, discounts and shipping passed on VAT-inclusive, the rate Medusa charged passed on
+  as it is, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
   methods as one document-level charge and promotions as line allowances), `describeOrderTotalMismatch`
   (invoice total vs `order.total`) and `issueDateInSellerTimeZone` (the invoice date in Berlin, not UTC).
-- `src/tax-matrix/tax-matrix.test.ts` (57 tests) — the tax-scenario fixture matrix: every
+- `src/tax-matrix/tax-matrix.test.ts` (67 tests) — the tax-scenario fixture matrix: every
   `packages/einvoice-medusa/fixtures/tax-matrix/*` cell driven through the real, unmocked
   `mapOrderToCommerceInvoiceInput` → `buildInvoice`/`selectProfile` (two independent axes, not the
   subscribers' own early-exit chaining — see `src/tax-matrix/types.ts`'s doc comment for why), asserted
@@ -115,7 +122,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 
 ## Tooling tests (`node:test`, not part of any package)
 
-Run together: `node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/license-scan/*.test.mjs`
+Run together: `node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/conformance/roundtrip-mustang/*.test.mjs tools/license-scan/*.test.mjs`
 (exactly the line `.github/workflows/ci.yml` runs).
 
 - `tools/codegen/model/extract-codelists.test.mjs`, `extract-term-names.test.mjs` — the EN 16931 artifact
@@ -124,6 +131,9 @@ Run together: `node --test tools/codegen/model/*.test.mjs tools/conformance/orac
   oracle's own XML canonicalization and `Invoice` → `@e-invoice-eu/core` input mapping.
 - `tools/conformance/oracle-stackforge-facturx/map-to-facturx-input.test.mjs` — the second L4 oracle's own
   mapping.
+- `tools/conformance/roundtrip-mustang/compare-ubl.test.mjs` — L5's comparison of what Mustang read out of
+  our XML with the model: normalised amounts and decoded text match, a different total or a missing line
+  does not.
 - `tools/license-scan/license-policy.test.mjs` — the license allow-list logic itself: SPDX
   expression normalization (plain string, `(X AND Y)`, `(X OR Y)`, the legacy `licenses` array form), and
   that the runtime/dev allow-lists actually reject a real copyleft license and accept the two dev-only
@@ -135,15 +145,15 @@ Covered in more depth in [`docs/README.md`](README.md#conformance-validators); l
 completeness since it's as much a "test suite" as the vitest ones above, just one that needs
 `docker compose -f docker/compose.conformance.yml build` first.
 
-| Level | What                                                                                                                                        | Command                           | Fixtures                                                                                           |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| L1+L2 | Real KoSIT Validator (XSD + Schematron, incl. `BR-DE-*`)                                                                                    | `pnpm conformance:fixtures`       | 14/14, `fixtures/`                                                                                 |
-| L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)                                         | `pnpm conformance:commerce`       | 6/6, `packages/einvoice-commerce/fixtures/`                                                        |
-| L1+L2 | Same, starting from a synthetic Medusa order through the real adapter; 3× per run for determinism                                           | `pnpm conformance:tax-matrix`     | 20/20 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
-| L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance), both ZUGFeRD profiles                                         | `pnpm conformance:pdfa`           | 28/28 (14 fixtures × `XRECHNUNG`, `EN16931`)                                                       |
-| L4    | Differential oracle vs. `@e-invoice-eu/core`                                                                                                | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |
-| L4    | Differential oracle vs. `@stackforge-eu/factur-x`                                                                                           | `pnpm conformance:oracle-facturx` | 14 (13 classified, 1 unmappable, 0 unreviewed)                                                     |
-| L5    | Real Mustang `validate` of each fixture's CII XML (a second, independent validator); totals are printed, not yet compared back to the model | `pnpm conformance:roundtrip`      | 14/14                                                                                              |
+| Level | What                                                                                                                                                                                                                                                                                       | Command                           | Fixtures                                                                                           |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| L1+L2 | Real KoSIT Validator (XSD + Schematron, incl. `BR-DE-*`)                                                                                                                                                                                                                                   | `pnpm conformance:fixtures`       | 14/14, `fixtures/`                                                                                 |
+| L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)                                                                                                                                                                                        | `pnpm conformance:commerce`       | 6/6, `packages/einvoice-commerce/fixtures/`                                                        |
+| L1+L2 | Same, starting from a synthetic Medusa order through the real adapter; 3× per run for determinism                                                                                                                                                                                          | `pnpm conformance:tax-matrix`     | 22/22 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
+| L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance), both ZUGFeRD profiles                                                                                                                                                                                        | `pnpm conformance:pdfa`           | 28/28 (14 fixtures × `XRECHNUNG`, `EN16931`)                                                       |
+| L4    | Differential oracle vs. `@e-invoice-eu/core`                                                                                                                                                                                                                                               | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |
+| L4    | Differential oracle vs. `@stackforge-eu/factur-x`                                                                                                                                                                                                                                          | `pnpm conformance:oracle-facturx` | 14 (13 classified, 1 unmappable, 0 unreviewed)                                                     |
+| L5    | Mustang (a second, independent implementation) validates each fixture's CII XML with its arithmetic check, then parses it into its own model and writes it out as UBL; the totals, VAT breakdown and each line's quantity and net amount in that UBL are compared with the fixture's model | `pnpm conformance:roundtrip`      | 14/14                                                                                              |
 
 `AGENTS.md` §8 governs what each level actually proves and what it's forbidden to claim — none of the above
 is ever asserted from memory of a previous run; every task that touches serialization re-runs the relevant
@@ -156,11 +166,14 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 13 files / 20 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 14 files / 22 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
-(private guest buyer), S10 (prices including VAT, with and without a promotion), idempotency (event redelivery), Store API ownership, incomplete-config boot refusal,
+(private guest buyer), S10 (prices including VAT, with and without a promotion), S11 (public-sector buyer:
+the declared Leitweg-ID in BT-10 and the XRechnung profile), idempotency (an event delivered to the
+subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option, a seller
+outside Germany),
 and tarball contents across all six published packages. Every invoice scenario also checks that the
 invoice totals what Medusa charged (`order.total`) — the stand's German tax region charges 19%.
 

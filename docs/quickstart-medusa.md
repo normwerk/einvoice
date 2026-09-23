@@ -8,6 +8,8 @@ work.
 ## Prerequisites
 
 - Node `^20.19.0` or `>=22.12.0` (`einvoice-medusa`'s own `engines` field).
+- Medusa 2.19 or a later 2.x release. The plugin is tested against Medusa 2.19.0 (its own development
+  version) and 2.21.0 (the [end-to-end stand](e2e.md)); its peer dependencies ask for `^2.19.0`.
 - A Medusa v2 project with a real Postgres database. If you don't have one yet:
   ```bash
   npx create-medusa-app@latest my-store --db-url "postgres://user:pass@localhost:5432/my_store_db"
@@ -69,7 +71,8 @@ export default defineConfig({
 TypeScript types alone — they aren't. §14 Abs. 4 Satz 1 Nr. 1 UStG requires the seller's full address on
 every invoice, street included (`addressLine2` is optional). Every document this plugin builds targets the
 full XRechnung 3.0 CIUS regardless of who the buyer is, and that CIUS makes seller contact (BR-DE-2) and
-payment instructions (BR-DE-1) mandatory. Leave any of them out and the plugin refuses to start at all
+payment instructions (BR-DE-1) mandatory. `seller.countryCode` has to be `"DE"`: the VAT rules the plugin
+applies are German law. Leave any of them out, or give another seller country, and the plugin refuses to start at all
 (`InvalidEinvoiceModuleOptionsError`, thrown from the module's own constructor) — a loud failure at boot,
 not a document that silently fails validation later.
 
@@ -130,9 +133,12 @@ package (some genuine bugs in their `1.0.6` release, worked around or documented
 Neither has a first-class Medusa field — set them on the order's customer, under `metadata`:
 
 - `customer.metadata.vat_id` — the buyer's VAT-ID (BT-48).
-- `customer.metadata.buyer_reference` — a real Leitweg-ID for a B2G buyer (BT-10). Setting this also makes
-  the plugin choose the XRechnung profile automatically for that order (a Leitweg-ID buyer always gets
-  XRECHNUNG, regardless of `defaultProfile`).
+- `customer.metadata.leitweg_id` — the Leitweg-ID of a German public-sector buyer (B2G). It goes into the
+  buyer reference (BT-10) after its check digits are verified, and makes the plugin choose the XRechnung
+  profile for that customer's orders, regardless of `defaultProfile`. An invalid Leitweg-ID is refused.
+- `customer.metadata.buyer_reference` — the buyer's own reference for their invoices (BT-10), free text.
+  Without either, BT-10 carries the order number. A value that merely looks like a Leitweg-ID here is never
+  treated as one.
 
 ## EU business buyers: VAT-ID verification
 
@@ -160,6 +166,8 @@ set `order.metadata.regime_override` to `{ "kind": "intra-eu-confirmed", "eviden
 field declares the other regimes the plugin never infers on its own (reverse charge, exempt, zero-rated —
 see [`docs/tax-semantics.md`](tax-semantics.md)). For OSS distance sales, set the plugin option
 `ossRegistered: true` and, per order, `order.metadata.oss_rate_override` to the destination country's rate.
+OSS covers goods only, at that one rate: an OSS order for a service, or with a line Medusa taxed at a
+reduced destination rate, is refused.
 
 ## Shipping, promotions, and what Medusa charged
 
@@ -168,6 +176,11 @@ discount on that item's line — both as Medusa computed them. The plugin also c
 what Medusa charged (`order.total`) and logs a warning when they differ by more than rounding. The usual
 cause is Medusa's tax settings: if your tax regions charge no VAT, or charge VAT on an order the invoice
 treats as tax-free (an intra-EU supply, an export), the invoice is correct and the payment is not.
+
+On a domestic order, each line is invoiced at the rate Medusa charged on it, which has to be 19% or 7%. A
+line Medusa charged at any other rate — 0% included, which is what a tax region without a default rate
+charges — is refused with an error naming the line, instead of being invoiced at a rate the buyer did not
+pay. Set up the German tax region with its rates before the first order.
 
 Tax-inclusive prices (Medusa's price preferences with "Tax inclusive" on) are invoiced as the gross
 amounts Medusa charged: the VAT of each rate is taken out of that rate's gross total, and the net amounts on

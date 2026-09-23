@@ -36,7 +36,7 @@ export interface CommerceInvoiceInput {
     readonly iban?: string;
   };
   readonly references?: {
-    readonly buyerReference?: string; // BT-10 / Leitweg-ID
+    readonly buyerReference?: string; // BT-10 (a Leitweg-ID has its own field since 2026-09-23, see below)
     readonly orderReference?: string; // BT-13
     readonly contractReference?: string; // BT-12
   };
@@ -153,6 +153,24 @@ New fixture `packages/einvoice-commerce/fixtures/commerce-customs-hs-origin` (on
 `hsCode`/`originCountry`, one without) passes real KoSIT L1+L2 — the acceptance item as worded, verified for
 real, not asserted from the plan node alone: the generated XML was inspected directly and shows
 `DesignatedProductClassification`/`OriginTradeCountry` present only on the line that set them.
+
+## Addendum (2026-09-23, declared rate and Leitweg-ID)
+
+Two more fields, both declared facts in the sense row 3's VIES evidence already is — the engine takes them,
+it never derives them:
+
+- `CommerceLine.chargedVatRate` — the rate the shop charged on the line. The Medusa adapter used to turn its
+  tax line's rate into `taxRateKind` by picking the nearer of Germany's 19% and 7%, which is tax logic in an
+  adapter and turned a line charged at 0% into a 7% line. The adapter now passes the rate on;
+  `resolveLineRate` refuses a line it cannot invoice at the rate it was charged at.
+- `references.leitwegId` — the Leitweg-ID of a public-sector buyer. The original shape carried it in
+  `buyerReference` ("BT-10 / Leitweg-ID"), and `buildInvoice` and `selectProfile` recognised it by its
+  shape. Ordinary references share that shape ("2024-01", a purchase order number "4500123456-10"): they
+  were refused for failing the check digits, or routed to XRechnung. `buyerReference` is now always free
+  text; `leitwegId` is validated and written to BT-10 in its place.
+
+Both are optional additions, so `schemaVersion` stays 1; before the first release no caller relies on the
+old reading of `buyerReference`.
 
 ## Alternatives considered
 

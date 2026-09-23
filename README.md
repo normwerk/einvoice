@@ -41,7 +41,7 @@ advisor before relying on them; you remain responsible for your invoices. Provid
 licence.
 
 A merchant whose seller country is not supported gets a clear refusal instead of an invoice built on
-another country's rules. Want a country moved up? Open an issue — that is exactly the
+another country's rules: the Medusa plugin refuses to start with a seller outside Germany. Want a country moved up? Open an issue — that is exactly the
 signal that decides what comes next.
 
 ## Packages
