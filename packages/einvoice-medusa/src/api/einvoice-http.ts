@@ -14,6 +14,12 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import { fetchFileBytes } from "../storage.js";
+import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
+import {
+  describeChargedReconciliation,
+  type InvoiceBlock,
+  type InvoiceNotice,
+} from "../mapping/charged-reconciliation.js";
 
 export interface EinvoiceDocumentSummary {
   readonly id: string;
@@ -45,6 +51,96 @@ export async function listEinvoiceDocumentSummaries(
     xmlUrl: `${basePath}/einvoice/${document.id}/xml`,
     pdfUrl: document.pdf_file_id === null ? null : `${basePath}/einvoice/${document.id}/pdf`,
   }));
+}
+
+/** P-63: a notice or a refusal as the admin widget shows it — the code, the explanation, the amounts. */
+export interface EinvoiceStatusSummary {
+  readonly code: string;
+  readonly message: string;
+  readonly details: Record<string, unknown>;
+}
+
+export interface AdminEinvoiceDocumentSummary extends EinvoiceDocumentSummary {
+  /** Issued although it states less VAT than Medusa charged — `null` otherwise. Admin only: it tells the
+   * merchant what to refund, which is not the buyer's view of their invoice. */
+  readonly notice: EinvoiceStatusSummary | null;
+}
+
+export interface AdminEinvoiceRefusalSummary extends EinvoiceStatusSummary {
+  readonly id: string;
+  readonly type: "invoice" | "credit_note";
+  /** The fulfillment (invoice) the document was for. */
+  readonly idempotencyKey: string;
+  readonly updatedAt: string;
+  readonly retryUrl: string;
+}
+
+const REFUSAL_CODES_WITH_AMOUNTS = new Set([
+  "INVOICE_VAT_ABOVE_CHARGED",
+  "INVOICE_TOTAL_MISMATCH",
+  "CHARGED_TOTALS_MISSING",
+]);
+
+function describeRefusal(refusal: EinvoiceRefusalRecord): string {
+  return REFUSAL_CODES_WITH_AMOUNTS.has(refusal.code)
+    ? describeChargedReconciliation({
+        ...refusal.details,
+        code: refusal.code,
+      } as unknown as InvoiceBlock)
+    : `Not issued [${refusal.code}].`;
+}
+
+/**
+ * P-63: the admin view of an order's e-invoices — the documents with their notices, and the documents the
+ * plugin did not issue, each with the route that retries it.
+ */
+export async function listAdminEinvoiceStatus(
+  req: MedusaRequest,
+  orderId: string,
+): Promise<{
+  readonly documents: readonly AdminEinvoiceDocumentSummary[];
+  readonly refusals: readonly AdminEinvoiceRefusalSummary[];
+}> {
+  const einvoiceService = req.scope.resolve<EinvoiceModuleService>(EINVOICE_MODULE);
+  const basePath = `/admin/orders/${orderId}`;
+  const documents = await einvoiceService.listEinvoiceDocuments(
+    { order_id: orderId },
+    { order: { created_at: "DESC" } },
+  );
+  const refusals = (await einvoiceService.listEinvoiceRefusals(
+    { order_id: orderId },
+    { order: { created_at: "DESC" } },
+  )) as unknown as EinvoiceRefusalRecord[];
+  return {
+    documents: documents.map((document) => {
+      const notice = document.notice as unknown as InvoiceNotice | null;
+      return {
+        id: document.id,
+        type: document.type,
+        documentNumber: document.document_number,
+        xmlUrl: `${basePath}/einvoice/${document.id}/xml`,
+        pdfUrl: document.pdf_file_id === null ? null : `${basePath}/einvoice/${document.id}/pdf`,
+        notice:
+          notice === null || notice === undefined
+            ? null
+            : {
+                code: notice.code,
+                message: describeChargedReconciliation(notice),
+                details: { ...notice },
+              },
+      };
+    }),
+    refusals: refusals.map((refusal) => ({
+      id: refusal.id,
+      type: refusal.type,
+      idempotencyKey: refusal.idempotency_key,
+      code: refusal.code,
+      message: describeRefusal(refusal),
+      details: refusal.details,
+      updatedAt: new Date(refusal.updated_at).toISOString(),
+      retryUrl: `${basePath}/einvoice/refusals/${refusal.id}/retry`,
+    })),
+  };
 }
 
 /**

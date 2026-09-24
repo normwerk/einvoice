@@ -23,6 +23,11 @@
  * a pure-XML document — every document in standalone mode with no `basePdf` hook (plan-v0.1 §4.6:
  * "Standalone: только XML"), or Webbers mode before their own PDF was available.
  *
+ * P-63: `notice` — set when the invoice was issued although it states less VAT than Medusa charged
+ * (`InvoiceNotice`, `mapping/charged-reconciliation.ts`): the codes and amounts the admin widget shows, and
+ * the overpayment a refund returns before it credits anything (`credit-note-on-payment-refunded.ts`).
+ * `null` for every other document.
+ *
  * No migration path preserves the old `xml`/`pdf` columns' existing content — the same "pre-release, no
  * real deployment history to preserve" reasoning T-072 already used for its own migration replacement
  * (`docs/domain-glossary.md`), not a new precedent.
@@ -38,6 +43,7 @@ const EinvoiceDocument = model
     document_number: model.text(),
     xml_file_id: model.text(),
     pdf_file_id: model.text().nullable(),
+    notice: model.json().nullable(),
   })
   .indexes([{ on: ["type", "idempotency_key"], unique: true }]);
 

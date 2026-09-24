@@ -10,11 +10,15 @@
  * `credentials: "include"` carries the exact same admin session cookie their client wraps, confirmed
  * working end to end against a real running dashboard (this task's own e2e proof), not assumed from
  * Webbers' precedent alone.
+ *
+ * P-63: a document issued with a notice shows it under its row (the buyer overpaid, or Medusa counts VAT
+ * differently), and a document the plugin did not issue shows why, with a "Retry" button
+ * (`POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`) for after the order was corrected.
  */
 import { defineWidgetConfig } from "@medusajs/admin-sdk";
-import { Container, Heading, IconButton, Text } from "@medusajs/ui";
+import { Badge, Button, Container, Heading, IconButton, Text } from "@medusajs/ui";
 import { ArrowDownTray } from "@medusajs/icons";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { DetailWidgetProps, HttpTypes } from "@medusajs/framework/types";
 
 interface EinvoiceDocumentSummary {
@@ -23,12 +27,26 @@ interface EinvoiceDocumentSummary {
   readonly documentNumber: string;
   readonly xmlUrl: string;
   readonly pdfUrl: string | null;
+  readonly notice: { readonly code: string; readonly message: string } | null;
+}
+
+interface EinvoiceRefusalSummary {
+  readonly id: string;
+  readonly type: "invoice" | "credit_note";
+  readonly code: string;
+  readonly message: string;
+  readonly retryUrl: string;
+}
+
+interface EinvoiceStatus {
+  readonly documents: readonly EinvoiceDocumentSummary[];
+  readonly refusals: readonly EinvoiceRefusalSummary[];
 }
 
 type LoadState =
   | { readonly status: "loading" }
   | { readonly status: "error" }
-  | { readonly status: "ready"; readonly documents: readonly EinvoiceDocumentSummary[] };
+  | ({ readonly status: "ready" } & EinvoiceStatus);
 
 function documentLabel(document: EinvoiceDocumentSummary): string {
   return `${document.type === "invoice" ? "Invoice" : "Credit note"} ${document.documentNumber}`;
@@ -36,6 +54,9 @@ function documentLabel(document: EinvoiceDocumentSummary): string {
 
 const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminOrder>) => {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [reload, setReload] = useState(0);
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,13 +66,11 @@ const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminO
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
-        return response.json() as Promise<{
-          readonly documents: readonly EinvoiceDocumentSummary[];
-        }>;
+        return response.json() as Promise<EinvoiceStatus>;
       })
       .then((body) => {
         if (!cancelled) {
-          setState({ status: "ready", documents: body.documents });
+          setState({ status: "ready", documents: body.documents, refusals: body.refusals ?? [] });
         }
       })
       .catch(() => {
@@ -62,7 +81,24 @@ const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminO
     return () => {
       cancelled = true;
     };
-  }, [order.id]);
+  }, [order.id, reload]);
+
+  const retry = useCallback(async (refusal: EinvoiceRefusalSummary) => {
+    setRetrying(refusal.id);
+    setRetryError(null);
+    try {
+      const response = await fetch(refusal.retryUrl, { method: "POST", credentials: "include" });
+      const body = (await response.json()) as { readonly message?: string };
+      if (!response.ok) {
+        setRetryError(body.message ?? `HTTP ${response.status}`);
+      }
+    } catch {
+      setRetryError("Retry failed");
+    } finally {
+      setRetrying(null);
+      setReload((value) => value + 1);
+    }
+  }, []);
 
   return (
     <Container className="divide-y p-0">
@@ -80,38 +116,83 @@ const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminO
             Failed to load e-invoices
           </Text>
         )}
-        {state.status === "ready" && state.documents.length === 0 && (
-          <Text size="small" className="text-ui-fg-muted">
-            No e-invoices yet
-          </Text>
+        {state.status === "ready" && state.refusals.length > 0 && (
+          <div className="mb-3 flex flex-col gap-3">
+            {state.refusals.map((refusal) => (
+              <div key={refusal.id} className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Badge size="2xsmall" color="red">
+                    {refusal.type === "invoice" ? "Invoice not issued" : "Credit note not issued"}
+                  </Badge>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    isLoading={retrying === refusal.id}
+                    onClick={() => void retry(refusal)}
+                  >
+                    Retry
+                  </Button>
+                </div>
+                <Text size="small" className="text-ui-fg-subtle">
+                  {refusal.message} [{refusal.code}]
+                </Text>
+              </div>
+            ))}
+            {retryError !== null && (
+              <Text size="small" className="text-ui-fg-error">
+                {retryError}
+              </Text>
+            )}
+          </div>
         )}
+        {state.status === "ready" &&
+          state.documents.length === 0 &&
+          state.refusals.length === 0 && (
+            <Text size="small" className="text-ui-fg-muted">
+              No e-invoices yet
+            </Text>
+          )}
         {state.status === "ready" && state.documents.length > 0 && (
           <div className="flex flex-col gap-3">
             {state.documents.map((document) => (
-              <div key={document.id} className="flex items-center justify-between">
-                <Text size="small">{documentLabel(document)}</Text>
-                <div className="flex items-center gap-1">
-                  <a href={document.xmlUrl} target="_blank" rel="noopener noreferrer">
-                    <IconButton
-                      size="small"
-                      variant="transparent"
-                      aria-label={`Download XML for ${documentLabel(document)}`}
-                    >
-                      <ArrowDownTray />
-                    </IconButton>
-                  </a>
-                  {document.pdfUrl !== null && (
-                    <a href={document.pdfUrl} target="_blank" rel="noopener noreferrer">
+              <div key={document.id} className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Text size="small">{documentLabel(document)}</Text>
+                  <div className="flex items-center gap-1">
+                    <a href={document.xmlUrl} target="_blank" rel="noopener noreferrer">
                       <IconButton
                         size="small"
                         variant="transparent"
-                        aria-label={`Download PDF for ${documentLabel(document)}`}
+                        aria-label={`Download XML for ${documentLabel(document)}`}
                       >
                         <ArrowDownTray />
                       </IconButton>
                     </a>
-                  )}
+                    {document.pdfUrl !== null && (
+                      <a href={document.pdfUrl} target="_blank" rel="noopener noreferrer">
+                        <IconButton
+                          size="small"
+                          variant="transparent"
+                          aria-label={`Download PDF for ${documentLabel(document)}`}
+                        >
+                          <ArrowDownTray />
+                        </IconButton>
+                      </a>
+                    )}
+                  </div>
                 </div>
+                {document.notice !== null && (
+                  <div className="flex flex-col gap-1">
+                    <Badge size="2xsmall" color="orange" className="self-start">
+                      {document.notice.code === "VAT_OVERCHARGED"
+                        ? "Refund due"
+                        : "VAT differs from Medusa"}
+                    </Badge>
+                    <Text size="small" className="text-ui-fg-subtle">
+                      {document.notice.message} [{document.notice.code}]
+                    </Text>
+                  </div>
+                )}
               </div>
             ))}
           </div>

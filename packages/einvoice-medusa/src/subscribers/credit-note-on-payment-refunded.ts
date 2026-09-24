@@ -55,7 +55,7 @@
  * same cleanup-on-lost-race behavior.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
-import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
+import type { MedusaContainer, SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import {
@@ -63,7 +63,7 @@ import {
   toAmount,
   type MedusaOrderForInvoice,
 } from "../mapping/order-to-commerce-invoice-input.js";
-import { decideCreditScope } from "../mapping/credit-note.js";
+import { creditableRefund, decideCreditScope } from "../mapping/credit-note.js";
 import {
   creditTolerance,
   issueCreditNote,
@@ -74,6 +74,52 @@ export { extractIssueDateFromCii } from "../mapping/credit-note.js";
 
 interface PaymentRefundedEventData {
   readonly id: string;
+}
+
+interface OrderRefund {
+  readonly id: string;
+  readonly amount?: number | string | null;
+  readonly created_at?: Date | string | null;
+}
+
+/**
+ * P-63: every refund on the order, across its payments, oldest first — what `creditableRefund` counts as
+ * already returned. Only read for an invoice with an overpayment notice.
+ */
+async function listOrderRefunds(
+  container: MedusaContainer,
+  orderId: string,
+): Promise<readonly OrderRefund[]> {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY);
+  const { data } = await query.graph({
+    entity: "order",
+    filters: { id: orderId },
+    fields: [
+      "id",
+      "payment_collections.payments.refunds.id",
+      "payment_collections.payments.refunds.amount",
+      "payment_collections.payments.refunds.created_at",
+    ],
+  });
+  const order = data[0] as
+    | {
+        readonly payment_collections?: readonly {
+          readonly payments?:
+            readonly { readonly refunds?: readonly OrderRefund[] | null }[] | null;
+        }[];
+      }
+    | undefined;
+  const refunds = (order?.payment_collections ?? []).flatMap((collection) =>
+    (collection.payments ?? []).flatMap((payment) => payment.refunds ?? []),
+  );
+  const time = (refund: OrderRefund): number => new Date(refund.created_at ?? 0).getTime();
+  return [...refunds].sort((a, b) => time(a) - time(b) || a.id.localeCompare(b.id));
+}
+
+function sumBefore(refunds: readonly OrderRefund[], refundId: string): string {
+  const index = refunds.findIndex((refund) => refund.id === refundId);
+  const before = index === -1 ? refunds : refunds.slice(0, index);
+  return toAmount(before.reduce((sum, refund) => sum + Number(refund.amount ?? 0), 0));
 }
 
 export class MissingOriginalInvoiceError extends Error {
@@ -159,8 +205,25 @@ export default async function creditNoteOnPaymentRefunded({
     if (basis === undefined) {
       throw new MissingOriginalInvoiceError(order.id);
     }
+    // P-63: after an invoice with an overpayment notice, a refund returns the overpayment first.
+    let requested = toAmount(refund.amount);
+    if (Number(basis.overpaid) > 0) {
+      requested = creditableRefund({
+        refund: requested,
+        refundedBefore: sumBefore(await listOrderRefunds(container, order.id), refund.id),
+        creditedTotals: basis.creditedTotals,
+        overpaid: basis.overpaid,
+      });
+      if (Number(requested) <= 0) {
+        logger.info(
+          `einvoice: order ${order.id}: refund ${refund.id} returns the buyer's overpayment noted on ` +
+            `invoice ${basis.invoice.document_number} — no credit note.`,
+        );
+        continue;
+      }
+    }
     const scope = decideCreditScope({
-      requested: toAmount(refund.amount),
+      requested,
       invoiceTotal: basis.invoiceTotal,
       creditedTotals: basis.creditedTotals,
       tolerance: creditTolerance(order),
@@ -181,6 +244,7 @@ export default async function creditNoteOnPaymentRefunded({
       idempotencyKey: refund.id,
       reason: "refund",
       webbersResourceId: refund.id,
+      embedWebbersPdf: requested === toAmount(refund.amount),
     });
   }
 }

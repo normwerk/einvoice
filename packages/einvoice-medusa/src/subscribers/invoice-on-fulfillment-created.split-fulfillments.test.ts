@@ -102,6 +102,9 @@ const ORDER = {
       detail: { quantity: 1 },
     },
   ],
+  // What Medusa charged — the invoice is checked against it before a number is taken (P-63).
+  total: 178.5,
+  tax_total: 28.5,
 };
 
 function makeEinvoiceService(): EinvoiceModuleService {
@@ -110,6 +113,7 @@ function makeEinvoiceService(): EinvoiceModuleService {
     options: { seller: SELLER, payment: PAYMENT },
     listEinvoiceDocuments: vi.fn(async () => []),
     recordDocumentIfAbsent: vi.fn(async () => ({ document: {}, created: true })),
+    clearRefusal: vi.fn(async () => undefined),
     allocateNextNumber: vi.fn(async () => {
       nextNumber += 1;
       return nextNumber;
@@ -122,6 +126,7 @@ function makeContainer(einvoiceService: EinvoiceModuleService): MedusaContainer 
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, einvoiceService],
     [ContainerRegistrationKeys.QUERY, { graph }],
+    [ContainerRegistrationKeys.LOGGER, { warn: vi.fn(), info: vi.fn() }],
   ]);
   return { resolve: (key: unknown) => registry.get(key) } as unknown as MedusaContainer;
 }

@@ -47,6 +47,13 @@ function outsidePeerRange(version: string): boolean {
   return !isSupportedMedusaVersion(version);
 }
 
+/** Releases npm cannot install strictly even without this plugin — Medusa's own packages declare peer
+ * ranges that conflict. A shop on one of them installs with `--legacy-peer-deps`, and so does the stand. */
+const MEDUSA_PEER_CONFLICTS: Readonly<Record<string, string>> = {
+  "2.14.2":
+    "@medusajs/icons@2.14.2 requires React 19, while Medusa's own dashboard 2.14.2 uses React 18",
+};
+
 /**
  * P-59 item 8: runs the stand against another Medusa release than the one `e2e/app` pins. Copies the app
  * to a temporary directory, sets every `@medusajs/*` package to `version` — dropping one that release does
@@ -111,13 +118,15 @@ export async function prepareMedusaVersion(version: string): Promise<void> {
 
   process.env["EINVOICE_E2E_APP_DIR"] = dir;
   process.env["EINVOICE_E2E_MEDUSA_DOCKERFILE"] = DOCKERFILE;
-  process.env["EINVOICE_E2E_NPM_INSTALL_FLAGS"] = outsidePeerRange(version)
-    ? "--legacy-peer-deps"
-    : "";
+  const peerConflict = MEDUSA_PEER_CONFLICTS[version];
+  process.env["EINVOICE_E2E_NPM_INSTALL_FLAGS"] =
+    outsidePeerRange(version) || peerConflict !== undefined ? "--legacy-peer-deps" : "";
   console.log(
     `[e2e] Medusa ${version}: app copied to ${dir}` +
       (outsidePeerRange(version)
         ? ", installed with --legacy-peer-deps (outside the plugin's supported releases: expect it to refuse to start)"
-        : ""),
+        : peerConflict !== undefined
+          ? `, installed with --legacy-peer-deps (${peerConflict})`
+          : ""),
   );
 }

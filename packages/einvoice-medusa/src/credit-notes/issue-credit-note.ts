@@ -45,6 +45,8 @@ export interface CreditBasis {
   readonly invoiceIssueDate: IsoDate;
   readonly invoiceTotal: Amount;
   readonly creditedTotals: readonly Amount[];
+  /** P-63: what the buyer overpaid by the invoice's notice (`VAT_OVERCHARGED`) — `"0.00"` without one. */
+  readonly overpaid: Amount;
 }
 
 /** Reads the order's invoice and credit notes back from the File Module. `undefined` when the order has
@@ -81,6 +83,7 @@ export async function loadCreditBasis(
     invoiceIssueDate: extractIssueDateFromCii(invoiceXml),
     invoiceTotal: extractGrandTotalFromCii(invoiceXml),
     creditedTotals,
+    overpaid: invoice.notice?.code === "VAT_OVERCHARGED" ? invoice.notice.refundDue : "0.00",
   };
 }
 
@@ -100,6 +103,9 @@ export interface IssueCreditNoteInput {
   readonly reason: "refund" | "cancellation";
   /** Webbers mode only: their credit invoice's `resource_id` (a refund id) whose number is reused. */
   readonly webbersResourceId?: string;
+  /** Webbers mode only: `false` when their credit invoice shows another amount than this credit note — it
+   * then gets their number but not their PDF (P-63: a refund that returns an overpayment first). */
+  readonly embedWebbersPdf?: boolean;
 }
 
 export async function issueCreditNote({
@@ -111,6 +117,7 @@ export async function issueCreditNote({
   idempotencyKey,
   reason,
   webbersResourceId,
+  embedWebbersPdf = true,
 }: IssueCreditNoteInput): Promise<void> {
   const commerce = await import("@normwerk/einvoice-commerce");
   const cii = await import("@normwerk/einvoice-cii");
@@ -185,7 +192,7 @@ export async function issueCreditNote({
       throw new WebbersInvoiceNotFoundError(order.id, webbersResourceId, "credit");
     }
     documentNumber = String(webbersInvoice.invoice.display_id);
-    if (webbersInvoice.invoice.pdf_url !== null) {
+    if (webbersInvoice.invoice.pdf_url !== null && embedWebbersPdf) {
       basePdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
     }
   } else {

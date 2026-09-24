@@ -67,6 +67,34 @@ export function decideCreditScope(input: CreditScopeInput): CreditScope {
   return { kind: "partial", gross: fromCents(credit) };
 }
 
+export interface CreditableRefundInput {
+  /** This refund's gross amount. */
+  readonly refund: Amount;
+  /** Everything refunded on the order before this refund, across its payments. */
+  readonly refundedBefore: Amount;
+  /** Grand totals of the credit notes already issued against the invoice. */
+  readonly creditedTotals: readonly Amount[];
+  /** What the buyer overpaid by the invoice's notice (`InvoiceNotice.refundDue`); `"0.00"` without one. */
+  readonly overpaid: Amount;
+}
+
+/**
+ * P-63: the part of a refund that credits the invoice. An invoice issued with an overpayment notice
+ * (`VAT_OVERCHARGED`, `mapping/charged-reconciliation.ts`) is correct as it stands: the buyer paid more than
+ * its total. Returning that overpayment brings the payment down to the invoice — nothing on the invoice
+ * changes, so no credit note (the notice tells the merchant to refund it). Refunds therefore return the
+ * overpayment first and credit only what goes beyond it; refunds already made, less what was already
+ * credited, count as returned overpayment. Without an overpayment, the whole refund is creditable.
+ */
+export function creditableRefund(input: CreditableRefundInput): Amount {
+  const refund = toCents(input.refund);
+  const credited = input.creditedTotals.reduce((sum, total) => sum + toCents(total), 0);
+  const overpaid = toCents(input.overpaid);
+  const returned = Math.max(0, toCents(input.refundedBefore) - credited);
+  const stillOverpaid = Math.min(overpaid, Math.max(0, overpaid - returned));
+  return fromCents(Math.min(refund, Math.max(0, refund - stillOverpaid)));
+}
+
 export interface PartialCreditNoteLine {
   /** The credited gross sum — passed on VAT-inclusive, so the credit note totals exactly this (P-61). */
   readonly gross: Amount;

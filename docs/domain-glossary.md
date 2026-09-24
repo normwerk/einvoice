@@ -569,3 +569,19 @@ integrations` itself states the list "is curated from npm," and its own visible 
   2.12 and 2.18 tax the same products. Cause not pinned down; 2.16.0 changed tax handling around gift-card
   lines (#15545). The plugin therefore does not support 2.16 and 2.17, and refuses to start there
   (`src/medusa-version.ts` holds the supported releases, the peer ranges are tested against it).
+- **`order.total` is net of credit lines, and every refund becomes one.** Medusa subtracts `credit_line_total`
+  from the order's total (`@medusajs/utils` `totals/cart`: `total = subtotal + tax − discount − credit lines`,
+  credit lines taxed at 0), and `refundPaymentWorkflow` records each refund as a credit line when nothing is
+  owed to the buyer (`@medusajs/core-flows@2.19.0` `refund-payment`). What the buyer was charged is therefore
+  `order.total + order.credit_line_total` — stable across refunds; `order.total` alone drops with each one.
+- **Medusa never recomputes an existing order's tax lines on its own.** Changing a tax region's rates, or an
+  order's address (`updateOrderWorkflow`: "doesn't recompute the order's tax lines or totals"), leaves the
+  placed order as it was at checkout. Only `updateOrderTaxLinesWorkflow` recomputes them — no Admin API route
+  runs it; order edits compute tax lines for the items and shipping methods they add, not for the rest.
+  Run it for the lines that need it (`shipping_method_ids`, `item_ids`): without them it recomputes the
+  whole order, and on 2.12.6 that added a second tax line to every item (a 19% line then read 38%) where
+  2.21.0 replaced them.
+- **A shipping method's own totals are there only when the order's totals are.** `decorateCartTotals` writes
+  `total`, `subtotal`, `tax_total`, `discount_subtotal` onto each `shipping_methods[]` entry
+  (`Object.assign`), which happens only when a top-level totals field such as `total` is requested
+  (`OrderModuleService.shouldIncludeTotals`).

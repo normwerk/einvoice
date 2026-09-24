@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   })),
   decideVatCategory: vi.fn(() => ({ categoryCode: "S", ruleId: "tax-semantics#1" })),
   nextNumber: vi.fn(async () => "GS-2026-0001"),
-  logger: { warn: vi.fn() },
+  logger: { warn: vi.fn(), info: vi.fn() },
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   embedInvoiceInPdfA3: vi.fn(async () => ({ pdfBytes: new Uint8Array([1, 2, 3]) })),
   waitForWebbersInvoice: vi.fn(),
@@ -402,5 +402,39 @@ describe("creditNoteOnPaymentRefunded", () => {
       creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" })),
     ).rejects.toThrow(PartialCreditAcrossRatesError);
     expect(mocks.nextNumber).not.toHaveBeenCalled();
+  });
+
+  it("credits nothing for a refund that returns an overpayment the invoice's notice names, and only the rest of a later one (P-63)", async () => {
+    // The invoice states 238.00; Medusa charged 38.00 more, which the notice says to refund.
+    const invoiceWithNotice = {
+      ...ORIGINAL_INVOICE,
+      notice: { code: "VAT_OVERCHARGED", refundDue: "38.00" },
+    };
+    const einvoiceService = makeEinvoiceService({
+      listEinvoiceDocuments: async (filter) =>
+        filter["type"] === "invoice" ? [invoiceWithNotice] : [],
+    });
+    const refunds = [
+      { id: "refund_01", amount: 38, created_at: "2026-01-02T10:00:00Z" },
+      { id: "refund_02", amount: 50, created_at: "2026-01-03T10:00:00Z" },
+    ];
+    const { container } = makeContainer({
+      einvoiceService,
+      payment: { id: "pay_01", payment_collection_id: "paycol_01", refunds },
+      orders: [{ ...ORDER, payment_collections: [{ payments: [{ refunds }] }] }],
+    });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledTimes(1);
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: "refund_02" }),
+    );
+    const creditNote = mocks.buildInvoice.mock.calls.at(-1)?.[0] as {
+      readonly lines: readonly { readonly priceInclVat?: string }[];
+    };
+    expect(creditNote.lines[0]?.priceInclVat).toBe("50.00");
+    const info = mocks.logger.info.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(info).toContain("refund_01");
   });
 });

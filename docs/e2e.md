@@ -50,16 +50,20 @@ running it repeatedly.
 ✓ src/scenarios/s9-b2c-guest.test.ts         — a private guest buyer, named from the billing address
 ✓ src/scenarios/s10-prices-incl-vat.test.ts  — prices including VAT: the invoice totals what was charged
 ✓ src/scenarios/s11-b2g-leitweg-id.test.ts   — a public-sector buyer's Leitweg-ID: BT-10 and the XRechnung profile
+✓ src/scenarios/s12-vat-overcharged-notice.test.ts — VAT charged that a K invoice does not state: issued with a refund-due notice; refunding it credits nothing
+✓ src/scenarios/s13-blocked-then-retried.test.ts   — an invoice stating more VAT than was charged: not issued, the order corrected, retried
 ✓ src/scenarios/idempotency.test.ts          — delivering an event a second time never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot without a required option, or with a seller outside Germany
 ✓ src/scenarios/tarball-contents.test.ts     — no test/fixture files leak into any published package
 ```
 
-Every invoice is also compared with what Medusa charged (`order.total`), so the stand charges real VAT: its
-German tax region carries the 19% standard rate. The other countries carry no rate — Medusa's built-in tax
-provider knows nothing of the intra-EU reverse charge, so a French business buyer is charged no VAT, which
-is what category K and AE invoices show. The stand's clock is fixed (`EINVOICE_E2E_NOW`, 2026-01-15 by
+Every invoice is also compared with what Medusa charged (`order.tax_total`, `order.total`) before it is
+issued, so the stand charges real VAT: its German tax region carries the 19% standard rate, and its Spanish
+one 21% — Medusa's built-in tax provider knows nothing of the intra-EU reverse charge, so a Spanish
+business buyer is charged VAT the invoice does not state (S12). The other countries carry no rate, so a
+French business buyer is charged no VAT, which is what category K and AE invoices show. S13 adds a 0% rate
+for the shipping option in Germany for its own run, and removes it again. The stand's clock is fixed (`EINVOICE_E2E_NOW`, 2026-01-15 by
 default), so every document carries the same date on every run.
 
 Every container is torn down both before a run starts and after it finishes — pass, fail, or even a
@@ -105,7 +109,9 @@ the committed app is left alone. A release outside the plugin's supported ones
 non-optional peer dependencies of that release's Medusa packages added to the app the way its own scaffold
 listed them — and there the plugin refuses to start, so the stand never becomes healthy and
 `e2e/.artifacts/medusa.log` shows `UnsupportedMedusaVersionError`. That is the expected result for such a
-release. The versions actually installed are printed at the start of
+release. A supported release whose own packages npm cannot install strictly — 2.14.2, where
+`@medusajs/icons` requires React 19 and the dashboard React 18 — is installed with `--legacy-peer-deps` too,
+as a shop on it has to (`MEDUSA_PEER_CONFLICTS`, `e2e/src/harness/medusa-version.ts`). The versions actually installed are printed at the start of
 the run and written to `e2e/.artifacts/versions.txt`.
 
 Results so far are in the plugin's compatibility table

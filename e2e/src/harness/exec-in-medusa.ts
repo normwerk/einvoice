@@ -27,22 +27,46 @@ export async function redeliverEvent(
   eventName: string,
   data: Readonly<Record<string, unknown>>,
 ): Promise<void> {
-  const workDir = await mkdtemp(path.join(tmpdir(), "einvoice-e2e-redeliver-"));
-  const scriptPath = path.join(workDir, "redeliver.mjs");
-  await writeFile(
-    scriptPath,
-    [
-      'import { createRequire } from "node:module";',
-      "const require = createRequire(import.meta.url);",
-      `const { default: handler } = require(${JSON.stringify(`${SUBSCRIBERS_DIR}/${subscriber}.js`)});`,
-      "export default async function ({ container }) {",
-      `  await handler({ event: { name: ${JSON.stringify(eventName)}, data: ${JSON.stringify(data)} }, container, pluginOptions: {} });`,
-      "}",
-      "",
-    ].join("\n"),
-  );
+  await runMedusaScript("redeliver", [
+    'import { createRequire } from "node:module";',
+    "const require = createRequire(import.meta.url);",
+    `const { default: handler } = require(${JSON.stringify(`${SUBSCRIBERS_DIR}/${subscriber}.js`)});`,
+    "export default async function ({ container }) {",
+    `  await handler({ event: { name: ${JSON.stringify(eventName)}, data: ${JSON.stringify(data)} }, container, pluginOptions: {} });`,
+    "}",
+    "",
+  ]);
+}
 
-  const containerPath = "/app/.e2e-redeliver.mjs";
+/**
+ * P-63: recomputes the tax lines of an order's shipping methods under the shop's current tax settings — the
+ * way Medusa's own documentation points to for correcting the taxes of an order already placed
+ * (`updateOrderTaxLinesWorkflow`; no Admin API route does it). A merchant runs the same as a script of their
+ * own. Only the shipping methods: recomputing the whole order on Medusa 2.12.6 added a second tax line to
+ * every item instead of replacing it (38% on a 19% line).
+ */
+export async function recomputeShippingTaxLines(orderId: string): Promise<void> {
+  await runMedusaScript("recompute-tax-lines", [
+    'import { createRequire } from "node:module";',
+    "const require = createRequire(import.meta.url);",
+    'const { updateOrderTaxLinesWorkflow } = require("@medusajs/medusa/core-flows");',
+    "export default async function ({ container }) {",
+    '  const query = container.resolve("query");',
+    `  const { data } = await query.graph({ entity: "order", filters: { id: ${JSON.stringify(orderId)} }, fields: ["shipping_methods.id"] });`,
+    "  const shipping_method_ids = data[0].shipping_methods.map((method) => method.id);",
+    `  await updateOrderTaxLinesWorkflow(container).run({ input: { order_id: ${JSON.stringify(orderId)}, shipping_method_ids } });`,
+    "}",
+    "",
+  ]);
+}
+
+/** Runs a script inside the running `medusa` container via `medusa exec`, and waits for it. */
+async function runMedusaScript(name: string, lines: readonly string[]): Promise<void> {
+  const workDir = await mkdtemp(path.join(tmpdir(), `einvoice-e2e-${name}-`));
+  const scriptPath = path.join(workDir, `${name}.mjs`);
+  await writeFile(scriptPath, lines.join("\n"));
+
+  const containerPath = `/app/.e2e-${name}.mjs`;
   try {
     await execFileAsync("docker", ["cp", scriptPath, `${MEDUSA_CONTAINER_NAME}:${containerPath}`]);
     await execFileAsync("docker", [

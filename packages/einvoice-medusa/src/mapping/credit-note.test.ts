@@ -3,6 +3,7 @@ import type { CommerceInvoiceInput } from "@normwerk/einvoice-commerce" with {
   "resolution-mode": "import",
 };
 import {
+  creditableRefund,
   decideCreditScope,
   extractGrandTotalFromCii,
   extractIssueDateFromCii,
@@ -74,6 +75,53 @@ describe("decideCreditScope (P-41)", () => {
         tolerance: "0.02",
       }),
     ).toEqual({ kind: "partial", gross: "90.00" });
+  });
+});
+
+describe("creditableRefund (P-63)", () => {
+  // An intra-EU invoice of 100.00 at 0%, where Medusa charged 120.00: the buyer overpaid 20.00.
+  const overpaid = "20.00";
+
+  it("credits nothing for a refund that returns the overpayment — the invoice is correct as it stands", () => {
+    expect(
+      creditableRefund({ refund: "20.00", refundedBefore: "0.00", creditedTotals: [], overpaid }),
+    ).toBe("0.00");
+  });
+
+  it("credits only what a refund returns beyond the overpayment", () => {
+    expect(
+      creditableRefund({ refund: "30.00", refundedBefore: "0.00", creditedTotals: [], overpaid }),
+    ).toBe("10.00");
+    // The whole payment back: the invoice total is credited.
+    expect(
+      creditableRefund({ refund: "120.00", refundedBefore: "0.00", creditedTotals: [], overpaid }),
+    ).toBe("100.00");
+  });
+
+  it("counts earlier refunds that credited nothing as the overpayment already returned", () => {
+    expect(
+      creditableRefund({ refund: "50.00", refundedBefore: "20.00", creditedTotals: [], overpaid }),
+    ).toBe("50.00");
+    // 30 refunded before, 10 of it credited: the overpayment is back, this refund is all credit.
+    expect(
+      creditableRefund({
+        refund: "15.00",
+        refundedBefore: "30.00",
+        creditedTotals: ["10.00"],
+        overpaid,
+      }),
+    ).toBe("15.00");
+  });
+
+  it("credits the whole refund when the invoice has no overpayment", () => {
+    expect(
+      creditableRefund({
+        refund: "25.00",
+        refundedBefore: "0.00",
+        creditedTotals: [],
+        overpaid: "0.00",
+      }),
+    ).toBe("25.00");
   });
 });
 

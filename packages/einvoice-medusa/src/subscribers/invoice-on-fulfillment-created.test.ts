@@ -16,10 +16,14 @@ import { WebbersInvoiceNotFoundError } from "../integrations/webbers.js";
 // peer in this repo (T-072's own doc comment), so its success path is unreachable without mocking.
 const mocks = vi.hoisted(() => ({
   selectProfile: vi.fn(() => "EN16931" as const),
-  // Shaped like a real BuildResult where the subscriber reads it (`invoice.totals`), otherwise the input
-  // passed straight through, which is what the orchestration assertions below compare against.
+  // Shaped like a real BuildResult where the subscriber reads it (`invoice.totals`: what ORDER below
+  // charged, so the P-63 check passes), otherwise the input passed straight through, which is what the
+  // orchestration assertions below compare against.
   buildInvoice: vi.fn((input: unknown) => ({
-    invoice: { ...(input as object), totals: { totalAmountWithVat: "0.00" } },
+    invoice: {
+      ...(input as object),
+      totals: { totalAmountWithVat: "238.00", totalVatAmount: "38.00" },
+    },
     warnings: [],
   })),
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
@@ -31,7 +35,7 @@ const mocks = vi.hoisted(() => ({
     pdfFileId: null as string | null,
   })),
   deleteEinvoiceFiles: vi.fn(async () => undefined),
-  logger: { warn: vi.fn() },
+  logger: { warn: vi.fn(), info: vi.fn() },
   nextNumber: vi.fn(async () => "RE-2026-0001"),
 }));
 
@@ -111,6 +115,8 @@ const ORDER = {
       detail: { quantity: 2 },
     },
   ],
+  total: 238,
+  tax_total: 38,
 };
 
 function makeEinvoiceService(
@@ -127,6 +133,11 @@ function makeEinvoiceService(
       overrides.recordDocumentIfAbsent ?? (async () => ({ document: {}, created: true })),
     ),
     allocateNextNumber: vi.fn(async () => 1),
+    recordRefusal: vi.fn(async (input: { code: string }) => ({
+      id: "einvref_1",
+      code: input.code,
+    })),
+    clearRefusal: vi.fn(async () => undefined),
   } as unknown as EinvoiceModuleService;
 }
 
@@ -333,14 +344,14 @@ describe("invoiceOnFulfillmentCreated", () => {
     expect(mocks.storeEinvoiceFiles).not.toHaveBeenCalled();
   });
 
-  it("reports buildInvoice's warnings and a total that differs from what Medusa charged, without the invoice payload (P-39)", async () => {
+  it("reports buildInvoice's warnings without the invoice payload (P-39)", async () => {
     const built = {
-      invoice: { totals: { totalAmountWithVat: "238.00" } },
+      invoice: { totals: { totalAmountWithVat: "238.00", totalVatAmount: "38.00" } },
       warnings: [{ code: "payment-terms-not-mapped", message: "terms dropped" }],
     } as never;
     mocks.buildInvoice.mockReturnValueOnce(built).mockReturnValueOnce(built);
     const einvoiceService = makeEinvoiceService();
-    const { container } = makeContainer(einvoiceService, [{ ...ORDER, total: 200 }]);
+    const { container } = makeContainer(einvoiceService);
 
     await invoiceOnFulfillmentCreated(
       makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
@@ -348,7 +359,60 @@ describe("invoiceOnFulfillmentCreated", () => {
 
     const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0]));
     expect(logged.some((line) => line.includes("payment-terms-not-mapped"))).toBe(true);
-    expect(logged.some((line) => line.includes("differs from what Medusa charged"))).toBe(true);
     expect(logged.join("\n")).not.toContain("buyer@example.test");
+    expect(einvoiceService.clearRefusal).toHaveBeenCalledWith("invoice", "ful_01");
+  });
+
+  it("does not issue an invoice stating more VAT than Medusa charged: records why, takes no number, stores nothing (P-63)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    // Medusa charged 200.00 without VAT; the invoice would say 238.00 with 38.00 VAT.
+    const { container } = makeContainer(einvoiceService, [{ ...ORDER, total: 200, tax_total: 0 }]);
+
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith({
+      type: "invoice",
+      orderId: "order_01",
+      idempotencyKey: "ful_01",
+      code: "INVOICE_VAT_ABOVE_CHARGED",
+      details: expect.objectContaining({
+        charged: "200.00",
+        chargedVat: "0.00",
+        invoiced: "238.00",
+      }),
+    });
+    expect(mocks.buildInvoice).toHaveBeenCalledTimes(1);
+    expect(mocks.nextNumber).not.toHaveBeenCalled();
+    expect(mocks.storeEinvoiceFiles).not.toHaveBeenCalled();
+    expect(einvoiceService.recordDocumentIfAbsent).not.toHaveBeenCalled();
+    const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(logged).toContain("INVOICE_VAT_ABOVE_CHARGED");
+    expect(logged).not.toContain("buyer@example.test");
+  });
+
+  it("issues an invoice stating less VAT than Medusa charged, with a notice of what the buyer overpaid (P-63)", async () => {
+    const built = {
+      invoice: { totals: { totalAmountWithVat: "200.00", totalVatAmount: "0.00" } },
+      warnings: [],
+    } as never;
+    mocks.buildInvoice.mockReturnValueOnce(built).mockReturnValueOnce(built);
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer(einvoiceService);
+
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentNumber: "RE-2026-0001",
+        notice: expect.objectContaining({ code: "VAT_OVERCHARGED", refundDue: "38.00" }),
+      }),
+    );
+    expect(einvoiceService.recordRefusal).not.toHaveBeenCalled();
+    const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(logged).toContain("VAT_OVERCHARGED");
   });
 });

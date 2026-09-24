@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MedusaError } from "@medusajs/framework/utils";
 import EinvoiceModuleService, { InvalidEinvoiceModuleOptionsError } from "./service.js";
 
@@ -200,5 +200,82 @@ describe("EinvoiceModuleService.recordDocumentIfAbsent (P-49)", () => {
       async () => [],
     );
     await expect(service.recordDocumentIfAbsent(INPUT)).rejects.toBe(failure);
+  });
+});
+
+describe("EinvoiceModuleService refusals (P-63)", () => {
+  const INPUT = {
+    type: "invoice" as const,
+    orderId: "order_01",
+    idempotencyKey: "ful_01",
+    code: "INVOICE_VAT_ABOVE_CHARGED",
+    details: { charged: "20.00" },
+  };
+
+  function serviceWith(methods: Record<string, unknown>): EinvoiceModuleService {
+    const service = new EinvoiceModuleService(FAKE_CONTAINER, {
+      seller: VALID_SELLER,
+      payment: VALID_PAYMENT,
+    });
+    Object.assign(service, methods);
+    return service;
+  }
+
+  it("records a refusal once per key, and a retry refused again updates it", async () => {
+    const created = { id: "einvref_1" };
+    const createEinvoiceRefusals = vi.fn(async () => created);
+    const updateEinvoiceRefusals = vi.fn(async (data: unknown) => data);
+    const fresh = serviceWith({
+      listEinvoiceRefusals: async () => [],
+      createEinvoiceRefusals,
+      updateEinvoiceRefusals,
+    });
+    await expect(fresh.recordRefusal(INPUT)).resolves.toBe(created);
+    expect(createEinvoiceRefusals).toHaveBeenCalledWith({
+      type: "invoice",
+      order_id: "order_01",
+      idempotency_key: "ful_01",
+      code: "INVOICE_VAT_ABOVE_CHARGED",
+      details: { charged: "20.00" },
+    });
+
+    const again = serviceWith({
+      listEinvoiceRefusals: async () => [{ id: "einvref_1" }],
+      createEinvoiceRefusals,
+      updateEinvoiceRefusals,
+    });
+    await again.recordRefusal({ ...INPUT, code: "INVOICE_TOTAL_MISMATCH" });
+    expect(updateEinvoiceRefusals).toHaveBeenCalledWith({
+      id: "einvref_1",
+      code: "INVOICE_TOTAL_MISMATCH",
+      details: { charged: "20.00" },
+    });
+    expect(createEinvoiceRefusals).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates the winner's row when a concurrent insert loses the unique index", async () => {
+    let listed = 0;
+    const updateEinvoiceRefusals = vi.fn(async (data: unknown) => data);
+    const service = serviceWith({
+      listEinvoiceRefusals: async () => (listed++ === 0 ? [] : [{ id: "einvref_winner" }]),
+      createEinvoiceRefusals: async () => {
+        throw new MedusaError(MedusaError.Types.INVALID_DATA, "already exists");
+      },
+      updateEinvoiceRefusals,
+    });
+    await service.recordRefusal(INPUT);
+    expect(updateEinvoiceRefusals).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "einvref_winner" }),
+    );
+  });
+
+  it("clears the refusal once the document is issued", async () => {
+    const deleteEinvoiceRefusals = vi.fn(async () => undefined);
+    const service = serviceWith({
+      listEinvoiceRefusals: async () => [{ id: "einvref_1" }],
+      deleteEinvoiceRefusals,
+    });
+    await service.clearRefusal("invoice", "ful_01");
+    expect(deleteEinvoiceRefusals).toHaveBeenCalledWith(["einvref_1"]);
   });
 });

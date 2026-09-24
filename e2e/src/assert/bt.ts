@@ -37,6 +37,13 @@ export function grandTotalAmount(xml: string): number {
   );
 }
 
+/** BT-110: the invoice's total VAT, `ram:TaxTotalAmount` (in the document currency). */
+export function taxTotalAmount(xml: string): number {
+  return Number(
+    requireMatch(xml, /<ram:TaxTotalAmount[^>]*>([^<]+)<\/ram:TaxTotalAmount>/, "BT-110"),
+  );
+}
+
 /** BT-99: the (first) document-level charge amount — this plugin puts shipping there (P-39). A charge is
  * the `ram:SpecifiedTradeAllowanceCharge` whose `ram:ChargeIndicator` is `true`. */
 export function shippingChargeAmount(xml: string): number {

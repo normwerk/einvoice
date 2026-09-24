@@ -211,6 +211,30 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   `amountInclVat`), `buildInvoice` takes each rate group's VAT out of its gross total instead, so the
   invoice totals exactly what was charged. The group's VAT can then differ from its taxable amount × rate
   by a cent, which `BR-CO-17` and `BR-S-09` allow (both accept a difference below 1).
+- **A validator cannot see what the buyer was charged.** An invoice whose VAT differs from the VAT the shop
+  charged validates as long as its own sums add up. The two differ when the shop decided VAT at checkout
+  by region alone while the invoice decides it from the buyer's VAT-ID and the destination — Medusa's
+  built-in tax provider knows nothing of the intra-EU reverse charge. VAT stated on an invoice is owed,
+  whatever was charged (§14c Abs. 1 UStG), so the Medusa adapter compares the invoice's VAT (BT-110) with
+  `order.tax_total` and its total (BT-112) with `order.total` plus `order.credit_line_total` — Medusa
+  subtracts credit lines from the total, and they are payments (store credit, gift cards, and every refund
+  Medusa records), not price reductions — before it takes a document number:
+  - they agree within rounding (a cent for each independently rounded amount) → issued;
+  - the invoice states less VAT, and that explains the whole difference → issued with a notice. With net
+    prices the buyer paid that VAT on top and overpaid; the notice says how much to refund. Returning the
+    overpayment brings the payment down to a correct invoice, so no credit note is needed (§17 UStG): a
+    refund first returns the overpayment and credits only what goes beyond it. With gross prices the
+    buyer paid the invoice total, nothing is to be refunded, and only Medusa's VAT figure is wrong — take
+    VAT from the invoices, not from Medusa's order totals. When the invoice splits shipping across the
+    order's VAT rates and Medusa taxed it at one, the notice names that as the cause;
+  - anything else — the invoice would state more VAT than was charged, or the totals differ for another
+    reason, or the order mixes prices with and without VAT → not issued. The reason, with the amounts, is
+    shown on the order, and the invoice can be issued again once the order is corrected.
+
+  Credit notes are not compared: they are built from what was refunded, not from the order's total.
+  Credit lines are not shown as a paid amount (BT-113) on the invoice: it states the full consideration,
+  and the plugin states no payment on its invoices at all, card payments included — a paid amount of the
+  voucher part alone would make the amount due (BT-115) wrong.
 
 This list is a starting point, not exhaustive — it grows as scenarios are added.
 

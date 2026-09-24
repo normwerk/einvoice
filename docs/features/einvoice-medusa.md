@@ -46,6 +46,31 @@ a native screenshot, and the preview tool itself has no "save to path" capture).
 row labels, and request path above are transcribed verbatim from that live session, not reconstructed from
 the code alone.
 
+## Notices, and invoices not issued
+
+Before an invoice takes a number, it is compared with what Medusa charged (`reconcileWithCharged`,
+`src/mapping/charged-reconciliation.ts`; the rule is in [`docs/tax-semantics.md`](../tax-semantics.md) and
+[`docs/quickstart-medusa.md`](../quickstart-medusa.md#when-the-invoice-and-medusa-disagree)). Two outcomes are
+stored:
+
+- an invoice issued although it states less VAT than Medusa charged keeps the comparison on its own row,
+  `EinvoiceDocument.notice` (JSON: code, amounts, what to refund) — the refund subscriber reads it to return
+  an overpayment before it credits anything;
+- an invoice not issued is an `EinvoiceRefusal` row (`src/modules/einvoice/models/einvoice-refusal.ts`):
+  `(type, idempotency_key)` unique like a document's, with the code and the amounts. A retry refused again
+  updates it; the issued document deletes it.
+
+`GET /admin/orders/:id/einvoice` returns both: `documents` (each with its `notice`, or `null`) and
+`refusals` (each with its explanation and a `retryUrl`). `POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`
+runs the same `issueInvoiceForFulfillment` (`src/invoices/issue-invoice.ts`) as the fulfillment subscriber,
+checks included, and answers `issued`, `blocked` (with the reason), or 422 with the message of any other
+refusal. The Store API lists documents without notices — they tell the merchant what to refund.
+
+The widget shows a notice as an orange badge under its document ("Refund due" or "VAT differs from Medusa")
+with the explanation, and a refused invoice as a red "Invoice not issued" badge with the explanation and a
+**Retry** button. The API behind it is covered end to end (`e2e/src/scenarios/s12-*`, `s13-*`); the widget's
+own rendering has not been checked in a browser yet ([`docs/manual-testing.md`](../manual-testing.md#admin-widget-visually)).
+
 ## Store: a customer's own e-invoices
 
 `GET /store/orders/:id/einvoice` and `.../:documentId/{xml,pdf}` — requires

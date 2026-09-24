@@ -173,10 +173,8 @@ reduced destination rate, is refused.
 ## Shipping, promotions, and what Medusa charged
 
 Shipping methods appear on the invoice as one document-level charge, and a promotion on an item as a
-discount on that item's line — both as Medusa computed them. The plugin also compares the invoice total with
-what Medusa charged (`order.total`) and logs a warning when they differ by more than rounding. The usual
-cause is Medusa's tax settings: if your tax regions charge no VAT, or charge VAT on an order the invoice
-treats as tax-free (an intra-EU supply, an export), the invoice is correct and the payment is not.
+discount on that item's line — both as Medusa computed them. Before issuing an invoice, the plugin compares
+its VAT and total with what Medusa charged (see [When the invoice and Medusa disagree](#when-the-invoice-and-medusa-disagree)).
 
 On a domestic order, each line is invoiced at the rate Medusa charged on it, which has to be 19% or 7%. A
 line Medusa charged at any other rate — 0% included, which is what a tax region without a default rate
@@ -188,9 +186,42 @@ amounts Medusa charged: the VAT of each rate is taken out of that rate's gross t
 the invoice's lines add up to the rest. A T-shirt at EUR 10.00 and shipping at EUR 10.00, both including
 19% VAT, are invoiced as 20.00 (16.81 net, 3.19 VAT) — exactly what was charged.
 
+## When the invoice and Medusa disagree
+
+Medusa charges VAT at checkout by the region alone; the invoice decides it from the buyer's VAT-ID and where
+the goods go. So the VAT on the invoice can differ from the VAT Medusa charged — typically an intra-EU
+supply to a business (category K, 0%) in a region whose tax settings charge VAT. The plugin compares the
+invoice's VAT with `order.tax_total` and its total with `order.total` (plus Medusa's credit lines: store
+credit, gift cards and refunds are payments), and the outcome shows in the order page's "E-Invoices" block:
+
+- **Issued, "Refund due"** (`VAT_OVERCHARGED`) — prices without VAT; the invoice states less VAT than
+  Medusa charged, and the buyer paid the difference on top. The invoice is correct; refund the amount the
+  notice names with an ordinary refund in Medusa. That refund issues no credit note — a refund beyond it
+  credits only the part beyond it.
+- **Issued, "VAT differs from Medusa"** (`VAT_DIFFERS_FROM_MEDUSA`) — prices including VAT; the buyer paid
+  exactly the invoice total, so there is nothing to refund, but Medusa's order counts VAT that is not on
+  the invoice. Take VAT for your returns from the invoices, not from Medusa's order totals. A business
+  buyer then pays your gross price without the VAT deducted; if you sell to businesses in other EU
+  countries, a separate price list with net prices for them avoids it.
+- **"Invoice not issued"** — the invoice would state more VAT than Medusa charged
+  (`INVOICE_VAT_ABOVE_CHARGED`: VAT on an invoice is owed, §14c UStG, whatever was charged), or the totals
+  differ for another reason (`INVOICE_TOTAL_MISMATCH`), or Medusa returned no totals
+  (`CHARGED_TOTALS_MISSING`). No document number is taken. The block shows the reason with the amounts.
+  Correct the cause — usually a tax region, product or shipping option charging the wrong rate — and then
+  the order: Medusa keeps an order's tax lines as they were at checkout, and recomputes them only with its
+  `updateOrderTaxLinesWorkflow` (for example from a script run with `npx medusa exec`). Recompute only
+  the lines that were wrong (`shipping_method_ids`, `item_ids`): on Medusa 2.12.6 recomputing the whole
+  order added a second tax line to every item instead of replacing it. Then press
+  **Retry** in the block (or `POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`); a retry that
+  still disagrees says why again. If the order cannot be corrected, issue that invoice outside the plugin.
+
+An intra-EU supply must be invoiced by the 15th of the following month (§14a UStG) — check the block for
+orders that were not issued.
+
 ## Downloading a document yourself
 
-- **Admin**: the order page's own "E-Invoices" widget, or `GET /admin/orders/:id/einvoice` for the raw list.
+- **Admin**: the order page's own "E-Invoices" widget, or `GET /admin/orders/:id/einvoice` for the raw list
+  (with each document's notice, and the documents not issued).
 - **Storefront**: `GET /store/orders/:id/einvoice` — requires a logged-in customer who owns the order (a
   guest order has no way to authenticate as its own "customer" today, a known v0.1 limitation).
 

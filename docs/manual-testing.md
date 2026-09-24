@@ -58,6 +58,14 @@ section appears in the side column with one row per document; each row's downloa
 `Content-Disposition: attachment` response opened via `target="_blank"` reports as an aborted navigation in
 a sandboxed preview browser, which is expected, not a failure of the route itself).
 
+The same page for the two states the check against what Medusa charged adds (not yet verified in a browser):
+an invoice issued with a notice shows an orange "Refund due" or "VAT differs from Medusa" badge and the
+explanation under its row; an invoice not issued shows a red "Invoice not issued" badge, the explanation
+and a **Retry** button, which issues `POST .../einvoice/refusals/:refusalId/retry` and reloads the list. To
+reach both on a local stand: a Spanish delivery to a business buyer with a verified VAT-ID in a region
+charging Spanish VAT (the notice), and an order whose shipping option carries a 0% tax rate override (the
+refusal) — the same setup as the end-to-end scenarios S12 and S13.
+
 No screenshot of this is committed to the repository — the environment this was built in has no accessible
 display for a real screenshot (`screencapture` genuinely fails with "could not create image from display",
 confirmed, not assumed) and the preview browser tool used has no "save frame to file" capability either.

@@ -6,6 +6,8 @@ export interface OrderSummary {
   readonly id: string;
   readonly displayId: number;
   readonly total: number;
+  /** P-63: the VAT Medusa charged. */
+  readonly taxTotal: number;
   readonly currencyCode: string;
   readonly itemIds: readonly string[];
   readonly items: readonly { readonly id: string; readonly quantity: number }[];
@@ -17,14 +19,16 @@ export async function getOrder(admin: AdminSession, orderId: string): Promise<Or
       readonly id: string;
       readonly display_id: number;
       readonly total: number;
+      readonly tax_total: number;
       readonly currency_code: string;
       readonly items: readonly { readonly id: string; readonly quantity: number }[];
     };
-  }>(admin, `/admin/orders/${orderId}?fields=id,display_id,total,currency_code,*items`);
+  }>(admin, `/admin/orders/${orderId}?fields=id,display_id,total,tax_total,currency_code,*items`);
   return {
     id: response.order.id,
     displayId: response.order.display_id,
     total: response.order.total,
+    taxTotal: response.order.tax_total,
     currencyCode: response.order.currency_code,
     itemIds: response.order.items.map((item) => item.id),
     items: response.order.items.map((item) => ({ id: item.id, quantity: item.quantity })),
@@ -64,6 +68,41 @@ export interface EinvoiceDocumentSummary {
   readonly documentNumber: string;
   readonly xmlUrl: string;
   readonly pdfUrl: string | null;
+  /** P-63: admin listing only. */
+  readonly notice?: EinvoiceStatusEntry | null;
+}
+
+/** P-63: a notice on a document, or why a document was not issued. */
+export interface EinvoiceStatusEntry {
+  readonly code: string;
+  readonly message: string;
+  readonly details: Readonly<Record<string, unknown>>;
+}
+
+export interface EinvoiceRefusalSummary extends EinvoiceStatusEntry {
+  readonly id: string;
+  readonly type: "invoice" | "credit_note";
+  readonly idempotencyKey: string;
+  readonly retryUrl: string;
+}
+
+/** P-63: the admin listing — documents with their notices, and the documents the plugin did not issue. */
+export async function getEinvoiceStatus(
+  admin: AdminSession,
+  orderId: string,
+): Promise<{
+  readonly documents: readonly EinvoiceDocumentSummary[];
+  readonly refusals: readonly EinvoiceRefusalSummary[];
+}> {
+  return adminGetJson(admin, `/admin/orders/${orderId}/einvoice`);
+}
+
+/** P-63: the admin widget's "Retry" — issues a refused document again. */
+export async function retryRefusal(
+  admin: AdminSession,
+  refusal: EinvoiceRefusalSummary,
+): Promise<{ readonly outcome: string; readonly documentNumber?: string; readonly code?: string }> {
+  return adminPostJson(admin, refusal.retryUrl, {});
 }
 
 /** `basePath` is `/admin/orders/:id` or `/store/orders/:id` — mirrors the plugin's own

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   MissingBuyerCountryError,
-  describeOrderTotalMismatch,
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
   type MapOrderOptions,
@@ -515,22 +514,6 @@ describe("mapOrderToCommerceInvoiceInput — shipping and discounts (P-39)", () 
       shipping_methods: [{ name: "Free Shipping", subtotal: 0, discount_subtotal: 0 }],
     });
     expect(mapOrderToCommerceInvoiceInput(order, baseOptions()).shipping).toBeUndefined();
-  });
-});
-
-describe("describeOrderTotalMismatch (P-39)", () => {
-  it("is silent when the invoice total matches what Medusa charged, within per-amount rounding", () => {
-    expect(describeOrderTotalMismatch(baseOrder({ total: 238.01 }), "238.00")).toBeUndefined();
-  });
-
-  it("names the difference when it exceeds rounding — e.g. Medusa charged no VAT where the invoice shows 19%", () => {
-    const message = describeOrderTotalMismatch(baseOrder({ total: 200 }), "238.00");
-    expect(message).toContain("order_01");
-    expect(message).toContain("38.00");
-  });
-
-  it("is silent when the order carries no total to compare against", () => {
-    expect(describeOrderTotalMismatch(baseOrder(), "238.00")).toBeUndefined();
   });
 });
 

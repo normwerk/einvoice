@@ -19,6 +19,7 @@ vi.mock("../storage.js", async (importOriginal) => {
 
 import {
   customerOwnsOrder,
+  listAdminEinvoiceStatus,
   listEinvoiceDocumentSummaries,
   sendEinvoiceFile,
 } from "./einvoice-http.js";
@@ -102,6 +103,88 @@ describe("listEinvoiceDocumentSummaries", () => {
         pdfUrl: null,
       },
     ]);
+  });
+});
+
+describe("listAdminEinvoiceStatus (P-63)", () => {
+  it("adds each document's notice and the refused documents with their retry route — admin only", async () => {
+    const notice = {
+      code: "VAT_OVERCHARGED",
+      charged: "130.90",
+      chargedVat: "20.90",
+      invoiced: "110.00",
+      invoicedVat: "0.00",
+      priceBasis: "net",
+      refundDue: "20.90",
+    };
+    const req = makeRequest({
+      listEinvoiceDocuments: vi.fn(async () => [
+        {
+          id: "doc_1",
+          type: "invoice" as const,
+          document_number: "RE-2026-0001",
+          pdf_file_id: null,
+          notice,
+        },
+      ]),
+      listEinvoiceRefusals: vi.fn(async () => [
+        {
+          id: "einvref_1",
+          type: "invoice" as const,
+          order_id: "order_01",
+          idempotency_key: "ful_02",
+          code: "INVOICE_VAT_ABOVE_CHARGED",
+          details: {
+            charged: "20.00",
+            chargedVat: "0.00",
+            invoiced: "23.80",
+            invoicedVat: "3.80",
+            priceBasis: "net",
+          },
+          updated_at: new Date("2026-01-15T10:00:00Z"),
+        },
+      ]),
+    });
+
+    const result = await listAdminEinvoiceStatus(req, "order_01");
+
+    expect(result.documents[0]?.notice).toEqual({
+      code: "VAT_OVERCHARGED",
+      message: expect.stringContaining("overpaid 20.90"),
+      details: notice,
+    });
+    expect(result.refusals).toEqual([
+      {
+        id: "einvref_1",
+        type: "invoice",
+        idempotencyKey: "ful_02",
+        code: "INVOICE_VAT_ABOVE_CHARGED",
+        message: expect.stringContaining("Not issued"),
+        details: expect.objectContaining({ invoicedVat: "3.80" }),
+        updatedAt: "2026-01-15T10:00:00.000Z",
+        retryUrl: "/admin/orders/order_01/einvoice/refusals/einvref_1/retry",
+      },
+    ]);
+  });
+
+  it("keeps notices out of the store listing — they tell the merchant what to refund", async () => {
+    const req = makeRequest({
+      listEinvoiceDocuments: vi.fn(async () => [
+        {
+          id: "doc_1",
+          type: "invoice" as const,
+          document_number: "RE-2026-0001",
+          pdf_file_id: null,
+          notice: { code: "VAT_OVERCHARGED" },
+        },
+      ]),
+    });
+    const [document] = await listEinvoiceDocumentSummaries(
+      req,
+      "order_01",
+      "/store/orders/order_01",
+    );
+    expect(document).not.toHaveProperty("notice");
   });
 });
 

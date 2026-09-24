@@ -41,6 +41,8 @@ import type { Context } from "@medusajs/framework/types";
 import EinvoiceCounter from "./models/einvoice-counter.js";
 import { assertSupportedMedusaVersion, installedMedusaVersion } from "../../medusa-version.js";
 import EinvoiceDocument from "./models/einvoice-document.js";
+import EinvoiceRefusal from "./models/einvoice-refusal.js";
+import type { InvoiceNotice } from "../../mapping/charged-reconciliation.js";
 
 export interface EinvoiceModuleOptions {
   /**
@@ -227,6 +229,8 @@ export interface EinvoiceDocumentRecord {
    * `basePdf` hook) — `null` for a pure-XML document (standalone mode with no hook, or Webbers mode
    * before their PDF was ready). */
   readonly pdf_file_id: string | null;
+  /** P-63: issued although it states less VAT than Medusa charged — `null` otherwise. */
+  readonly notice: InvoiceNotice | null;
 }
 
 export interface RecordDocumentInput {
@@ -236,6 +240,26 @@ export interface RecordDocumentInput {
   readonly documentNumber: string;
   readonly xmlFileId: string;
   readonly pdfFileId?: string | null;
+  readonly notice?: InvoiceNotice | null;
+}
+
+/** P-63: a document the plugin did not issue (`einvoice-refusal.ts`). */
+export interface EinvoiceRefusalRecord {
+  readonly id: string;
+  readonly type: EinvoiceDocumentType;
+  readonly order_id: string;
+  readonly idempotency_key: string;
+  readonly code: string;
+  readonly details: Record<string, unknown>;
+  readonly updated_at: Date | string;
+}
+
+export interface RecordRefusalInput {
+  readonly type: EinvoiceDocumentType;
+  readonly orderId: string;
+  readonly idempotencyKey: string;
+  readonly code: string;
+  readonly details: Record<string, unknown>;
 }
 
 export interface RecordDocumentResult {
@@ -275,6 +299,7 @@ interface InjectedDependencies {
 export default class EinvoiceModuleService extends MedusaService({
   EinvoiceDocument,
   EinvoiceCounter,
+  EinvoiceRefusal,
 }) {
   readonly options: EinvoiceModuleOptions;
 
@@ -342,7 +367,8 @@ export default class EinvoiceModuleService extends MedusaService({
         document_number: input.documentNumber,
         xml_file_id: input.xmlFileId,
         pdf_file_id: input.pdfFileId ?? null,
-      })) as EinvoiceDocumentRecord;
+        notice: (input.notice ?? null) as Record<string, unknown> | null,
+      })) as unknown as EinvoiceDocumentRecord;
       return { document: created, created: true };
     } catch (error) {
       const existing = await this.listEinvoiceDocuments({
@@ -355,6 +381,58 @@ export default class EinvoiceModuleService extends MedusaService({
         throw error;
       }
       return { document, created: false };
+    }
+  }
+
+  /**
+   * P-63: records why a document was not issued — or updates the reason, when a retry is refused again. One
+   * row per `(type, idempotencyKey)`; a concurrent insert that loses the unique index updates the winner's
+   * row instead.
+   */
+  async recordRefusal(input: RecordRefusalInput): Promise<EinvoiceRefusalRecord> {
+    const find = async (): Promise<EinvoiceRefusalRecord | undefined> =>
+      (
+        (await this.listEinvoiceRefusals({
+          type: input.type,
+          idempotency_key: input.idempotencyKey,
+        })) as unknown as EinvoiceRefusalRecord[]
+      )[0];
+    const update = async (existing: EinvoiceRefusalRecord): Promise<EinvoiceRefusalRecord> =>
+      (await this.updateEinvoiceRefusals({
+        id: existing.id,
+        code: input.code,
+        details: input.details,
+      })) as unknown as EinvoiceRefusalRecord;
+
+    const existing = await find();
+    if (existing !== undefined) {
+      return update(existing);
+    }
+    try {
+      return (await this.createEinvoiceRefusals({
+        type: input.type,
+        order_id: input.orderId,
+        idempotency_key: input.idempotencyKey,
+        code: input.code,
+        details: input.details,
+      })) as unknown as EinvoiceRefusalRecord;
+    } catch (error) {
+      const winner = await find();
+      if (winner === undefined) {
+        throw error;
+      }
+      return update(winner);
+    }
+  }
+
+  /** P-63: the document was issued — its refusal, if one was recorded, no longer applies. */
+  async clearRefusal(type: EinvoiceDocumentType, idempotencyKey: string): Promise<void> {
+    const refusals = (await this.listEinvoiceRefusals({
+      type,
+      idempotency_key: idempotencyKey,
+    })) as unknown as EinvoiceRefusalRecord[];
+    if (refusals.length > 0) {
+      await this.deleteEinvoiceRefusals(refusals.map((refusal) => refusal.id));
     }
   }
 }

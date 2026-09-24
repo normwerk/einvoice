@@ -83,8 +83,12 @@ export const ORDER_QUERY_FIELDS = [
   // order totals at all (`OrderModuleService.shouldIncludeTotals`: only when a top-level totals field is
   // selected), which is what populates the per-item and per-shipping-method `subtotal`/`discount_subtotal`
   // below — Medusa's own net amounts, so this mapping never re-derives tax-inclusive/exclusive discount
-  // arithmetic itself. `total` is also read back, for `describeOrderTotalMismatch`.
+  // arithmetic itself. `total` is also read back, for `reconcileWithCharged`.
   "total",
+  // P-63: what else `reconcileWithCharged` compares — the VAT Medusa charged, and the credit lines it
+  // subtracted from `total` (payments, not price reductions: see that function's doc comment).
+  "tax_total",
+  "credit_line_total",
   "items.discount_subtotal",
   "items.discount_total",
   "items.adjustments.code",
@@ -97,6 +101,8 @@ export const ORDER_QUERY_FIELDS = [
   "shipping_methods.total",
   "shipping_methods.subtotal",
   "shipping_methods.discount_subtotal",
+  // P-63: the VAT Medusa charged on each shipping method — names the cause of a notice.
+  "shipping_methods.tax_total",
 ] as const;
 
 export interface MedusaOrderAddress {
@@ -159,6 +165,8 @@ export interface MedusaOrderShippingMethod {
   readonly subtotal?: number | string | null;
   /** The shipping method's own discounts, net of tax. */
   readonly discount_subtotal?: number | string | null;
+  /** P-63: the VAT Medusa charged on it — at one rate, even in an order with two. */
+  readonly tax_total?: number | string | null;
 }
 
 export interface MedusaOrderForInvoice {
@@ -175,8 +183,13 @@ export interface MedusaOrderForInvoice {
   readonly billing_address?: MedusaOrderAddress | null;
   readonly items: readonly MedusaOrderLineItem[];
   readonly shipping_methods?: readonly MedusaOrderShippingMethod[] | null;
-  /** What Medusa charged in total, VAT included — compared, never copied (`describeOrderTotalMismatch`). */
+  /** What Medusa charged in total, VAT included, less credit lines — compared, never copied
+   * (`reconcileWithCharged`, `charged-reconciliation.ts`). */
   readonly total?: number | string | null;
+  /** P-63: the VAT Medusa charged, items and shipping. */
+  readonly tax_total?: number | string | null;
+  /** P-63: store credit, gift cards and refunds Medusa recorded as credit lines — subtracted from `total`. */
+  readonly credit_line_total?: number | string | null;
 }
 
 export class MissingBuyerCountryError extends Error {
@@ -341,36 +354,6 @@ function resolveShipping(
   const reason =
     names.length > 0 ? `Versand / Shipping: ${names.join(", ")}` : "Versand / Shipping";
   return inclusive ? { amountInclVat: amount, reason } : { amount, reason };
-}
-
-/**
- * P-39: compares the invoice's grand total (BT-112) with what Medusa actually charged (`order.total`) and
- * describes the difference when it exceeds what per-amount rounding can explain — about a cent for each
- * independently rounded amount (every line, the shipping charge, and the VAT). A larger difference means
- * the invoice and the payment disagree: typically Medusa's tax configuration charged a different VAT than
- * the one the invoice's category requires. Returns `undefined` when they agree or there is nothing to
- * compare. Whether such a mismatch should block the invoice or only be reported is an open decision; the
- * caller reports it.
- */
-export function describeOrderTotalMismatch(
-  order: MedusaOrderForInvoice,
-  invoiceGrandTotal: Amount,
-): string | undefined {
-  if (order.total === undefined || order.total === null) {
-    return undefined;
-  }
-  const charged = Number(order.total);
-  const invoiced = Number(invoiceGrandTotal);
-  const tolerance = 0.01 * (order.items.length + (order.shipping_methods?.length ?? 0) + 1);
-  const difference = invoiced - charged;
-  if (Math.abs(difference) <= tolerance + 1e-9) {
-    return undefined;
-  }
-  return (
-    `Order ${order.id}: the e-invoice total (${invoiceGrandTotal}) differs from what Medusa charged ` +
-    `(${toAmount(charged)}) by ${toAmount(Math.abs(difference))} — check that Medusa's tax settings charge ` +
-    `the VAT this invoice's category requires.`
-  );
 }
 
 function resolveBuyerAddress(
