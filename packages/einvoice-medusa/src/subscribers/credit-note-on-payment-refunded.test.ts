@@ -185,8 +185,11 @@ function makeContainer(options: {
     refunds: [{ id: "refund_01", amount: 238 }],
   };
   const orders = options.orders ?? [ORDER];
+  const first = orders[0] as { readonly id?: string } | undefined;
+  const collection = { id: "paycol_01", order: first === undefined ? null : { id: first.id } };
   const graph = vi.fn(async ({ entity }: { entity: string }) => ({
-    data: entity === "payment" ? [payment] : orders,
+    data:
+      entity === "payment" ? [payment] : entity === "payment_collection" ? [collection] : orders,
   }));
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, options.einvoiceService],

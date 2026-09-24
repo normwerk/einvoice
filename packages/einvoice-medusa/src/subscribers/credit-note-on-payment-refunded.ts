@@ -2,7 +2,7 @@
  * T-071: `payment.refunded` → credit note. Event name/payload verified for real against
  * `@medusajs/utils@2.19.0`'s own compiled `PaymentEvents.REFUNDED` (T-070, `docs/domain-glossary.md`) —
  * the payload carries **only** `{ id }`, the *payment's* id, not the order's. Resolving the order needs
- * two real `query.graph` calls, not one — this is exactly the design question `docs/domain-glossary.md`'s
+ * several real `query.graph` calls, not one — this is exactly the design question `docs/domain-glossary.md`'s
  * own T-070 entry flagged as unresolved for T-071, and it turned out more involved than a single filter:
  *
  * An earlier version of this file used `filters: { "payment_collections.payments.id": data.id }` directly
@@ -14,11 +14,13 @@
  * payment_collection→payment is a plain FK *within* the payment module), and `query.graph`'s filter
  * resolution only builds the join for a path that also appears in `fields` *within the same module* — it
  * does not reach across a module link that way. The fix, proven against the same real instance: resolve in
- * two steps — (1) query the `payment` entity for its own `payment_collection_id` (a same-module field, no
- * link involved), then (2) query `order` filtered by the *nested-object* form `{ payment_collections: { id:
- * paymentCollectionId } }` (one hop, the real module link `order.order <> payment.payment_collection`,
- * `docs/domain-glossary.md`'s own T-070 entry) — this nested-object shape is what actually resolves a
- * cross-module link filter; the flat dotted-string form does not, at least not two hops deep.
+ * steps — (1) query the `payment` entity for its own `payment_collection_id` (a same-module field, no
+ * link involved), then (2) read the order's id from the payment collection's side of the link
+ * (`payment_collection.order.id`) and (3) query the order by that id. Step 2 used to be a filter on the
+ * order's side, `{ payment_collections: { id } }`; that works on Medusa 2.19 and later but not on 2.12,
+ * which refuses a filter across a module link ("Trying to query by not existing property
+ * Order.payment_collections") — reading a linked field works on every release the e2e matrix tried
+ * (P-59 item 8).
  *
  * T-072: one credit note per *refund*, not per payment. The original version of this file treated the
  * whole payment as the idempotency unit (`idempotency_key: data.id`) — wrong for a payment with more than
@@ -120,15 +122,26 @@ export default async function creditNoteOnPaymentRefunded({
     return;
   }
 
+  const { data: collections } = await query.graph({
+    entity: "payment_collection",
+    filters: { id: payment.payment_collection_id },
+    fields: ["id", "order.id"],
+  });
+  const orderId = (
+    collections[0] as { readonly order?: { readonly id?: string } | null } | undefined
+  )?.order?.id;
+  if (orderId === undefined) {
+    // No order links to this payment collection (e.g. a cart-level/abandoned payment that never became an
+    // order) — nothing this plugin can credit.
+    return;
+  }
   const { data: orders } = await query.graph({
     entity: "order",
-    filters: { payment_collections: { id: payment.payment_collection_id } },
+    filters: { id: orderId },
     fields: ORDER_QUERY_FIELDS as unknown as string[],
   });
   const order = orders[0] as MedusaOrderForInvoice | undefined;
   if (order === undefined) {
-    // No order links to this payment collection (e.g. a cart-level/abandoned payment that never became an
-    // order) — nothing this plugin can credit.
     return;
   }
 

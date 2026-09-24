@@ -86,6 +86,8 @@ should show nothing from this stand at any point you're not actively mid-run.
   deliberately not `9000`) on the host by default; override with `EINVOICE_E2E_POSTGRES_PORT` /
   `EINVOICE_E2E_VERDACCIO_PORT` / `EINVOICE_E2E_MEDUSA_PORT` if any of those collide with something else
   already running.
+- **To look inside the failing stand**: `EINVOICE_E2E_KEEP_STAND=1` leaves it running after the run
+  (`docker exec einvoice-e2e-medusa-1 …`); the next run removes it first.
 - **Still stuck**: [open an issue](https://github.com/normwerk/einvoice/issues) with the log files above
   attached — real container logs are far more useful here than a description of what happened.
 

@@ -89,6 +89,10 @@ export const ORDER_QUERY_FIELDS = [
   "items.discount_total",
   "items.adjustments.code",
   "shipping_methods.name",
+  // P-59 (item 8): the amount every shipping total is computed from. Medusa 2.19 and later add it on their
+  // own; before 2.19 a query without it returns every shipping total — and the order's `total` — as if
+  // shipping were free, so the invoice left shipping out and the total check had nothing to catch.
+  "shipping_methods.amount",
   "shipping_methods.is_tax_inclusive",
   "shipping_methods.total",
   "shipping_methods.subtotal",

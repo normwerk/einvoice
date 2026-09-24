@@ -76,6 +76,11 @@ export default async function setup(): Promise<() => Promise<void>> {
     // for now; a real pass/fail signal from vitest's own run would let this skip on green, a refinement
     // for a later pass, not this one.
     await collectLogs();
+    if (process.env["EINVOICE_E2E_KEEP_STAND"] === "1") {
+      // For inspecting a failure in the running stand; the next run's own down() removes it.
+      console.log("[e2e] EINVOICE_E2E_KEEP_STAND=1: the stand is left running.");
+      return;
+    }
     await down();
     const appCopy = process.env["EINVOICE_E2E_APP_DIR"];
     if (medusaVersion !== undefined && medusaVersion !== "" && appCopy !== undefined) {

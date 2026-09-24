@@ -554,10 +554,17 @@ integrations` itself states the list "is curated from npm," and its own visible 
   default rate) became a 7% line on the invoice. It now passes the summed rate on as
   `CommerceLine.chargedVatRate`, and `resolveLineRate` in `einvoice-commerce` decides: 19 or 7 on a
   domestic line, exactly the declared `ossRateOverride` on an OSS line, refusal otherwise.
-- **Below Medusa 2.19 the plugin's order query comes back incomplete, without an error.** Run through the
-  end-to-end suite (`EINVOICE_E2E_MEDUSA_VERSION`, 2026-09-24): on 2.18.0 the shipping amounts and the order
-  `total` are missing, so the invoice leaves out shipping and the total check has nothing to compare with —
-  no warning either; on 2.16.0 and 2.17.2 the order lines also arrive without `tax_lines`; on 2.12.6
-  `query.graph` cannot filter orders by `payment_collections.payments.id` at all, so a refund finds no
-  order. 2.19.0, 2.20.1, 2.21.0 and 2.21.1 pass everything. npm enforces the `^2.19.0` peer range; a
-  package manager that only warns on peers does not.
+- **Before Medusa 2.19 `query.graph` computes shipping totals only when `shipping_methods.amount` is in
+  `fields`.** Without it every shipping method's `total`/`subtotal` — and the order's `total` — come back as
+  if shipping were free: the invoice left shipping out, and the total check compared a total without
+  shipping with a total without shipping and stayed silent (2.12.6 and 2.16.0 checked in a running stand,
+  2.18.0 by the end-to-end suite before and after the fix, 2026-09-24). 2.19 and later add the field themselves; `ORDER_QUERY_FIELDS` now asks for it.
+- **Medusa 2.12 cannot filter across a module link in `query.graph`**: `filters: { payment_collections:
+{ id } }` on `order` fails with "Trying to query by not existing property Order.payment_collections".
+  Reading the linked field works on every release whose refund scenarios ran (2.12.6, 2.18.0 and later), so the refund subscriber reads
+  `payment_collection.order.id` and then fetches the order by id.
+- **On Medusa 2.16 and 2.17 the test store's products were charged no VAT, only its shipping** — the order's
+  `item_tax_total` is 0 and its lines have no tax lines, read straight from Medusa's own order detail
+  workflow, so the plugin refuses every domestic order there (a line charged 0% is not invoiced at 19%).
+  2.12 and 2.18 tax the same products. Cause not pinned down; 2.16.0 changed tax handling around gift-card
+  lines (#15545).
