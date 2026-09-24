@@ -4,6 +4,19 @@ MIT-licensed TypeScript core for structured e-invoices ([EN 16931](https://en.wi
 
 **Status: pre-release.** Everything below is implemented and tested, but not yet published to npm. See [`docs/README.md`](docs/README.md) for the documentation index; the same documentation is published at [normwerk.dev/einvoice/docs](https://normwerk.dev/einvoice/docs/).
 
+## Contents
+
+- [What it covers](#what-it-covers) — [who it serves](#who-it-serves), [scenarios](#scenarios),
+  [what it refuses](#what-it-refuses)
+- [How correctness is verified](#how-correctness-is-verified)
+- [Packages](#packages)
+- [Getting started](#getting-started)
+- [Country roadmap](#country-roadmap)
+- [Other planned work](#other-planned-work)
+- [Development](#development)
+- [License](#license)
+- [Commercial support](#commercial-support)
+
 ## What it covers
 
 ### Who it serves
