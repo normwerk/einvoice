@@ -585,3 +585,15 @@ integrations` itself states the list "is curated from npm," and its own visible 
   `total`, `subtotal`, `tax_total`, `discount_subtotal` onto each `shipping_methods[]` entry
   (`Object.assign`), which happens only when a top-level totals field such as `total` is requested
   (`OrderModuleService.shouldIncludeTotals`).
+- **A received return shrinks the order's totals.** Once goods come back, Medusa computes each line's
+  `total`, `subtotal`, `discount_subtotal` and the order's `total` for the units the buyer kept (a line all
+  of whose units came back has `total` 0), while `detail.quantity` stays the ordered quantity
+  (`@medusajs/utils` `totals/line-item`: `currentQuantity = quantity − returned`). The returned units' value
+  is `return_received_total` — the full-quantity gross after discounts per unit, times
+  `detail.return_received_quantity` — computed only when that quantity field is requested with a totals field.
+- **Query a return's items through the return, not the order.** `query.graph` on `order` with
+  `returns.items.received_quantity` returns the return items without `received_quantity` (only `item_id`);
+  on `return`, filtered by `order_id`, it is there (both checked on 2.21.0).
+- **A partially received return has no `received_at`.** `confirmReturnReceiveWorkflow` sets `received_at`
+  (and status `received`) only when everything requested came back; otherwise status `partially_received`,
+  `received_at` null.

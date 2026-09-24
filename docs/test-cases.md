@@ -16,12 +16,14 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/fixtures.test.ts` — every fixture in `fixtures/` validates against that same generated
   schema — the model-level counterpart to the conformance suite's real KoSIT run below.
 
-### `einvoice-commerce` (125 tests)
+### `einvoice-commerce` (135 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
   decided by where the goods go (row 4), domestic and cross-border reverse charge (rows 5 and 12, the latter
-  needing BT-48), shipping/discount rates following the lines' rate, line-level discounts (BG-27), credit
+  needing BT-48), shipping/discount rates following the lines' rate — split across the rates of a mixed
+  basket in proportion to the lines, net or gross, and refused when the lines add up to zero — line-level
+  discounts (BG-27), credit
   notes (row 10), a declared Leitweg-ID validated and an ordinary buyer reference never read as one, input validation, BT-158/BT-159 customs fields, the parties'
   address lines (a seller without a street refused, a buyer without one warned about above EUR 250), both
   parties' electronic address (refused without one: KoSIT rejects it), prices
@@ -35,8 +37,12 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   than the one it was charged at.
 - `src/decimal.test.ts` — exact decimal arithmetic and BR-CO-\* rounding (ties towards +Infinity, ADR-004),
   and the arithmetic for prices including VAT: the VAT contained in a gross amount, a group's net spread
-  over its parts to the cent (largest remainder), a net unit price from a line amount, and comparing rates
-  of any scale.
+  over its parts to the cent (largest remainder), a net unit price from a line amount, comparing rates
+  of any scale, and `apportionAmount` (a total split in proportion to weights, to the cent).
+- `src/credit-allocation.test.ts` — `allocateCreditAcrossRates`: a received return paid for first at its
+  own rate, returns covered in the order received and never beyond a rate's uncredited amount, the rest
+  split in proportion to what is uncredited per rate, a cancellation's remainder exactly per rate, and a
+  credit above the uncredited amount refused.
 - `src/leitweg-id.test.ts` — `validateLeitwegId` against the real KoSIT Leitweg-ID Format-Spezifikation
   v2.0.2.
 - `src/numbering.test.ts` — `SequentialNumberer`, and `InMemoryNumberingStore`'s own concurrency behavior
@@ -69,7 +75,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (208 tests)
+### `einvoice-medusa` (211 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -103,14 +109,17 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   — one row per key, updated by a retry refused again and by a lost insert race, cleared once issued.
 - `src/mapping/credit-note.test.ts` — `decideCreditScope` (a refund credits at most what is still
   outstanding on the invoice; the whole order is restated only when nothing was credited before),
-  `toPartialCreditNoteInput` (one VAT-inclusive line over the credited sum), `extractGrandTotalFromCii`,
+  `toPartialCreditNoteInput` (VAT-inclusive lines over the credited sums), `extractGrandTotalFromCii`,
+  `extractGrossByRateFromCii` (a document's gross per rate from its BG-23 breakdown), `returnsToCredit`
+  (received returns valued at their lines' gross price, oldest first, less what earlier credit notes paid),
   and `creditableRefund` (after an overpayment notice, a refund returns the overpayment first and credits
   only what goes beyond it).
 - `src/subscribers/credit-note-on-payment-refunded.test.ts` — the refund subscriber: `extractIssueDateFromCii`
   (parsing BT-2 back out of already-generated CII XML), `MissingOriginalInvoiceError`, a full refund
   restating the order, a partial refund producing a one-line credit note, never crediting beyond what is
-  outstanding, a partial refund over mixed VAT rates refused — and recorded — before a document number is
-  taken, a refund with no invoice recorded as a refusal naming its payment, and a refund of an overpayment
+  outstanding, a partial refund over mixed VAT rates credited with a line per rate in proportion to the
+  invoice, a received return paid for first at its own rate and recorded as covered, a refund with no
+  invoice recorded as a refusal naming its payment, and a refund of an overpayment
   the invoice's notice names crediting nothing while a later one credits its own amount.
 - `src/subscribers/credit-note-on-order-canceled.test.ts` — the cancellation subscriber: no credit note
   without an invoice, the whole invoice or only its outstanding remainder credited, Webbers mode leaving
@@ -189,7 +198,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 17 files / 25 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 18 files / 27 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -199,7 +208,9 @@ state: issued with a refund-due notice; refunding the overpayment credits nothin
 credits its own amount), S13 (an invoice stating more VAT than was charged: not issued, the reason in the
 admin API, the order corrected, the retry issues it; a refund made meanwhile refused and credited by its own
 retry), S14 (VIES unavailable: the invoice refused and recorded, retried after the VAT-ID was confirmed by
-hand), idempotency (an event delivered to the
+hand), S15 (a 7 % / 19 % basket: shipping split into a charge per rate with the notice naming it as the
+cause; a received return credited at its own rate, a goodwill refund and the rest of a cancelled order
+credited per rate, every document KoSIT-green), idempotency (an event delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option, a seller
 outside Germany),
 and tarball contents across all six published packages. Every invoice scenario also checks that the

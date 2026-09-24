@@ -11,6 +11,26 @@ export async function createShippingOptionTaxRate(
   shippingOptionId: string,
   rate: number,
 ): Promise<string> {
+  return createTaxRateOverride(admin, countryCode, "shipping_option", shippingOptionId, rate);
+}
+
+/** P-65: a tax rate override for one product — how a shop charges the reduced rate on a book. */
+export async function createProductTaxRate(
+  admin: AdminSession,
+  countryCode: string,
+  productId: string,
+  rate: number,
+): Promise<string> {
+  return createTaxRateOverride(admin, countryCode, "product", productId, rate);
+}
+
+async function createTaxRateOverride(
+  admin: AdminSession,
+  countryCode: string,
+  reference: "shipping_option" | "product",
+  referenceId: string,
+  rate: number,
+): Promise<string> {
   const { tax_regions: regions } = await adminGetJson<{
     readonly tax_regions: readonly { readonly id: string; readonly country_code: string }[];
   }>(admin, `/admin/tax-regions?country_code=${countryCode}&fields=id,country_code,parent_id`);
@@ -24,10 +44,10 @@ export async function createShippingOptionTaxRate(
     {
       tax_region_id: region.id,
       rate,
-      code: `SHIP-${countryCode.toUpperCase()}-${rate}`,
-      name: `Shipping ${rate} %`,
+      code: `${reference.toUpperCase()}-${countryCode.toUpperCase()}-${rate}`,
+      name: `${reference} ${rate} %`,
       is_combinable: false,
-      rules: [{ reference: "shipping_option", reference_id: shippingOptionId }],
+      rules: [{ reference, reference_id: referenceId }],
     },
   );
   return taxRate.id;

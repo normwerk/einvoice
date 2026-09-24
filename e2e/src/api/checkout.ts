@@ -27,6 +27,8 @@ export interface CheckoutInput {
    * (verified against a real run: carrying this bearer token on cart creation is what does it, not a
    * separate "claim this cart" call). Omitted for a guest checkout (S1). */
   readonly customerToken?: string;
+  /** P-65: more lines in the same cart — a mixed-rate basket. */
+  readonly extraItems?: readonly { readonly variantId: string; readonly quantity?: number }[];
 }
 
 export interface CheckoutResult {
@@ -62,7 +64,13 @@ export async function checkoutToOrder(input: CheckoutInput): Promise<CheckoutRes
     {
       region_id: input.regionId,
       sales_channel_id: input.salesChannelId,
-      items: [{ variant_id: input.variantId, quantity: input.quantity ?? 1 }],
+      items: [
+        { variant_id: input.variantId, quantity: input.quantity ?? 1 },
+        ...(input.extraItems ?? []).map((item) => ({
+          variant_id: item.variantId,
+          quantity: item.quantity ?? 1,
+        })),
+      ],
     },
     customerToken,
   );

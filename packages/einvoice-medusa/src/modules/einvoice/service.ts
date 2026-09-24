@@ -231,6 +231,15 @@ export interface EinvoiceDocumentRecord {
   readonly pdf_file_id: string | null;
   /** P-63: issued although it states less VAT than Medusa charged — `null` otherwise. */
   readonly notice: InvoiceNotice | null;
+  /** P-65: on a partial credit note, the received returns it paid for, per rate — `null` otherwise. */
+  readonly covered_returns: readonly CoveredReturn[] | null;
+}
+
+/** P-65: the part of a received return a credit note paid for, at one rate. */
+export interface CoveredReturn {
+  readonly returnId: string;
+  readonly rate: string;
+  readonly gross: string;
 }
 
 export interface RecordDocumentInput {
@@ -241,6 +250,7 @@ export interface RecordDocumentInput {
   readonly xmlFileId: string;
   readonly pdfFileId?: string | null;
   readonly notice?: InvoiceNotice | null;
+  readonly coveredReturns?: readonly CoveredReturn[] | null;
 }
 
 /** P-63: a document the plugin did not issue (`einvoice-refusal.ts`). */
@@ -368,6 +378,10 @@ export default class EinvoiceModuleService extends MedusaService({
         xml_file_id: input.xmlFileId,
         pdf_file_id: input.pdfFileId ?? null,
         notice: (input.notice ?? null) as Record<string, unknown> | null,
+        covered_returns: (input.coveredReturns ?? null) as unknown as Record<
+          string,
+          unknown
+        > | null,
       })) as unknown as EinvoiceDocumentRecord;
       return { document: created, created: true };
     } catch (error) {

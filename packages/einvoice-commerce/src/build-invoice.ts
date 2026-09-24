@@ -13,7 +13,6 @@
  */
 import { validateModel, type Invoice, type VatCategoryCode } from "@normwerk/einvoice-model";
 import {
-  DE_STANDARD_RATE,
   EU_MEMBER_STATES,
   TaxRuleError,
   decideVatCategory,
@@ -21,7 +20,9 @@ import {
   resolveLineRate,
 } from "./tax-rules.js";
 import {
+  apportionAmount,
   compareAmounts,
+  isZeroAmount,
   multiplyToAmount,
   netsOfVatInclusiveParts,
   percentOfAmount,
@@ -475,36 +476,82 @@ export function buildInvoice(
     reason: discount.reason,
   }));
 
-  // Document-level shipping/discounts: same VAT category as the overall regime, and — for category S — the
+  // Document-level shipping and discounts: the VAT category of the overall regime and — for category S — the
   // rate of the supply they belong to. Shipping charged by the seller is an ancillary supply that shares
   // the main supply's rate (Art. 78(b) VAT Directive, §10 Abs. 1 UStG, UStAE 3.10 Abs. 5), and a discount
-  // reduces the base of the supplies it relates to (§17 UStG) — so a basket with a single line rate
-  // (all 7%, all 19%, or an OSS destination rate) takes exactly that rate (P-40). Only a basket that mixes
-  // rates has no single answer: splitting the amount across rates is an open decision (M-039), so until it's
-  // made the amount stays at the standard rate, with a warning, as before.
-  const lineRates = new Set(lineComputations.map((l) => l.rate));
-  const singleLineRate = lineRates.size === 1 ? lineComputations[0]?.rate : undefined;
-  const chargeCategoryRate =
-    regimeDecision.categoryCode !== "S" ? "0" : (singleLineRate ?? DE_STANDARD_RATE);
-  if (
-    regimeDecision.categoryCode === "S" &&
-    singleLineRate === undefined &&
-    (input.shipping !== undefined || (input.discounts ?? []).length > 0)
-  ) {
-    warnings.push({
-      code: "shipping-discount-rate-assumption",
-      message:
-        "This invoice mixes VAT rates across its lines; its shipping/discounts are taxed at the standard " +
-        "rate, not apportioned across the rates of the lines they relate to.",
-    });
+  // reduces the base of the supplies it relates to (§17 UStG): a basket with a single line rate (all 7%,
+  // all 19%, or an OSS destination rate) takes exactly that rate (P-40). A basket that mixes rates holds
+  // supplies at each of them, so each amount is split across the rates in proportion to the lines' net
+  // amounts at each rate, after their own allowances (P-65, M-039; UStAE 10.1 Abs. 11 by analogy): one
+  // BG-21/BG-20 per rate, the cents left over by largest remainder (`apportionAmount`). A VAT-inclusive
+  // amount is split gross; each rate's VAT is taken out of its share with the rest of that rate's group.
+  const lineRates = [...new Set(lineComputations.map((l) => l.rate))];
+  const lineNetOfRate = (rate: string): string => {
+    const ofRate = lineComputations.filter((l) => l.rate === rate);
+    const net = sumAmounts(ofRate.filter((l) => l.basis === "net").map((l) => l.amount));
+    const inclusive = sumAmounts(
+      ofRate.filter((l) => l.basis === "inclusive").map((l) => l.amount),
+    );
+    return sumAmounts([net, subtractAmounts(inclusive, vatContainedIn(inclusive, rate))]);
+  };
+  interface DocumentPiece {
+    readonly rate: string;
+    readonly amount: string;
+    readonly basis: PriceBasis;
+    readonly reason?: string | undefined;
   }
+  const apportionAcrossLineRates = (
+    charge: {
+      readonly amount: string;
+      readonly basis: PriceBasis;
+      readonly reason?: string | undefined;
+    },
+    what: string,
+  ): DocumentPiece[] => {
+    const [onlyRate] = lineRates;
+    if (lineRates.length === 1 && onlyRate !== undefined) {
+      return [
+        { rate: onlyRate, amount: charge.amount, basis: charge.basis, reason: charge.reason },
+      ];
+    }
+    const weights = lineRates.map(lineNetOfRate);
+    if (weights.every(isZeroAmount)) {
+      throw new TaxRuleError(
+        `The ${what} cannot be split across the invoice's VAT rates: its lines add up to zero at every ` +
+          "rate, so there is no proportion to split it in.",
+        "tax-semantics#9",
+      );
+    }
+    const shares = apportionAmount(charge.amount, weights);
+    return lineRates.flatMap((rate, index) => {
+      const share = shares[index] as string;
+      const perRate = `anteilig ${rate} %`;
+      return isZeroAmount(share)
+        ? []
+        : [
+            {
+              rate,
+              amount: share,
+              basis: charge.basis,
+              reason: charge.reason === undefined ? perRate : `${charge.reason} (${perRate})`,
+            },
+          ];
+    });
+  };
+  const chargePieces: DocumentPiece[] =
+    shipping !== undefined ? apportionAcrossLineRates(shipping, "shipping") : [];
+  const allowancePieces: DocumentPiece[] = discounts.flatMap((discount, index) =>
+    apportionAcrossLineRates(discount, `discount ${index + 1}`),
+  );
 
   // BG-23 VAT breakdown: group by (category, rate) — a domestic (S) document can have more than one group
   // (docs/tax-semantics.md row 9, mixed rates); every other regime is uniform, so exactly one group. A
   // group's net-priced parts are taxed as they are (BR-CO-17); its VAT-inclusive parts keep their gross
   // total — the VAT is taken out of it and the net spread back over them (P-61).
-  type PartRef =
-    { readonly kind: "line" | "discount"; readonly index: number } | { readonly kind: "shipping" };
+  interface PartRef {
+    readonly kind: "line" | "charge" | "allowance";
+    readonly index: number;
+  }
   interface GroupPart {
     readonly ref: PartRef;
     readonly amount: string;
@@ -523,26 +570,31 @@ export function buildInvoice(
       negative: false,
     }),
   );
-  if (shipping !== undefined) {
-    addPart(chargeCategoryRate, {
-      ref: { kind: "shipping" },
-      amount: shipping.amount,
-      basis: shipping.basis,
+  chargePieces.forEach((piece, index) =>
+    addPart(piece.rate, {
+      ref: { kind: "charge", index },
+      amount: piece.amount,
+      basis: piece.basis,
       negative: false,
-    });
-  }
-  discounts.forEach((discount, index) =>
-    addPart(chargeCategoryRate, {
-      ref: { kind: "discount", index },
-      amount: discount.amount,
-      basis: discount.basis,
+    }),
+  );
+  allowancePieces.forEach((piece, index) =>
+    addPart(piece.rate, {
+      ref: { kind: "allowance", index },
+      amount: piece.amount,
+      basis: piece.basis,
       negative: true,
     }),
   );
 
   const lineNets: string[] = lineComputations.map((lc) => lc.amount);
-  let shippingNet = shipping?.amount;
-  const discountNets: string[] = discounts.map((discount) => discount.amount);
+  const chargeNets: string[] = chargePieces.map((piece) => piece.amount);
+  const allowanceNets: string[] = allowancePieces.map((piece) => piece.amount);
+  const netsOf: Record<PartRef["kind"], string[]> = {
+    line: lineNets,
+    charge: chargeNets,
+    allowance: allowanceNets,
+  };
   const signedSum = (parts: readonly GroupPart[]): string =>
     subtractAmounts(
       sumAmounts(parts.filter((p) => !p.negative).map((p) => p.amount)),
@@ -556,10 +608,7 @@ export function buildInvoice(
     const inclusiveNet = subtractAmounts(inclusiveTotal, inclusiveVat);
     const nets = netsOfVatInclusiveParts(inclusiveParts, rate, inclusiveNet);
     inclusiveParts.forEach((part, k) => {
-      const net = nets[k] as string;
-      if (part.ref.kind === "line") lineNets[part.ref.index] = net;
-      else if (part.ref.kind === "discount") discountNets[part.ref.index] = net;
-      else shippingNet = net;
+      netsOf[part.ref.kind][part.ref.index] = nets[k] as string;
     });
     const taxableAmount = sumAmounts([netPart, inclusiveNet]);
     return {
@@ -574,22 +623,17 @@ export function buildInvoice(
     };
   });
 
-  const documentLevelCharges: ChargeLine[] =
-    shipping !== undefined && shippingNet !== undefined
-      ? [
-          {
-            amount: shippingNet,
-            vatCategoryCode: regimeDecision.categoryCode,
-            vatRate: chargeCategoryRate,
-            reason: shipping.reason,
-          },
-        ]
-      : [];
-  const documentLevelAllowances: ChargeLine[] = discounts.map((discount, index) => ({
-    amount: discountNets[index] as string,
+  const documentLevelCharges: ChargeLine[] = chargePieces.map((piece, index) => ({
+    amount: chargeNets[index] as string,
     vatCategoryCode: regimeDecision.categoryCode,
-    vatRate: chargeCategoryRate,
-    reason: discount.reason,
+    vatRate: piece.rate,
+    reason: piece.reason,
+  }));
+  const documentLevelAllowances: ChargeLine[] = allowancePieces.map((piece, index) => ({
+    amount: allowanceNets[index] as string,
+    vatCategoryCode: regimeDecision.categoryCode,
+    vatRate: piece.rate,
+    reason: piece.reason,
   }));
 
   const sumOfLineNetAmounts = sumAmounts(lineNets);

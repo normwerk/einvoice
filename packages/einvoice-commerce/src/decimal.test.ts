@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  apportionAmount,
   compareAmounts,
   compareDecimals,
   isZeroAmount,
@@ -87,5 +88,18 @@ describe("VAT-inclusive amounts (P-61)", () => {
     expect(compareDecimals("19", "19.000")).toBe(0);
     expect(compareDecimals("5.5", "7")).toBe(-1);
     expect(compareDecimals("20", "19.99")).toBe(1);
+  });
+});
+
+describe("apportionAmount (P-65)", () => {
+  it("splits in proportion, the cents left over to the largest remainders, summing to exactly the total", () => {
+    expect(apportionAmount("10.00", ["100.00", "40.00"])).toEqual(["7.14", "2.86"]);
+    expect(apportionAmount("0.01", ["1.00", "1.00", "1.00"])).toEqual(["0.01", "0.00", "0.00"]);
+    expect(apportionAmount("1.00", ["1.00", "1.00", "1.00"])).toEqual(["0.34", "0.33", "0.33"]);
+  });
+
+  it("gives a zero weight nothing, and refuses when every weight is zero", () => {
+    expect(apportionAmount("5.00", ["0.00", "20.00"])).toEqual(["0.00", "5.00"]);
+    expect(() => apportionAmount("5.00", ["0.00", "0.00"])).toThrow(/non-zero weight/);
   });
 });

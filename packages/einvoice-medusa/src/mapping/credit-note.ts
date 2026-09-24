@@ -7,7 +7,11 @@
  * Only type-only imports from the core packages, for the same CommonJS/ESM reason as
  * `order-to-commerce-invoice-input.ts`'s own doc comment.
  */
-import type { CommerceInvoiceInput } from "@normwerk/einvoice-commerce" with {
+import type {
+  AmountAtRate,
+  CommerceInvoiceInput,
+  ReturnToCredit,
+} from "@normwerk/einvoice-commerce" with {
   "resolution-mode": "import",
 };
 import type { Amount, IsoDate } from "@normwerk/einvoice-model" with {
@@ -98,58 +102,150 @@ export function creditableRefund(input: CreditableRefundInput): Amount {
 export interface PartialCreditNoteLine {
   /** The credited gross sum — passed on VAT-inclusive, so the credit note totals exactly this (P-61). */
   readonly gross: Amount;
-  /** The rate facts every line of the order shares (a partial credit note over mixed rates is refused). */
+  /** The rate facts of an order line at the rate this line credits — `buildInvoice` resolves the same rate
+   * from them as it did for that line on the invoice. */
   readonly taxRateKind: "standard" | "reduced" | undefined;
   readonly chargedVatRate: Amount | undefined;
-  readonly originalInvoiceNumber: string;
-  /** Names the line: a partial refund, or the rest of an invoice cancelled after part of it was credited. */
-  readonly reason?: "refund" | "cancellation";
+  /** What the line credits: goods returned, a partial refund, the rest of a cancelled invoice. */
+  readonly label: string;
 }
 
 /**
- * A partial credit note has one line: the credited gross amount, VAT-inclusive, under the same category and
- * rate as the invoice it corrects (the order's own `taxContext` is kept, so `buildInvoice` decides exactly as it did
- * for the invoice). The order's lines, shipping and discounts are left out — they describe what was sold,
- * not what is being credited.
+ * A partial credit note has one line per rate and kind of credit (P-65): the credited gross amounts,
+ * VAT-inclusive, under the same category as the invoice it corrects (the order's own `taxContext` is kept, so
+ * `buildInvoice` decides exactly as it did for the invoice). The order's lines, shipping and discounts are
+ * left out — they describe what was sold, not what is being credited.
  */
 export function toPartialCreditNoteInput(
   input: CommerceInvoiceInput,
-  line: PartialCreditNoteLine,
+  lines: readonly PartialCreditNoteLine[],
+  originalInvoiceNumber: string,
 ): CommerceInvoiceInput {
-  const label =
-    line.reason === "cancellation"
-      ? "Stornierung Restbetrag / Cancellation of the remaining amount"
-      : "Teilerstattung / Partial refund";
   const supplyType =
     input.taxContext.supplyType === "mixed" ? undefined : input.taxContext.supplyType;
   return {
     ...input,
-    lines: [
-      {
-        identifier: "1",
-        quantity: "1",
-        unitCode: "C62",
-        priceInclVat: line.gross,
-        itemName: `${label} — Rechnung ${line.originalInvoiceNumber}`,
-        taxRateKind: line.taxRateKind,
-        chargedVatRate: line.chargedVatRate,
-        supplyType,
-      },
-    ],
+    lines: lines.map((line, index) => ({
+      identifier: String(index + 1),
+      quantity: "1",
+      unitCode: "C62",
+      priceInclVat: line.gross,
+      itemName: `${line.label} — Rechnung ${originalInvoiceNumber}`,
+      taxRateKind: line.taxRateKind,
+      chargedVatRate: line.chargedVatRate,
+      supplyType,
+    })),
     shipping: undefined,
     discounts: undefined,
   };
 }
 
-export class PartialCreditAcrossRatesError extends Error {
-  constructor(readonly orderId: string) {
-    super(
-      `Order ${orderId}: a partial credit note for an order whose lines carry different VAT rates needs a ` +
-        "rule for splitting the credited amount across those rates, and none is decided yet. Issue this " +
-        "credit note yourself; a full refund or cancellation is still credited automatically.",
+/** A VAT rate as a map key: "19", "19.0" and "19.00" are one rate. */
+export function rateKey(rate: string): string {
+  return String(Number(rate));
+}
+
+/**
+ * P-65: the gross amount per VAT rate of a CII document this plugin generated itself — its BG-23 breakdown
+ * (`ram:ApplicableTradeTax` at document level, the ones with a `ram:CalculatedAmount`), taxable amount plus
+ * tax. What an invoice charged, or a credit note credited, at each rate.
+ */
+export function extractGrossByRateFromCii(xml: string): readonly AmountAtRate[] {
+  const groups =
+    xml.match(
+      /<ram:ApplicableTradeTax>(?:(?!<\/ram:ApplicableTradeTax>)[\s\S])*<\/ram:ApplicableTradeTax>/g,
+    ) ?? [];
+  const byRate = new Map<string, number>();
+  for (const group of groups) {
+    const tax = /<ram:CalculatedAmount[^>]*>(\d+(?:\.\d+)?)<\/ram:CalculatedAmount>/.exec(group);
+    const basis = /<ram:BasisAmount[^>]*>(\d+(?:\.\d+)?)<\/ram:BasisAmount>/.exec(group);
+    if (tax === null || basis === null) continue;
+    const rate = /<ram:RateApplicablePercent>(\d+(?:\.\d+)?)<\/ram:RateApplicablePercent>/.exec(
+      group,
     );
-    this.name = "PartialCreditAcrossRatesError";
+    const key = rateKey(rate?.[1] ?? "0");
+    byRate.set(
+      key,
+      (byRate.get(key) ?? 0) + toCents(basis[1] as string) + toCents(tax[1] as string),
+    );
   }
+  if (byRate.size === 0) {
+    throw new Error("extractGrossByRateFromCii: no VAT breakdown (ram:ApplicableTradeTax) found.");
+  }
+  return [...byRate.entries()].map(([rate, cents]) => ({ rate, gross: fromCents(cents) }));
+}
+
+/** A received return of goods, as the order query returns it. */
+export interface MedusaReturnForCredit {
+  readonly id: string;
+  readonly status?: string | null;
+  /** Set only once the whole return is received; a partially received one has none. */
+  readonly received_at?: string | Date | null;
+  readonly created_at?: string | Date | null;
+  readonly items?:
+    | readonly {
+        readonly item_id?: string | null;
+        readonly received_quantity?: number | string | null;
+      }[]
+    | null;
+}
+
+/**
+ * An order line's value of its received returns, as the order query returns it. `return_received_total` is
+ * Medusa's own: the line's full-quantity gross total after discounts, per unit, times the units received
+ * back — its `total` is no use here, since Medusa recomputes it for the units the buyer kept (0 once all came
+ * back; checked on Medusa 2.21 and in `@medusajs/utils@2.19.0` `totals/line-item`).
+ */
+export interface MedusaItemValue {
+  readonly id?: string | null;
+  /** A `BigNumber` at runtime, read through `Number()`. */
+  readonly return_received_total?: number | string | null;
+  readonly detail?: { readonly return_received_quantity?: number | string | null } | null;
+}
+
+/**
+ * P-65: the order's received returns — fully or partly — oldest first, with the gross value still to credit
+ * at each rate: each received unit at its line's gross price after discounts, less what earlier credit
+ * notes paid for it (`covered`). `rateOfItem` gives the invoice rate of a line by its id.
+ */
+export function returnsToCredit(
+  returns: readonly MedusaReturnForCredit[],
+  items: readonly MedusaItemValue[],
+  rateOfItem: (itemId: string) => string | undefined,
+  covered: readonly { readonly returnId: string; readonly rate: string; readonly gross: Amount }[],
+): readonly ReturnToCredit[] {
+  const itemsById = new Map(
+    items.flatMap((item) => (typeof item.id === "string" ? [[item.id, item] as const] : [])),
+  );
+  // A partially received return has no `received_at` yet; it counts from when it was created.
+  const time = (r: MedusaReturnForCredit): number =>
+    new Date(r.received_at ?? r.created_at ?? 0).getTime();
+  const received = returns
+    .filter((r) => r.status === "received" || r.status === "partially_received")
+    .sort((a, b) => time(a) - time(b) || a.id.localeCompare(b.id));
+  return received.flatMap((ret) => {
+    const byRate = new Map<string, number>();
+    for (const returned of ret.items ?? []) {
+      const quantity = Number(returned.received_quantity ?? 0);
+      const item = returned.item_id ? itemsById.get(returned.item_id) : undefined;
+      const rate = returned.item_id ? rateOfItem(returned.item_id) : undefined;
+      const receivedOfLine = Number(item?.detail?.return_received_quantity ?? 0);
+      if (quantity <= 0 || item === undefined || rate === undefined || receivedOfLine <= 0)
+        continue;
+      const value = Math.round(
+        (Number(item.return_received_total ?? 0) * quantity * 100) / receivedOfLine,
+      );
+      byRate.set(rateKey(rate), (byRate.get(rateKey(rate)) ?? 0) + value);
+    }
+    for (const done of covered.filter((c) => c.returnId === ret.id)) {
+      const key = rateKey(done.rate);
+      byRate.set(key, (byRate.get(key) ?? 0) - toCents(done.gross));
+    }
+    const left = [...byRate.entries()].filter(([, cents]) => cents > 0);
+    return left.length === 0
+      ? []
+      : [{ id: ret.id, byRate: left.map(([rate, cents]) => ({ rate, gross: fromCents(cents) })) }];
+  });
 }
 
 /** BT-2 of a CII document this plugin generated itself — the original invoice's date for BT-26. */

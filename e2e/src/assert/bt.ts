@@ -136,3 +136,43 @@ export function addressLineOne(
     .slice(start, end)
     .match(/<ram:PostalTradeAddress>[\s\S]*?<ram:LineOne>([^<]+)<\/ram:LineOne>/)?.[1];
 }
+
+/** P-65: every document-level charge (BG-21) — amount (BT-99), rate (BT-103) and reason (BT-104). */
+export function documentCharges(
+  xml: string,
+): readonly { readonly amount: number; readonly rate: string; readonly reason: string }[] {
+  const blocks =
+    xml.match(
+      /<ram:SpecifiedTradeAllowanceCharge><ram:ChargeIndicator><udt:Indicator>true<\/udt:Indicator>(?:(?!<\/ram:SpecifiedTradeAllowanceCharge>).)*<\/ram:SpecifiedTradeAllowanceCharge>/g,
+    ) ?? [];
+  return blocks.map((block) => ({
+    amount: Number(/<ram:ActualAmount>([^<]+)<\/ram:ActualAmount>/.exec(block)?.[1]),
+    rate: /<ram:RateApplicablePercent>([^<]+)<\/ram:RateApplicablePercent>/.exec(block)?.[1] ?? "",
+    reason: /<ram:Reason>([^<]*)<\/ram:Reason>/.exec(block)?.[1] ?? "",
+  }));
+}
+
+/** P-65: the gross amount per VAT rate — the document-level BG-23 groups, taxable amount plus tax. */
+export function grossByRate(xml: string): Readonly<Record<string, number>> {
+  const groups =
+    xml.match(
+      /<ram:ApplicableTradeTax><ram:CalculatedAmount>(?:(?!<\/ram:ApplicableTradeTax>).)*<\/ram:ApplicableTradeTax>/g,
+    ) ?? [];
+  return Object.fromEntries(
+    groups.map((group) => {
+      const tax = Number(/<ram:CalculatedAmount>([^<]+)</.exec(group)?.[1]);
+      const basis = Number(/<ram:BasisAmount>([^<]+)</.exec(group)?.[1]);
+      const rate = String(Number(/<ram:RateApplicablePercent>([^<]+)</.exec(group)?.[1] ?? "0"));
+      return [rate, Math.round((tax + basis) * 100) / 100];
+    }),
+  );
+}
+
+/** P-65: every line's item name (BT-153). */
+export function lineNames(xml: string): readonly string[] {
+  return [
+    ...xml.matchAll(
+      /<ram:SpecifiedTradeProduct>(?:(?!<\/ram:SpecifiedTradeProduct>).)*?<ram:Name>([^<]*)<\/ram:Name>/g,
+    ),
+  ].map((match) => match[1] as string);
+}

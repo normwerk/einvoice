@@ -4,6 +4,8 @@ import type { CommerceInvoiceInput } from "@normwerk/einvoice-commerce" with {
 };
 import {
   creditableRefund,
+  extractGrossByRateFromCii,
+  returnsToCredit,
   decideCreditScope,
   extractGrandTotalFromCii,
   extractIssueDateFromCii,
@@ -138,12 +140,18 @@ describe("toPartialCreditNoteInput (P-41)", () => {
   } as unknown as CommerceInvoiceInput;
 
   it("replaces the order's lines, shipping and discounts with one VAT-inclusive line for the credited sum", () => {
-    const result = toPartialCreditNoteInput(INPUT, {
-      gross: "10.00",
-      taxRateKind: "standard",
-      chargedVatRate: undefined,
-      originalInvoiceNumber: "RE-2026-0007",
-    });
+    const result = toPartialCreditNoteInput(
+      INPUT,
+      [
+        {
+          gross: "10.00",
+          taxRateKind: "standard",
+          chargedVatRate: undefined,
+          label: "Teilerstattung / Partial refund",
+        },
+      ],
+      "RE-2026-0007",
+    );
     expect(result.lines).toEqual([
       {
         identifier: "1",
@@ -176,5 +184,63 @@ describe("reading an already generated CII invoice back (P-41)", () => {
     expect(() => extractGrandTotalFromCii("<rsm:CrossIndustryInvoice/>")).toThrow(
       /GrandTotalAmount/,
     );
+  });
+});
+
+describe("reading a document's amounts per rate back, and the returns still to credit (P-65)", () => {
+  it("adds up each rate's taxable amount and tax from the BG-23 breakdown, skipping line-level taxes", () => {
+    const xml =
+      "<ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>S</ram:CategoryCode>" +
+      "<ram:RateApplicablePercent>7</ram:RateApplicablePercent></ram:ApplicableTradeTax>" +
+      "<ram:ApplicableTradeTax><ram:CalculatedAmount>19.68</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>" +
+      "<ram:BasisAmount>103.57</ram:BasisAmount><ram:CategoryCode>S</ram:CategoryCode>" +
+      "<ram:RateApplicablePercent>19</ram:RateApplicablePercent></ram:ApplicableTradeTax>" +
+      "<ram:ApplicableTradeTax><ram:CalculatedAmount>2.90</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>" +
+      "<ram:BasisAmount>41.43</ram:BasisAmount><ram:CategoryCode>S</ram:CategoryCode>" +
+      "<ram:RateApplicablePercent>7.00</ram:RateApplicablePercent></ram:ApplicableTradeTax>";
+    expect(extractGrossByRateFromCii(xml)).toEqual([
+      { rate: "19", gross: "123.25" },
+      { rate: "7", gross: "44.33" },
+    ]);
+    expect(() => extractGrossByRateFromCii("<rsm:CrossIndustryInvoice/>")).toThrow(
+      /no VAT breakdown/,
+    );
+  });
+
+  it("values received returns at their lines' gross price, oldest first, less what earlier credit notes paid", () => {
+    // Units received back so far, over every return: 2 widgets (119.00 each), 2 books (10.70 each).
+    const items = [
+      { id: "item_widget", return_received_total: 238, detail: { return_received_quantity: 2 } },
+      { id: "item_book", return_received_total: 21.4, detail: { return_received_quantity: 2 } },
+    ];
+    const rateOfItem = (id: string): string | undefined =>
+      ({ item_widget: "19", item_book: "7" })[id];
+    const returns = [
+      {
+        id: "return_late",
+        status: "received",
+        received_at: "2026-02-01T10:00:00Z",
+        items: [{ item_id: "item_widget", received_quantity: 1 }],
+      },
+      {
+        id: "return_early",
+        status: "partially_received",
+        received_at: null,
+        created_at: "2026-01-20T10:00:00Z",
+        items: [
+          { item_id: "item_book", received_quantity: 2 },
+          { item_id: "item_widget", received_quantity: 1 },
+        ],
+      },
+      { id: "return_open", status: "requested", received_at: null, items: [] },
+    ];
+    expect(
+      returnsToCredit(returns, items, rateOfItem, [
+        { returnId: "return_early", rate: "7", gross: "21.40" },
+      ]),
+    ).toEqual([
+      { id: "return_early", byRate: [{ rate: "19", gross: "119.00" }] },
+      { id: "return_late", byRate: [{ rate: "19", gross: "119.00" }] },
+    ]);
   });
 });

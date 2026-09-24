@@ -43,6 +43,15 @@ export {
 } from "./build-invoice.js";
 
 export { commerceInvoiceInputJsonSchema } from "./generated/json-schema.js";
+export { apportionAmount } from "./decimal.js";
+export {
+  allocateCreditAcrossRates,
+  CreditExceedsInvoiceError,
+  type AmountAtRate,
+  type CreditAllocationInput,
+  type CreditPiece,
+  type ReturnToCredit,
+} from "./credit-allocation.js";
 export {
   validateCommerceInvoiceInput,
   type CommerceInvoiceInputValidationResult,

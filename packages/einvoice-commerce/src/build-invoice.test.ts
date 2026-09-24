@@ -110,7 +110,7 @@ describe("buildInvoice — domestic (docs/tax-semantics.md row 1)", () => {
     expect(validateModel(result.invoice).valid).toBe(true);
   });
 
-  it("mixed rates on one invoice (row 9): two VAT breakdown groups, shipping/discount on the standard-rate group", () => {
+  it("mixed rates on one invoice (row 9): shipping and a document discount split across the rates in proportion to the lines (P-65)", () => {
     const input = domesticInput({
       lines: [
         {
@@ -132,37 +132,103 @@ describe("buildInvoice — domestic (docs/tax-semantics.md row 1)", () => {
       discounts: [{ amount: "5.00", reason: "Loyalty discount" }],
     });
     const result = buildInvoice(input);
+    // Lines: 100.00 at 19%, 40.00 at 7% — shipping 10.00 splits 7.14 / 2.86, the discount 5.00 splits
+    // 3.57 / 1.43 (the cent rounding leaves goes to the larger remainder).
+    expect(result.invoice.documentLevelCharges).toEqual([
+      {
+        amount: "7.14",
+        vatCategoryCode: "S",
+        vatRate: "19",
+        reason: "Shipping (anteilig 19 %)",
+      },
+      { amount: "2.86", vatCategoryCode: "S", vatRate: "7", reason: "Shipping (anteilig 7 %)" },
+    ]);
+    expect(result.invoice.documentLevelAllowances).toEqual([
+      {
+        amount: "3.57",
+        vatCategoryCode: "S",
+        vatRate: "19",
+        reason: "Loyalty discount (anteilig 19 %)",
+      },
+      {
+        amount: "1.43",
+        vatCategoryCode: "S",
+        vatRate: "7",
+        reason: "Loyalty discount (anteilig 7 %)",
+      },
+    ]);
     expect(result.invoice.totals).toEqual({
       sumOfLineNetAmounts: "140.00",
       sumOfAllowances: "5.00",
       sumOfCharges: "10.00",
       totalAmountWithoutVat: "145.00",
-      totalVatAmount: "22.75",
-      totalAmountWithVat: "167.75",
-      amountDueForPayment: "167.75",
+      totalVatAmount: "22.58",
+      totalAmountWithVat: "167.58",
+      amountDueForPayment: "167.58",
     });
-    const breakdown = [...result.invoice.vatBreakdown].sort(
-      (a, b) => Number(b.rate) - Number(a.rate),
+    const byRate = Object.fromEntries(
+      result.invoice.vatBreakdown.map((g) => [g.rate, [g.taxableAmount, g.taxAmount]]),
     );
-    expect(breakdown).toEqual([
-      {
-        taxableAmount: "105.00",
-        taxAmount: "19.95",
-        categoryCode: "S",
-        rate: "19",
-        exemptionReasonCode: undefined,
-        exemptionReasonText: undefined,
-      },
-      {
-        taxableAmount: "40.00",
-        taxAmount: "2.80",
-        categoryCode: "S",
-        rate: "7",
-        exemptionReasonCode: undefined,
-        exemptionReasonText: undefined,
-      },
+    expect(byRate).toEqual({ "19": ["103.57", "19.68"], "7": ["41.43", "2.90"] });
+    expect(result.warnings).toEqual([]);
+    expect(validateModel(result.invoice).valid).toBe(true);
+  });
+
+  it("mixed rates with prices including VAT: the gross shipping is split in the same proportion, VAT taken out per rate (P-65)", () => {
+    const result = buildInvoice(
+      domesticInput({
+        lines: [
+          {
+            quantity: "1",
+            unitCode: "C62",
+            priceInclVat: "119.00",
+            itemName: "Widget",
+            taxRateKind: "standard",
+          },
+          {
+            quantity: "1",
+            unitCode: "C62",
+            priceInclVat: "42.80",
+            itemName: "Book",
+            taxRateKind: "reduced",
+          },
+        ],
+        shipping: { amountInclVat: "10.00", reason: "Shipping" },
+      }),
+    );
+    // Net weights 100.00 : 40.00 — the gross 10.00 splits 7.14 / 2.86, netting 6.00 at 19% and 2.67 at 7%.
+    expect(result.invoice.documentLevelCharges?.map((c) => [c.vatRate, c.amount])).toEqual([
+      ["19", "6.00"],
+      ["7", "2.67"],
     ]);
-    expect(result.warnings.map((w) => w.code)).toContain("shipping-discount-rate-assumption");
+    expect(result.invoice.totals.totalAmountWithVat).toBe("171.80");
+    expect(validateModel(result.invoice).valid).toBe(true);
+  });
+
+  it("refuses to split shipping across rates whose lines add up to zero — there is no proportion (P-65)", () => {
+    expect(() =>
+      buildInvoice(
+        domesticInput({
+          lines: [
+            {
+              quantity: "1",
+              unitCode: "C62",
+              netPrice: "0.00",
+              itemName: "Sample",
+              taxRateKind: "standard",
+            },
+            {
+              quantity: "1",
+              unitCode: "C62",
+              netPrice: "0.00",
+              itemName: "Leaflet",
+              taxRateKind: "reduced",
+            },
+          ],
+          shipping: { amount: "5.00", reason: "Shipping" },
+        }),
+      ),
+    ).toThrow(/cannot be split across the invoice's VAT rates/);
   });
 });
 

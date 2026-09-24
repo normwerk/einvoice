@@ -92,3 +92,18 @@ export async function setRegionPricesIncludeTax(
     });
   }
 }
+
+/** P-65: the product a variant belongs to — a tax rate override names the product. */
+export async function productIdOfVariant(admin: AdminSession, variantId: string): Promise<string> {
+  const { products } = await adminGetJson<{
+    readonly products: readonly {
+      readonly id: string;
+      readonly variants: readonly { readonly id: string }[];
+    }[];
+  }>(admin, "/admin/products?limit=100&fields=id,*variants");
+  const product = products.find((p) => p.variants.some((v) => v.id === variantId));
+  if (product === undefined) {
+    throw new Error(`productIdOfVariant: no product has variant ${variantId}`);
+  }
+  return product.id;
+}

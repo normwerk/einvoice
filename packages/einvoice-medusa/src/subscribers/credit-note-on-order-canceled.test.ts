@@ -22,7 +22,10 @@ const mocks = vi.hoisted(() => ({
   logger: { warn: vi.fn() },
 }));
 
-vi.mock("@normwerk/einvoice-commerce", () => ({
+vi.mock("@normwerk/einvoice-commerce", async (importOriginal) => ({
+  // The real, pure allocation across rates (P-65); everything that builds a document is mocked.
+  allocateCreditAcrossRates: (await importOriginal<{ allocateCreditAcrossRates: unknown }>())
+    .allocateCreditAcrossRates,
   DE_STANDARD_RATE: "19",
   DE_REDUCED_RATE: "7",
   selectProfile: mocks.selectProfile,
@@ -75,8 +78,12 @@ const PARTIAL_CREDIT = {
 };
 
 function cii(grandTotal: string): Uint8Array {
+  // BG-23 as this plugin's serializer writes it: everything at 19%, gross = the grand total.
   return new TextEncoder().encode(
     "<ram:IssueDateTime><udt:DateTimeString>20260101</udt:DateTimeString></ram:IssueDateTime>" +
+      "<ram:ApplicableTradeTax><ram:CalculatedAmount>0.00</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>" +
+      `<ram:BasisAmount>${grandTotal}</ram:BasisAmount><ram:CategoryCode>S</ram:CategoryCode>` +
+      "<ram:RateApplicablePercent>19</ram:RateApplicablePercent></ram:ApplicableTradeTax>" +
       `<ram:GrandTotalAmount>${grandTotal}</ram:GrandTotalAmount>`,
   );
 }

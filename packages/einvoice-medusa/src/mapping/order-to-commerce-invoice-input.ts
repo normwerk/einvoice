@@ -72,6 +72,8 @@ export const ORDER_QUERY_FIELDS = [
   "shipping_address.company",
   "shipping_address.first_name",
   "shipping_address.last_name",
+  // P-65: a return names the lines it takes back by id.
+  "items.id",
   "items.title",
   "items.variant_sku",
   "items.unit_price",
@@ -127,6 +129,7 @@ export interface MedusaOrderCustomer {
 }
 
 export interface MedusaOrderLineItem {
+  readonly id?: string | null;
   readonly title: string;
   readonly variant_sku?: string | null;
   /** `OrderLineItem.unit_price` — nullable in the real model (custom/free lines); treated as 0 when

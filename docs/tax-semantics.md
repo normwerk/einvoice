@@ -166,9 +166,18 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   up — `BR-S-08`/`BR-S-09` pass. `buildInvoice` therefore gives shipping and document-level discounts the
   rate of the lines when all lines share one rate (7%, 19%, or the declared OSS rate). A discount that
   belongs to one line (a promotion on one item) is expressed on that line (BG-27) and reduces only that
-  line's rate. When lines carry **different** rates, how to split a document-level amount across them is
-  not decided yet: such an amount is taxed at the standard rate and the result carries the warning
-  `shipping-discount-rate-assumption`.
+  line's rate. When lines carry **different** rates, the shipping serves supplies at each of them, so
+  `buildInvoice` splits shipping and every document-level discount across the rates in proportion to the
+  lines' net amounts at each rate, after their own allowances — one charge (BG-21) or allowance (BG-20) per
+  rate, its reason naming the share ("Versand / Shipping (anteilig 7 %)"), the cents left over going to the
+  largest remainder. No provision rules on shipping at mixed rates directly; this follows the ancillary
+  supply sharing the fate of its main supplies, and UStAE 10.1 Abs. 11's split of a single price across
+  supplies at different rates. Shipping at the standard rate would overstate the VAT of the 7% part (§14c
+  Abs. 1 UStG for a business buyer). With prices that include VAT, the gross shipping is split in the same
+  proportion and each rate's VAT taken out of its share; the VAT per rate is computed on the group
+  (`BR-CO-17`), so it can differ by a cent from VAT computed per line. Medusa taxes shipping at one rate, so
+  a mixed order's invoice states less VAT than Medusa charged and carries a notice naming this cause (see
+  below).
 - **An intra-EU supply (row 3) and an export (row 4) depend on where the goods go, not only on who buys.**
   Validators check that BT-80 is present for K (`BR-IC-12`), never that it names another member state, and
   nothing ties the positive VIES check to the VAT-ID printed on the document. `buildInvoice` refuses
@@ -191,11 +200,17 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
 - **What a credit note credits is not checked against what was refunded (row 10).** A credit note that
   restates the whole order for a refund of a tenth of it validates perfectly and reduces the VAT base by
   ten times too much (§17 UStG). The Medusa adapter credits a refund for its own amount: a refund that
-  covers the invoice, with nothing credited before, restates the whole order; any other refund is one line
-  over the refunded gross amount, at the invoice's own category and rate; nothing is ever credited beyond
-  what is still outstanding on the invoice. A partial refund on an order whose lines carry different rates
-  is refused — splitting it across the rates is not decided yet — and must be credited by hand. An invoiced
-  order that is then cancelled gets a credit note for whatever is outstanding.
+  covers the invoice, with nothing credited before, restates the whole order; any other refund is credited
+  over the refunded gross amount, at the invoice's own category; nothing is ever credited beyond what is
+  still outstanding on the invoice. A credit note states what it credits at each rate (§14 Abs. 4 Nr. 7–8
+  UStG, §31 Abs. 5 UStDV), so a partial credit on an order with lines at different rates is split: the money
+  first pays for goods the buyer sent back and the shop received, not credited yet, in the order they were
+  received, at their own lines' rates (the platform does not link a refund to a return, so coverage goes by
+  order of receipt, not by matching amounts); what is left — a goodwill refund, shipping paid back —
+  reduces each rate in proportion to what is still uncredited at it. One line per rate and kind ("Rückgabe
+  / Return", "Teilerstattung / Partial refund (anteilig 7 %)"); which returns a credit note paid for is
+  stored with it, so a later refund does not pay for them again. An invoiced order that is then cancelled
+  gets a credit note for whatever is outstanding, at each rate.
 - **A validator accepts an invoice without a street address.** §14 Abs. 4 Satz 1 Nr. 1 UStG requires the
   full name and the full address of both the seller and the buyer; EN 16931 makes the street (BT-35 for the
   seller, BT-50 for the buyer) optional, and KoSIT checks only city, post code and country. `buildInvoice`

@@ -173,7 +173,10 @@ reduced destination rate, is refused.
 ## Shipping, promotions, and what Medusa charged
 
 Shipping methods appear on the invoice as one document-level charge, and a promotion on an item as a
-discount on that item's line — both as Medusa computed them. Before issuing an invoice, the plugin compares
+discount on that item's line — both as Medusa computed them. In an order with lines at 19% and 7%,
+shipping is split across the two rates in proportion to the lines' net amounts, one charge per rate
+("Versand / Shipping (anteilig 7 %)"). Medusa itself taxes shipping at one rate, so such an invoice states
+less VAT than Medusa charged and is issued with a notice naming shipping as the cause. Before issuing an invoice, the plugin compares
 its VAT and total with what Medusa charged (see [When the invoice and Medusa disagree](#when-the-invoice-and-medusa-disagree)).
 
 On a domestic order, each line is invoiced at the rate Medusa charged on it, which has to be 19% or 7%. A
@@ -233,6 +236,14 @@ refusal's error class for now, for example:
 
 Retrying a credit note redelivers the refund or cancellation it belongs to. Cancelling an order drops its
 refused invoices: a cancelled order is not invoiced.
+
+## Refunds, returns and cancellations
+
+A refund is credited for its own amount, a cancellation for whatever is still uncredited. In an order with
+lines at different rates, the credit note states each rate: a refund first pays for goods the buyer sent
+back and you received in Medusa (a received return), at their lines' rates, in the order you received
+them; the rest is split across the rates in proportion to what is still uncredited at each. Receive the
+return in Medusa before you refund it, so the refund is credited at the returned goods' rate.
 
 ## Downloading a document yourself
 

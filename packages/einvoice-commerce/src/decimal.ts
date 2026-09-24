@@ -172,6 +172,39 @@ export function netsOfVatInclusiveParts(
   return shares.map((share) => fromCents(share.cents));
 }
 
+/**
+ * P-65: splits `total` in proportion to `weights` — each share rounded down to the cent, the cents left over
+ * given one each to the shares rounding cut the most (largest remainder), ties to the earlier share. The
+ * shares add up to exactly `total`, in input order; a zero weight gets a zero share. Weights are
+ * non-negative amounts, at least one of them non-zero.
+ */
+export function apportionAmount(total: string, weights: readonly string[]): string[] {
+  const totalCents = toCents(total);
+  const weightCents = weights.map(toCents);
+  const weightSum = weightCents.reduce((sum, weight) => sum + weight, 0n);
+  if (weightSum === 0n) {
+    throw new Error("decimal.ts: apportionAmount needs at least one non-zero weight");
+  }
+  const shares = weightCents.map((weight) => ({
+    cents: (totalCents * weight) / weightSum,
+    remainder: (totalCents * weight) % weightSum,
+  }));
+  let left = totalCents - shares.reduce((sum, share) => sum + share.cents, 0n);
+  const order = shares
+    .map((_, index) => index)
+    .sort((a, b) => {
+      const [ra, rb] = [shares[a]?.remainder ?? 0n, shares[b]?.remainder ?? 0n];
+      return ra > rb ? -1 : ra < rb ? 1 : a - b;
+    });
+  for (let k = 0; left > 0n; k++) {
+    const share = shares[order[k] as number];
+    if (share === undefined) break;
+    share.cents += 1n;
+    left -= 1n;
+  }
+  return shares.map((share) => fromCents(share.cents));
+}
+
 /** P-61: a line's net unit price (BT-146) from its net amount and quantity, to 4 decimals, ties up. */
 export function unitPriceOf(lineAmount: string, quantity: string): string {
   const amount = parseDecimal(lineAmount);

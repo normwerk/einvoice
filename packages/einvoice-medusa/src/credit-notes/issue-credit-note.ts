@@ -35,12 +35,18 @@ import {
   UNALLOCATED_DOCUMENT_NUMBER,
 } from "../mapping/order-to-commerce-invoice-input.js";
 import {
-  PartialCreditAcrossRatesError,
   extractGrandTotalFromCii,
+  extractGrossByRateFromCii,
   extractIssueDateFromCii,
+  rateKey,
+  returnsToCredit,
   toPartialCreditNoteInput,
   type CreditScope,
+  type MedusaItemValue,
+  type MedusaReturnForCredit,
+  type PartialCreditNoteLine,
 } from "../mapping/credit-note.js";
+import type { CoveredReturn } from "../modules/einvoice/service.js";
 
 /** The original invoice a credit note corrects, with what has already been credited against it. */
 export interface CreditBasis {
@@ -50,6 +56,10 @@ export interface CreditBasis {
   readonly creditedTotals: readonly Amount[];
   /** P-63: what the buyer overpaid by the invoice's notice (`VAT_OVERCHARGED`) — `"0.00"` without one. */
   readonly overpaid: Amount;
+  /** P-65: per rate, what the invoice charged less what its credit notes credited — gross. */
+  readonly uncreditedByRate: readonly { readonly rate: string; readonly gross: Amount }[];
+  /** P-65: the parts of received returns earlier credit notes paid for. */
+  readonly coveredReturns: readonly CoveredReturn[];
 }
 
 /** Reads the order's invoice and credit notes back from the File Module. `undefined` when the order has
@@ -75,11 +85,23 @@ export async function loadCreditBasis(
     order_id: orderId,
   })) as EinvoiceDocumentRecord[];
   const creditedTotals: Amount[] = [];
+  const uncreditedCents = new Map<string, number>(
+    extractGrossByRateFromCii(invoiceXml).map((entry) => [
+      entry.rate,
+      Math.round(Number(entry.gross) * 100),
+    ]),
+  );
   for (const creditNote of creditNotes) {
     const xml = Buffer.from(await fetchFileBytes(container, creditNote.xml_file_id)).toString(
       "utf-8",
     );
     creditedTotals.push(extractGrandTotalFromCii(xml));
+    for (const entry of extractGrossByRateFromCii(xml)) {
+      uncreditedCents.set(
+        entry.rate,
+        (uncreditedCents.get(entry.rate) ?? 0) - Math.round(Number(entry.gross) * 100),
+      );
+    }
   }
   return {
     invoice,
@@ -87,6 +109,11 @@ export async function loadCreditBasis(
     invoiceTotal: extractGrandTotalFromCii(invoiceXml),
     creditedTotals,
     overpaid: invoice.notice?.code === "VAT_OVERCHARGED" ? invoice.notice.refundDue : "0.00",
+    uncreditedByRate: [...uncreditedCents.entries()].map(([rate, cents]) => ({
+      rate,
+      gross: (Math.max(0, cents) / 100).toFixed(2),
+    })),
+    coveredReturns: creditNotes.flatMap((creditNote) => creditNote.covered_returns ?? []),
   };
 }
 
@@ -111,6 +138,46 @@ export interface IssueCreditNoteInput {
   /** Webbers mode only: `false` when their credit invoice shows another amount than this credit note — it
    * then gets their number but not their PDF (P-63: a refund that returns an overpayment first). */
   readonly embedWebbersPdf?: boolean;
+}
+
+/** P-65: the order's returns and its lines' gross values — what a partial credit pays for first. */
+async function loadReturnsForCredit(
+  container: MedusaContainer,
+  orderId: string,
+): Promise<{
+  readonly returns: readonly MedusaReturnForCredit[];
+  readonly items: readonly MedusaItemValue[];
+}> {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY);
+  const { data: orders } = await query.graph({
+    entity: "order",
+    filters: { id: orderId },
+    fields: [
+      "id",
+      // `total` makes the order module compute the lines' totals (see ORDER_QUERY_FIELDS), and
+      // `detail.return_received_quantity` its `return_received_total`.
+      "total",
+      "items.id",
+      "items.return_received_total",
+      "items.detail.return_received_quantity",
+    ],
+  });
+  // Queried as returns, not through the order: `order.returns.items` comes back without
+  // `received_quantity` (checked on Medusa 2.21), which the return entity itself does return.
+  const { data: returns } = await query.graph({
+    entity: "return",
+    filters: { order_id: orderId },
+    fields: [
+      "id",
+      "status",
+      "received_at",
+      "created_at",
+      "items.item_id",
+      "items.received_quantity",
+    ],
+  });
+  const order = orders[0] as { readonly items?: readonly MedusaItemValue[] } | undefined;
+  return { returns: returns as MedusaReturnForCredit[], items: order?.items ?? [] };
 }
 
 export type IssueCreditNoteOutcome =
@@ -176,24 +243,70 @@ export async function issueCreditNote({
         ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
         : undefined;
 
+    // P-65: a partial credit states what it credits at each rate — received returns first, at their own
+    // rates; the rest in proportion to what is still uncredited per rate (`allocateCreditAcrossRates`).
+    let coveredReturns: CoveredReturn[] = [];
     if (scope.kind === "partial") {
       const decision = commerce.decideVatCategory(input.taxContext, vatIdEvidence);
       const taxContext = input.taxContext;
-      const rates = new Set(
-        input.lines.map((line) =>
+      const lineRates = input.lines.map((line) =>
+        rateKey(
           commerce.resolveLineRate(decision, taxContext, line.taxRateKind, line.chargedVatRate),
         ),
       );
-      if (rates.size > 1) {
-        throw new PartialCreditAcrossRatesError(order.id);
-      }
-      input = toPartialCreditNoteInput(input, {
-        gross: scope.gross,
-        taxRateKind: input.lines[0]?.taxRateKind,
-        chargedVatRate: input.lines[0]?.chargedVatRate,
-        originalInvoiceNumber: basis.invoice.document_number,
-        reason,
+      const rateOfItem = (itemId: string): string | undefined => {
+        const index = order.items.findIndex((item) => item.id === itemId);
+        return index === -1 ? undefined : lineRates[index];
+      };
+      const received = await loadReturnsForCredit(container, order.id);
+      const pieces = commerce.allocateCreditAcrossRates({
+        amount: scope.gross,
+        returns: returnsToCredit(
+          received.returns,
+          received.items,
+          rateOfItem,
+          basis.coveredReturns,
+        ),
+        uncreditedByRate: basis.uncreditedByRate,
       });
+      const restLabel =
+        reason === "cancellation"
+          ? "Stornierung Restbetrag / Cancellation of the remaining amount"
+          : "Teilerstattung / Partial refund";
+      const restRates = new Set(
+        pieces.filter((piece) => piece.returnId === undefined).map((piece) => rateKey(piece.rate)),
+      );
+      const lines: PartialCreditNoteLine[] = [];
+      for (const kind of ["return", "rest"] as const) {
+        for (const rate of [...new Set(lineRates)]) {
+          const cents = pieces
+            .filter(
+              (piece) =>
+                rateKey(piece.rate) === rate &&
+                (kind === "return") === (piece.returnId !== undefined),
+            )
+            .reduce((sum, piece) => sum + Math.round(Number(piece.gross) * 100), 0);
+          if (cents === 0) continue;
+          const line = input.lines[lineRates.indexOf(rate)];
+          lines.push({
+            gross: (cents / 100).toFixed(2),
+            taxRateKind: line?.taxRateKind,
+            chargedVatRate: line?.chargedVatRate,
+            label:
+              kind === "return"
+                ? "Rückgabe / Return"
+                : restRates.size > 1
+                  ? `${restLabel} (anteilig ${rate} %)`
+                  : restLabel,
+          });
+        }
+      }
+      coveredReturns = pieces.flatMap((piece) =>
+        piece.returnId === undefined
+          ? []
+          : [{ returnId: piece.returnId, rate: rateKey(piece.rate), gross: piece.gross }],
+      );
+      input = toPartialCreditNoteInput(input, lines, basis.invoice.document_number);
     }
 
     const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
@@ -202,7 +315,7 @@ export async function issueCreditNote({
       { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
       buildOptions,
     );
-    return { input, profile, buildOptions };
+    return { input, profile, buildOptions, coveredReturns };
   };
   let prepared: Awaited<ReturnType<typeof prepare>>;
   try {
@@ -210,7 +323,7 @@ export async function issueCreditNote({
   } catch (error) {
     return refused(error);
   }
-  const { input, profile, buildOptions } = prepared;
+  const { input, profile, buildOptions, coveredReturns } = prepared;
 
   const integration = einvoiceService.options.integration;
   let documentNumber: string;
@@ -278,6 +391,7 @@ export async function issueCreditNote({
     documentNumber,
     xmlFileId: stored.xmlFileId,
     pdfFileId: stored.pdfFileId,
+    coveredReturns: coveredReturns.length > 0 ? coveredReturns : null,
   });
 
   if (!result.created) {

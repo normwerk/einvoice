@@ -28,6 +28,10 @@
  * the overpayment a refund returns before it credits anything (`credit-note-on-payment-refunded.ts`).
  * `null` for every other document.
  *
+ * P-65: `covered_returns` — on a partial credit note, the received returns of goods it paid for, per rate
+ * (`[{ returnId, rate, gross }]`), so a later refund does not cover the same return again
+ * (`allocateCreditAcrossRates`, `@normwerk/einvoice-commerce`). `null` otherwise.
+ *
  * No migration path preserves the old `xml`/`pdf` columns' existing content — the same "pre-release, no
  * real deployment history to preserve" reasoning T-072 already used for its own migration replacement
  * (`docs/domain-glossary.md`), not a new precedent.
@@ -44,6 +48,7 @@ const EinvoiceDocument = model
     xml_file_id: model.text(),
     pdf_file_id: model.text().nullable(),
     notice: model.json().nullable(),
+    covered_returns: model.json().nullable(),
   })
   .indexes([{ on: ["type", "idempotency_key"], unique: true }]);
 

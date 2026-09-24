@@ -34,7 +34,10 @@ const mocks = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("@normwerk/einvoice-commerce", () => ({
+vi.mock("@normwerk/einvoice-commerce", async (importOriginal) => ({
+  // The real, pure allocation across rates (P-65); everything that builds a document is mocked.
+  allocateCreditAcrossRates: (await importOriginal<{ allocateCreditAcrossRates: unknown }>())
+    .allocateCreditAcrossRates,
   DE_STANDARD_RATE: "19",
   DE_REDUCED_RATE: "7",
   selectProfile: mocks.selectProfile,
@@ -81,7 +84,6 @@ import creditNoteOnPaymentRefunded, {
   extractIssueDateFromCii,
   MissingOriginalInvoiceError,
 } from "./credit-note-on-payment-refunded.js";
-import { PartialCreditAcrossRatesError } from "../mapping/credit-note.js";
 
 describe("extractIssueDateFromCii", () => {
   it("parses a real serializeCii-shaped IssueDateTime element (no pretty-print whitespace)", () => {
@@ -145,9 +147,25 @@ const ORDER = {
 const ORIGINAL_INVOICE = { document_number: "RE-2026-0001", xml_file_id: "file_original_xml" };
 // The original invoice: 2 × 100 net at 19% = 238.00 (BT-112), issued 2026-01-01 (BT-2).
 let CREDITED_TOTAL = "0.00";
-function cii(grandTotal: string): string {
+/** A CII document's BG-23 breakdown, as this plugin's serializer writes it — gross per rate. */
+function breakdown(byRate: Readonly<Record<string, string>>): string {
+  return Object.entries(byRate)
+    .map(
+      ([rate, gross]) =>
+        `<ram:ApplicableTradeTax><ram:CalculatedAmount>0.00</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>` +
+        `<ram:BasisAmount>${gross}</ram:BasisAmount><ram:CategoryCode>S</ram:CategoryCode>` +
+        `<ram:RateApplicablePercent>${rate}</ram:RateApplicablePercent></ram:ApplicableTradeTax>`,
+    )
+    .join("");
+}
+
+function cii(
+  grandTotal: string,
+  byRate: Readonly<Record<string, string>> = { "19": grandTotal },
+): string {
   return (
     "<ram:IssueDateTime><udt:DateTimeString>20260101</udt:DateTimeString></ram:IssueDateTime>" +
+    breakdown(byRate) +
     `<ram:GrandTotalAmount>${grandTotal}</ram:GrandTotalAmount>`
   );
 }
@@ -183,6 +201,7 @@ function makeContainer(options: {
   einvoiceService: EinvoiceModuleService;
   payment?: Record<string, unknown> | undefined;
   orders?: readonly unknown[];
+  returns?: readonly unknown[];
 }): { container: MedusaContainer; graph: ReturnType<typeof vi.fn> } {
   const payment = options.payment ?? {
     id: "pay_01",
@@ -194,7 +213,13 @@ function makeContainer(options: {
   const collection = { id: "paycol_01", order: first === undefined ? null : { id: first.id } };
   const graph = vi.fn(async ({ entity }: { entity: string }) => ({
     data:
-      entity === "payment" ? [payment] : entity === "payment_collection" ? [collection] : orders,
+      entity === "payment"
+        ? [payment]
+        : entity === "payment_collection"
+          ? [collection]
+          : entity === "return"
+            ? (options.returns ?? [])
+            : orders,
   }));
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, options.einvoiceService],
@@ -384,7 +409,11 @@ describe("creditNoteOnPaymentRefunded", () => {
     CREDITED_TOTAL = "0.00";
   });
 
-  it("refuses a partial refund over an order with mixed VAT rates before taking a document number", async () => {
+  it("credits a partial refund over mixed VAT rates with a line per rate, in proportion to the invoice (P-65)", async () => {
+    // The invoice: 238.00 at 19% and 10.70 at 7%.
+    mocks.fetchFileBytes.mockImplementation(async () =>
+      new TextEncoder().encode(cii("248.70", { "19": "238.00", "7": "10.70" })),
+    );
     const einvoiceService = makeEinvoiceService();
     const { container } = makeContainer({
       einvoiceService,
@@ -412,15 +441,71 @@ describe("creditNoteOnPaymentRefunded", () => {
 
     await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
 
-    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith(
+    const creditNote = mocks.buildInvoice.mock.calls.at(-1)?.[0] as {
+      readonly lines: readonly { readonly priceInclVat?: string; readonly itemName: string }[];
+    };
+    // 20.00 over 238.00 : 10.70 — 19.14 at 19%, 0.86 at 7%.
+    expect(creditNote.lines.map((line) => [line.priceInclVat, line.itemName])).toEqual([
+      ["19.14", "Teilerstattung / Partial refund (anteilig 19 %) — Rechnung RE-2026-0001"],
+      ["0.86", "Teilerstattung / Partial refund (anteilig 7 %) — Rechnung RE-2026-0001"],
+    ]);
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: "refund_01", coveredReturns: null }),
+    );
+  });
+
+  it("pays for a received return first, at its line's rate, and records which return it covered (P-65)", async () => {
+    mocks.fetchFileBytes.mockImplementation(async () =>
+      new TextEncoder().encode(cii("248.70", { "19": "238.00", "7": "10.70" })),
+    );
+    const einvoiceService = makeEinvoiceService();
+    const book = {
+      id: "item_book",
+      title: "Book",
+      unit_price: 10,
+      is_tax_inclusive: false,
+      tax_lines: [{ rate: 7 }],
+      detail: { quantity: 1, return_received_quantity: 1 },
+      return_received_total: 10.7,
+    };
+    const { container } = makeContainer({
+      einvoiceService,
+      payment: {
+        id: "pay_01",
+        payment_collection_id: "paycol_01",
+        refunds: [{ id: "refund_01", amount: 15.7 }],
+      },
+      orders: [
+        {
+          ...ORDER,
+          items: [{ ...ORDER.items[0], id: "item_widget" }, book],
+        },
+      ],
+      returns: [
+        {
+          id: "return_01",
+          status: "received",
+          received_at: "2026-01-20T10:00:00Z",
+          items: [{ item_id: "item_book", received_quantity: 1 }],
+        },
+      ],
+    });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    const creditNote = mocks.buildInvoice.mock.calls.at(-1)?.[0] as {
+      readonly lines: readonly { readonly priceInclVat?: string; readonly itemName: string }[];
+    };
+    // The book (10.70 at 7%) first; the 5.00 left over 238.00 : 0.00 still uncredited — all at 19%.
+    expect(creditNote.lines.map((line) => [line.priceInclVat, line.itemName])).toEqual([
+      ["10.70", "Rückgabe / Return — Rechnung RE-2026-0001"],
+      ["5.00", "Teilerstattung / Partial refund — Rechnung RE-2026-0001"],
+    ]);
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: "credit_note",
-        idempotencyKey: "refund_01",
-        code: new PartialCreditAcrossRatesError("order_01").name,
+        coveredReturns: [{ returnId: "return_01", rate: "7", gross: "10.70" }],
       }),
     );
-    expect(mocks.nextNumber).not.toHaveBeenCalled();
-    expect(einvoiceService.recordDocumentIfAbsent).not.toHaveBeenCalled();
   });
 
   it("credits nothing for a refund that returns an overpayment the invoice's notice names, and only the rest of a later one (P-63)", async () => {
