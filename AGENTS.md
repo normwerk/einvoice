@@ -268,9 +268,10 @@ TypeScript strict across the repository.
 The plugin is a demand probe and a reputation carrier (D-09). An abandoned-looking repository costs more than no repository.
 
 - Issue response SLA: **3 business days**, even if the answer is "not now".
-- Compatibility matrix for Medusa and Vendure versions stays current. There is **no nightly CI run** today —
-  only `ci.yml` and `release.yml` exist. A nightly run against Medusa `latest` is part of the e2e suite (T-078),
-  which is not built yet. Do not describe it as existing; this line previously did, which is exactly the
+- Compatibility matrix for Medusa and Vendure versions stays current. `e2e.yml` runs the e2e suite (T-078)
+  nightly and on demand — `fast` profile only, against the Medusa release pinned in `e2e/app/`. A run against
+  a freshly scaffolded Medusa `latest`, and a scheduled run across Medusa releases, are not built yet. Do not
+  describe them as existing; this line has twice been out of step with the workflows, which is exactly the
   failure §1 of this document forbids.
 - If the project is wound down, archive it **explicitly**: README switches to "looking for maintainer", per the archiving policy (T-002). Never abandon silently.
 - `README.md` carries the "Commercial support" line (contact `hello@normwerk.dev`) and a pinned "Who is using this?" issue — these are the probe's measurement instruments (`researches/05`), not decoration. Do not remove them.
