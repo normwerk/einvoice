@@ -39,6 +39,7 @@ import type { Invoice, PaymentMeansCode } from "@normwerk/einvoice-model" with {
 import { InjectTransactionManager, MedusaContext, MedusaService } from "@medusajs/framework/utils";
 import type { Context } from "@medusajs/framework/types";
 import EinvoiceCounter from "./models/einvoice-counter.js";
+import { assertSupportedMedusaVersion, installedMedusaVersion } from "../../medusa-version.js";
 import EinvoiceDocument from "./models/einvoice-document.js";
 
 export interface EinvoiceModuleOptions {
@@ -287,6 +288,7 @@ export default class EinvoiceModuleService extends MedusaService({
     // eslint-disable-next-line prefer-rest-params
     super(...arguments);
     assertValidOptions(options);
+    assertSupportedMedusaVersion(installedMedusaVersion());
     this.options = options;
   }
 

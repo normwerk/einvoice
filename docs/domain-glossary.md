@@ -567,4 +567,5 @@ integrations` itself states the list "is curated from npm," and its own visible 
   `item_tax_total` is 0 and its lines have no tax lines, read straight from Medusa's own order detail
   workflow, so the plugin refuses every domestic order there (a line charged 0% is not invoiced at 19%).
   2.12 and 2.18 tax the same products. Cause not pinned down; 2.16.0 changed tax handling around gift-card
-  lines (#15545).
+  lines (#15545). The plugin therefore does not support 2.16 and 2.17, and refuses to start there
+  (`src/medusa-version.ts` holds the supported releases, the peer ranges are tested against it).

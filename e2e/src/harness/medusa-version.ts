@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,10 +21,6 @@ const COMPANIONS = [
   "react-i18next",
 ];
 
-/** The lowest release the plugin's peer dependencies accept; an older one installs only with
- * `--legacy-peer-deps`, which is what testing below that floor is for. */
-const PEER_FLOOR: readonly [number, number] = [2, 19];
-
 interface AppPackageJson {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
@@ -38,9 +35,16 @@ async function npmView(spec: string, field: string): Promise<string> {
   }
 }
 
-function belowPeerFloor(version: string): boolean {
-  const [major = 0, minor = 0] = version.split(".").map(Number);
-  return major < PEER_FLOOR[0] || (major === PEER_FLOOR[0] && minor < PEER_FLOOR[1]);
+/** The plugin's own list of supported releases (`packages/einvoice-medusa/src/medusa-version.ts`), from its
+ * build — the suite only ever runs a built plugin, since it publishes the build. */
+const { isSupportedMedusaVersion } = createRequire(import.meta.url)(
+  "../../../packages/einvoice-medusa/.medusa/server/src/medusa-version.js",
+) as { readonly isSupportedMedusaVersion: (version: string) => boolean };
+
+/** Outside the plugin's supported releases its peer ranges do not match, so npm installs it only with
+ * `--legacy-peer-deps` — and the plugin itself refuses to start there (UnsupportedMedusaVersionError). */
+function outsidePeerRange(version: string): boolean {
+  return !isSupportedMedusaVersion(version);
 }
 
 /**
@@ -84,7 +88,7 @@ export async function prepareMedusaVersion(version: string): Promise<void> {
   // container and database driver as peers of @medusajs/medusa and @medusajs/framework, and the scaffold
   // of their day listed them in the app itself — without them 2.4.0 does not start ("Cannot find module
   // '@mikro-orm/core'"). So they are added the same way, except the optional ones.
-  if (belowPeerFloor(version)) {
+  if (outsidePeerRange(version)) {
     for (const name of Object.keys(pkg.dependencies).filter((n) => n.startsWith("@medusajs/"))) {
       const peers = JSON.parse(
         (await npmView(`${name}@${version}`, "peerDependencies")) || "{}",
@@ -107,13 +111,13 @@ export async function prepareMedusaVersion(version: string): Promise<void> {
 
   process.env["EINVOICE_E2E_APP_DIR"] = dir;
   process.env["EINVOICE_E2E_MEDUSA_DOCKERFILE"] = DOCKERFILE;
-  process.env["EINVOICE_E2E_NPM_INSTALL_FLAGS"] = belowPeerFloor(version)
+  process.env["EINVOICE_E2E_NPM_INSTALL_FLAGS"] = outsidePeerRange(version)
     ? "--legacy-peer-deps"
     : "";
   console.log(
     `[e2e] Medusa ${version}: app copied to ${dir}` +
-      (belowPeerFloor(version)
-        ? ", installed with --legacy-peer-deps (below the plugin's peer range)"
+      (outsidePeerRange(version)
+        ? ", installed with --legacy-peer-deps (outside the plugin's supported releases: expect it to refuse to start)"
         : ""),
   );
 }

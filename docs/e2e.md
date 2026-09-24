@@ -100,9 +100,12 @@ EINVOICE_E2E_MEDUSA_VERSION=2.19.0 pnpm e2e
 runs the same suite against another Medusa release. The harness copies `e2e/app/` to a temporary directory,
 sets every `@medusajs/*` package to that version (dropping one the release does not have yet) and the UI
 and router packages to what that release's own dashboard depends on, and builds the stand from the copy;
-the committed app is left alone. A release below the plugin's peer range (`^2.19.0`) is installed with
-`--legacy-peer-deps`, with the non-optional peer dependencies of that release's Medusa packages added to
-the app the way its own scaffold listed them. The versions actually installed are printed at the start of
+the committed app is left alone. A release outside the plugin's supported ones
+(`packages/einvoice-medusa/src/medusa-version.ts`) is installed with `--legacy-peer-deps`, with the
+non-optional peer dependencies of that release's Medusa packages added to the app the way its own scaffold
+listed them — and there the plugin refuses to start, so the stand never becomes healthy and
+`e2e/.artifacts/medusa.log` shows `UnsupportedMedusaVersionError`. That is the expected result for such a
+release. The versions actually installed are printed at the start of
 the run and written to `e2e/.artifacts/versions.txt`.
 
 Results so far are in the plugin's compatibility table

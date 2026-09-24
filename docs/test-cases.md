@@ -69,7 +69,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (172 tests)
+### `einvoice-medusa` (178 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -87,6 +87,10 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   covers every cell's category/error outcome; `pnpm conformance:tax-matrix` (below) covers the remaining
   half, that a cell expected to validate really passes the real KoSIT validator. Full matrix inventory and
   result: [`packages/einvoice-medusa/fixtures/tax-matrix/README.md`](../packages/einvoice-medusa/fixtures/tax-matrix/README.md).
+- `src/medusa-version.test.ts` — the supported Medusa releases: which versions are in and out, that every
+  `@medusajs/*` peer dependency declares exactly that range, that another release is refused at start
+  with a pointer to a pull request or to hello@normwerk.dev, and that the installed version is read from
+  the app root.
 - `src/modules/einvoice/service.test.ts` — `EinvoiceModuleService`'s constructor-time option validation
   (`assertValidOptions`): every field a real KoSIT rejection found mandatory, seller contact
   and street included, and that `standalone.basePdf` passes through unchanged; and `recordDocumentIfAbsent`

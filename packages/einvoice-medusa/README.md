@@ -15,21 +15,26 @@ page and a Store API endpoint for a customer to fetch their own e-invoice.
 
 ## Compatibility
 
-The peer dependencies ask for Medusa `^2.19.0`. Each release below was run through the end-to-end suite — a
-real store, from checkout to a validated invoice, credit note and refund:
+Supported: Medusa **2.12–2.15 and 2.18 or later 2.x** — the releases the end-to-end suite passes on (a real
+store, from checkout to a validated invoice, credit note and refund), each minor line run at its latest
+patch. The peer dependencies declare exactly that range, and on any other release the plugin refuses to
+start (`UnsupportedMedusaVersionError`) rather than run where it has not been shown to issue correct
+invoices. Need another release? A pull request is welcome, or write to hello@normwerk.dev about adapting
+it.
 
-| Medusa         | End-to-end suite | Note                                                                                                                                                                                                   |
-| -------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2.21.1         | 22/22            |                                                                                                                                                                                                        |
-| 2.21.0         | 22/22            | The suite's default                                                                                                                                                                                    |
-| 2.20.1         | 22/22            |                                                                                                                                                                                                        |
-| 2.19.0         | 22/22            | Also the version the plugin is developed and unit-tested against                                                                                                                                       |
-| 2.18.0         | 22/22            |                                                                                                                                                                                                        |
-| 2.16.0, 2.17.2 | 10/22            | Medusa charged no VAT on the products in the test store, only on shipping, so every domestic order is refused — the plugin does not invoice a rate the buyer was not charged. Cross-border orders pass |
-| 2.12.6         | 22/22            |                                                                                                                                                                                                        |
-
-Releases not listed have not been run. Below 2.12 the test store itself does not start yet, so nothing is
-known about them.
+| Medusa         | End-to-end suite | Supported | Note                                                                                                                                       |
+| -------------- | ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2.21.1         | 22/22            | yes       |                                                                                                                                            |
+| 2.21.0         | 22/22            | yes       | The suite's default                                                                                                                        |
+| 2.20.1         | 22/22            | yes       |                                                                                                                                            |
+| 2.19.0         | 22/22            | yes       | Also the version the plugin is developed and unit-tested against                                                                           |
+| 2.18.0         | 22/22            | yes       |                                                                                                                                            |
+| 2.16.0, 2.17.2 | 10/22            | no        | Medusa charged no VAT on the products in the test store, only on shipping, so every domestic order was refused. Cross-border orders passed |
+| 2.15.5         | 22/22            | yes       |                                                                                                                                            |
+| 2.14.2         | 22/22            | yes       |                                                                                                                                            |
+| 2.13.6         | 22/22            | yes       |                                                                                                                                            |
+| 2.12.6         | 22/22            | yes       |                                                                                                                                            |
+| below 2.12     | —                | no        | Not run: the test store does not start on these releases yet                                                                               |
 
 Invoices and credit notes are issued for a seller in Germany only; the plugin refuses to start with any
 other seller country. Buyers can be in Germany (businesses, consumers, public-sector buyers), elsewhere in

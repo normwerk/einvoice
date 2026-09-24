@@ -65,6 +65,7 @@ export default async function setup(): Promise<() => Promise<void>> {
     // hours-old containers instead of the fresh stand plan-e2e.md §5 rule 2 promises. The logs come first
     // (P-53): a failed bring-up is exactly when they are needed, and `down()` deletes them with the stand.
     await collectLogs();
+    await removeAppCopy(medusaVersion);
     await down().catch(() => {
       // Best-effort — the stand may already be partially torn down by whatever just failed.
     });
@@ -82,11 +83,16 @@ export default async function setup(): Promise<() => Promise<void>> {
       return;
     }
     await down();
-    const appCopy = process.env["EINVOICE_E2E_APP_DIR"];
-    if (medusaVersion !== undefined && medusaVersion !== "" && appCopy !== undefined) {
-      await rm(appCopy, { recursive: true, force: true });
-    }
+    await removeAppCopy(medusaVersion);
   };
+}
+
+/** The temporary copy of the app a version-matrix run built from (`medusa-version.ts`), if there is one. */
+async function removeAppCopy(medusaVersion: string | undefined): Promise<void> {
+  const appCopy = process.env["EINVOICE_E2E_APP_DIR"];
+  if (medusaVersion !== undefined && medusaVersion !== "" && appCopy !== undefined) {
+    await rm(appCopy, { recursive: true, force: true });
+  }
 }
 
 /** Which Medusa and plugin versions the stand actually installed — the one fact a version-matrix run

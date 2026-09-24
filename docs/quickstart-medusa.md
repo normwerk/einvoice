@@ -8,10 +8,9 @@ work.
 ## Prerequisites
 
 - Node `^20.19.0` or `>=22.12.0` (`einvoice-medusa`'s own `engines` field).
-- Medusa 2.19 or a later 2.x release; the peer dependencies ask for `^2.19.0`. The
-  [end-to-end suite](e2e.md) passes on 2.19.0, 2.20.1, 2.21.0 and 2.21.1, and also on 2.18.0 and 2.12.6;
-  on 2.16 and 2.17 Medusa charged no VAT on products in the test store, and the plugin refuses such
-  orders — see the [compatibility table](../packages/einvoice-medusa/README.md#compatibility).
+- Medusa 2.12–2.15, or 2.18 or a later 2.x release — the releases the [end-to-end suite](e2e.md) passes
+  on. On any other release the plugin refuses to start (`UnsupportedMedusaVersionError`); see the
+  [compatibility table](../packages/einvoice-medusa/README.md#compatibility) for why 2.16 and 2.17 are out.
 - A Medusa v2 project with a real Postgres database. If you don't have one yet:
   ```bash
   npx create-medusa-app@latest my-store --db-url "postgres://user:pass@localhost:5432/my_store_db"
