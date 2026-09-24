@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
     invoice: {
       ...(input as object),
       totals: { totalAmountWithVat: "238.00", totalVatAmount: "38.00" },
+      lines: [],
     },
     warnings: [],
   })),
@@ -361,7 +362,7 @@ describe("invoiceOnFulfillmentCreated", () => {
 
   it("reports buildInvoice's warnings without the invoice payload (P-39)", async () => {
     const built = {
-      invoice: { totals: { totalAmountWithVat: "238.00", totalVatAmount: "38.00" } },
+      invoice: { totals: { totalAmountWithVat: "238.00", totalVatAmount: "38.00" }, lines: [] },
       warnings: [{ code: "payment-terms-not-mapped", message: "terms dropped" }],
     } as never;
     mocks.buildInvoice.mockReturnValueOnce(built).mockReturnValueOnce(built);
@@ -409,7 +410,7 @@ describe("invoiceOnFulfillmentCreated", () => {
 
   it("issues an invoice stating less VAT than Medusa charged, with a notice of what the buyer overpaid (P-63)", async () => {
     const built = {
-      invoice: { totals: { totalAmountWithVat: "200.00", totalVatAmount: "0.00" } },
+      invoice: { totals: { totalAmountWithVat: "200.00", totalVatAmount: "0.00" }, lines: [] },
       warnings: [],
     } as never;
     mocks.buildInvoice.mockReturnValueOnce(built).mockReturnValueOnce(built);

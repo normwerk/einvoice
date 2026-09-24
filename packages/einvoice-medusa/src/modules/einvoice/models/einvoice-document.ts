@@ -30,7 +30,9 @@
  *
  * P-65: `covered_returns` — on a partial credit note, the received returns of goods it paid for, per rate
  * (`[{ returnId, rate, gross }]`), so a later refund does not cover the same return again
- * (`allocateCreditAcrossRates`, `@normwerk/einvoice-commerce`). `null` otherwise.
+ * (`allocateCreditAcrossRates`, `@normwerk/einvoice-commerce`). `null` otherwise. `line_values` — on an
+ * invoice, what each order line was invoiced at (`[{ itemId, rate, quantity, gross }]`): a returned unit is
+ * credited at that value.
  *
  * No migration path preserves the old `xml`/`pdf` columns' existing content — the same "pre-release, no
  * real deployment history to preserve" reasoning T-072 already used for its own migration replacement
@@ -49,6 +51,7 @@ const EinvoiceDocument = model
     pdf_file_id: model.text().nullable(),
     notice: model.json().nullable(),
     covered_returns: model.json().nullable(),
+    line_values: model.json().nullable(),
   })
   .indexes([{ on: ["type", "idempotency_key"], unique: true }]);
 

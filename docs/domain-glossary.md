@@ -591,6 +591,8 @@ integrations` itself states the list "is curated from npm," and its own visible 
   (`@medusajs/utils` `totals/line-item`: `currentQuantity = quantity − returned`). The returned units' value
   is `return_received_total` — the full-quantity gross after discounts per unit, times
   `detail.return_received_quantity` — computed only when that quantity field is requested with a totals field.
+  Valuing returns by it passed end to end on 2.19.0 and 2.21.x and failed on 2.12.6–2.18.0 (not pinned
+  down further); the plugin values a returned unit at what its own invoice stated for the line instead.
 - **Query a return's items through the return, not the order.** `query.graph` on `order` with
   `returns.items.received_quantity` returns the return items without `received_quantity` (only `item_id`);
   on `return`, filtered by `order_id`, it is there (both checked on 2.21.0).

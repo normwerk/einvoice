@@ -5,6 +5,7 @@ import type { CommerceInvoiceInput } from "@normwerk/einvoice-commerce" with {
 import {
   creditableRefund,
   extractGrossByRateFromCii,
+  invoicedLineValues,
   returnsToCredit,
   decideCreditScope,
   extractGrandTotalFromCii,
@@ -207,14 +208,12 @@ describe("reading a document's amounts per rate back, and the returns still to c
     );
   });
 
-  it("values received returns at their lines' gross price, oldest first, less what earlier credit notes paid", () => {
-    // Units received back so far, over every return: 2 widgets (119.00 each), 2 books (10.70 each).
-    const items = [
-      { id: "item_widget", return_received_total: 238, detail: { return_received_quantity: 2 } },
-      { id: "item_book", return_received_total: 21.4, detail: { return_received_quantity: 2 } },
+  it("values received returns at what the invoice stated for their lines, oldest first, less what earlier credit notes paid", () => {
+    // Invoiced: 2 widgets for 238.00 at 19%, 2 books for 21.40 at 7%.
+    const invoiced = [
+      { itemId: "item_widget", rate: "19", quantity: "2", gross: "238.00" },
+      { itemId: "item_book", rate: "7", quantity: "2", gross: "21.40" },
     ];
-    const rateOfItem = (id: string): string | undefined =>
-      ({ item_widget: "19", item_book: "7" })[id];
     const returns = [
       {
         id: "return_late",
@@ -235,12 +234,25 @@ describe("reading a document's amounts per rate back, and the returns still to c
       { id: "return_open", status: "requested", received_at: null, items: [] },
     ];
     expect(
-      returnsToCredit(returns, items, rateOfItem, [
-        { returnId: "return_early", rate: "7", gross: "21.40" },
-      ]),
+      returnsToCredit(returns, invoiced, [{ returnId: "return_early", rate: "7", gross: "21.40" }]),
     ).toEqual([
       { id: "return_early", byRate: [{ rate: "19", gross: "119.00" }] },
       { id: "return_late", byRate: [{ rate: "19", gross: "119.00" }] },
+    ]);
+  });
+
+  it("records each order line as the invoice stated it: its item, rate, quantity and gross amount", () => {
+    expect(
+      invoicedLineValues(
+        [{ id: "item_widget" }, { id: "item_book" }],
+        [
+          { quantity: "2", netAmount: "200.00", vat: { rate: "19" } },
+          { quantity: "1", netAmount: "10.00", vat: { rate: "7.00" } },
+        ],
+      ),
+    ).toEqual([
+      { itemId: "item_widget", rate: "19", quantity: "2", gross: "238.00" },
+      { itemId: "item_book", rate: "7", quantity: "1", gross: "10.70" },
     ]);
   });
 });

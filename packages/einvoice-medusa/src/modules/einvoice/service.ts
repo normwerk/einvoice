@@ -233,6 +233,20 @@ export interface EinvoiceDocumentRecord {
   readonly notice: InvoiceNotice | null;
   /** P-65: on a partial credit note, the received returns it paid for, per rate — `null` otherwise. */
   readonly covered_returns: readonly CoveredReturn[] | null;
+  /** P-65: on an invoice, what each order line was invoiced at — `null` otherwise. */
+  readonly line_values: readonly InvoicedLine[] | null;
+}
+
+/**
+ * P-65: one order line as the invoice stated it — which Medusa line item, at what rate, for how many units,
+ * for how much including VAT. A returned unit is credited at this value, whatever Medusa computes for the
+ * line after the return (its lifecycle totals differ by release).
+ */
+export interface InvoicedLine {
+  readonly itemId: string;
+  readonly rate: string;
+  readonly quantity: string;
+  readonly gross: string;
 }
 
 /** P-65: the part of a received return a credit note paid for, at one rate. */
@@ -251,6 +265,7 @@ export interface RecordDocumentInput {
   readonly pdfFileId?: string | null;
   readonly notice?: InvoiceNotice | null;
   readonly coveredReturns?: readonly CoveredReturn[] | null;
+  readonly lineValues?: readonly InvoicedLine[] | null;
 }
 
 /** P-63: a document the plugin did not issue (`einvoice-refusal.ts`). */
@@ -382,6 +397,7 @@ export default class EinvoiceModuleService extends MedusaService({
           string,
           unknown
         > | null,
+        line_values: (input.lineValues ?? null) as unknown as Record<string, unknown> | null,
       })) as unknown as EinvoiceDocumentRecord;
       return { document: created, created: true };
     } catch (error) {

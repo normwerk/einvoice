@@ -47,12 +47,13 @@ tree the way the CII mapping does).
 
 ## For a partial credit note (refund, cancellation)
 
-Read by the credit-note path only, in a separate query: `order.returns[]` (`id`, `status`, `received_at`,
-`items[].item_id`, `items[].received_quantity`) and the order lines' `id`, `total` (VAT included, after
-discounts) and `detail.quantity`. A received return is valued at its lines' gross price per unit times the
-received quantity, at the rate the line had on the invoice; what the invoice charged, and earlier credit
-notes credited, per rate is read back from the stored documents' BG-23 breakdown. Which returns a credit note
-paid for is stored with it (`einvoice_document.covered_returns`).
+Read by the credit-note path only, as the order's returns (`return` filtered by `order_id`: `id`, `status`,
+`received_at`, `created_at`, `items[].item_id`, `items[].received_quantity`). A received unit is valued at
+what the invoice stated for its line — stored with the invoice when it is issued
+(`einvoice_document.line_values`: the line item id, rate, quantity and gross amount of each line), not at
+Medusa's line totals, which Medusa recomputes once goods come back. What the invoice charged, and earlier
+credit notes credited, per rate is read back from the stored documents' BG-23 breakdown. Which returns a
+credit note paid for is stored with it (`einvoice_document.covered_returns`).
 
 ## From merchant configuration (`EinvoiceModuleOptions`, `medusa-config.ts`)
 

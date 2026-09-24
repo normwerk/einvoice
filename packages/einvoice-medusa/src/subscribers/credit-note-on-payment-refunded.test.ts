@@ -458,15 +458,25 @@ describe("creditNoteOnPaymentRefunded", () => {
     mocks.fetchFileBytes.mockImplementation(async () =>
       new TextEncoder().encode(cii("248.70", { "19": "238.00", "7": "10.70" })),
     );
-    const einvoiceService = makeEinvoiceService();
+    // The invoice stated the book at 10.70 (7%) — what a returned book is credited at.
+    const invoiceWithLines = {
+      ...ORIGINAL_INVOICE,
+      line_values: [
+        { itemId: "item_widget", rate: "19", quantity: "2", gross: "238.00" },
+        { itemId: "item_book", rate: "7", quantity: "1", gross: "10.70" },
+      ],
+    };
+    const einvoiceService = makeEinvoiceService({
+      listEinvoiceDocuments: async (filter) =>
+        filter["type"] === "invoice" ? [invoiceWithLines] : [],
+    });
     const book = {
       id: "item_book",
       title: "Book",
       unit_price: 10,
       is_tax_inclusive: false,
       tax_lines: [{ rate: 7 }],
-      detail: { quantity: 1, return_received_quantity: 1 },
-      return_received_total: 10.7,
+      detail: { quantity: 1 },
     };
     const { container } = makeContainer({
       einvoiceService,

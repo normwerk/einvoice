@@ -68,6 +68,7 @@ import {
 } from "../integrations/webbers.js";
 import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
 import { recordRefusalOfError } from "../refusals.js";
+import { invoicedLineValues } from "../mapping/credit-note.js";
 import {
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
@@ -281,6 +282,8 @@ export async function issueInvoiceForFulfillment(
     xmlFileId: stored.xmlFileId,
     pdfFileId: stored.pdfFileId,
     notice,
+    // P-65: what each order line was invoiced at — a later return is credited at that.
+    lineValues: invoicedLineValues(order.items, buildResult.invoice.lines),
   });
 
   if (!result.created) {

@@ -111,7 +111,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   outstanding on the invoice; the whole order is restated only when nothing was credited before),
   `toPartialCreditNoteInput` (VAT-inclusive lines over the credited sums), `extractGrandTotalFromCii`,
   `extractGrossByRateFromCii` (a document's gross per rate from its BG-23 breakdown), `returnsToCredit`
-  (received returns valued at their lines' gross price, oldest first, less what earlier credit notes paid),
+  (received returns valued at what the invoice stated for their lines, oldest first, less what earlier
+  credit notes paid), `invoicedLineValues` (each order line as the invoice stated it),
   and `creditableRefund` (after an overpayment notice, a refund returns the overpayment first and credits
   only what goes beyond it).
 - `src/subscribers/credit-note-on-payment-refunded.test.ts` — the refund subscriber: `extractIssueDateFromCii`

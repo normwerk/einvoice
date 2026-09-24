@@ -42,11 +42,10 @@ import {
   returnsToCredit,
   toPartialCreditNoteInput,
   type CreditScope,
-  type MedusaItemValue,
   type MedusaReturnForCredit,
   type PartialCreditNoteLine,
 } from "../mapping/credit-note.js";
-import type { CoveredReturn } from "../modules/einvoice/service.js";
+import type { CoveredReturn, InvoicedLine } from "../modules/einvoice/service.js";
 
 /** The original invoice a credit note corrects, with what has already been credited against it. */
 export interface CreditBasis {
@@ -60,6 +59,8 @@ export interface CreditBasis {
   readonly uncreditedByRate: readonly { readonly rate: string; readonly gross: Amount }[];
   /** P-65: the parts of received returns earlier credit notes paid for. */
   readonly coveredReturns: readonly CoveredReturn[];
+  /** P-65: what the invoice stated for each order line — what a returned unit is credited at. */
+  readonly invoicedLines: readonly InvoicedLine[];
 }
 
 /** Reads the order's invoice and credit notes back from the File Module. `undefined` when the order has
@@ -114,6 +115,7 @@ export async function loadCreditBasis(
       gross: (Math.max(0, cents) / 100).toFixed(2),
     })),
     coveredReturns: creditNotes.flatMap((creditNote) => creditNote.covered_returns ?? []),
+    invoicedLines: invoice.line_values ?? [],
   };
 }
 
@@ -140,31 +142,15 @@ export interface IssueCreditNoteInput {
   readonly embedWebbersPdf?: boolean;
 }
 
-/** P-65: the order's returns and its lines' gross values — what a partial credit pays for first. */
+/** P-65: the order's returns — what a partial credit pays for first. Queried as returns, not through the
+ * order: `order.returns.items` comes back without `received_quantity` (checked on Medusa 2.21), which the
+ * return entity itself does return. */
 async function loadReturnsForCredit(
   container: MedusaContainer,
   orderId: string,
-): Promise<{
-  readonly returns: readonly MedusaReturnForCredit[];
-  readonly items: readonly MedusaItemValue[];
-}> {
+): Promise<readonly MedusaReturnForCredit[]> {
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
-  const { data: orders } = await query.graph({
-    entity: "order",
-    filters: { id: orderId },
-    fields: [
-      "id",
-      // `total` makes the order module compute the lines' totals (see ORDER_QUERY_FIELDS), and
-      // `detail.return_received_quantity` its `return_received_total`.
-      "total",
-      "items.id",
-      "items.return_received_total",
-      "items.detail.return_received_quantity",
-    ],
-  });
-  // Queried as returns, not through the order: `order.returns.items` comes back without
-  // `received_quantity` (checked on Medusa 2.21), which the return entity itself does return.
-  const { data: returns } = await query.graph({
+  const { data } = await query.graph({
     entity: "return",
     filters: { order_id: orderId },
     fields: [
@@ -176,8 +162,7 @@ async function loadReturnsForCredit(
       "items.received_quantity",
     ],
   });
-  const order = orders[0] as { readonly items?: readonly MedusaItemValue[] } | undefined;
-  return { returns: returns as MedusaReturnForCredit[], items: order?.items ?? [] };
+  return data as MedusaReturnForCredit[];
 }
 
 export type IssueCreditNoteOutcome =
@@ -254,19 +239,10 @@ export async function issueCreditNote({
           commerce.resolveLineRate(decision, taxContext, line.taxRateKind, line.chargedVatRate),
         ),
       );
-      const rateOfItem = (itemId: string): string | undefined => {
-        const index = order.items.findIndex((item) => item.id === itemId);
-        return index === -1 ? undefined : lineRates[index];
-      };
       const received = await loadReturnsForCredit(container, order.id);
       const pieces = commerce.allocateCreditAcrossRates({
         amount: scope.gross,
-        returns: returnsToCredit(
-          received.returns,
-          received.items,
-          rateOfItem,
-          basis.coveredReturns,
-        ),
+        returns: returnsToCredit(received, basis.invoicedLines, basis.coveredReturns),
         uncreditedByRate: basis.uncreditedByRate,
       });
       const restLabel =

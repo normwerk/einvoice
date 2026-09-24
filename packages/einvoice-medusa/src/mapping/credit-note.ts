@@ -190,33 +190,47 @@ export interface MedusaReturnForCredit {
     | null;
 }
 
+/** P-65: what an invoice stated for one order line (`InvoicedLine` on the invoice document). */
+export interface InvoicedLineValue {
+  readonly itemId: string;
+  readonly rate: string;
+  readonly quantity: string;
+  readonly gross: string;
+}
+
 /**
- * An order line's value of its received returns, as the order query returns it. `return_received_total` is
- * Medusa's own: the line's full-quantity gross total after discounts, per unit, times the units received
- * back — its `total` is no use here, since Medusa recomputes it for the units the buyer kept (0 once all came
- * back; checked on Medusa 2.21 and in `@medusajs/utils@2.19.0` `totals/line-item`).
+ * P-65: each order line as the invoice states it — the Medusa line item (the invoice's lines are the order's
+ * items, in order), its rate, quantity, and net amount (BT-131) with its rate's VAT on top. Stored with the
+ * invoice so a returned unit is credited at what was invoiced for it.
  */
-export interface MedusaItemValue {
-  readonly id?: string | null;
-  /** A `BigNumber` at runtime, read through `Number()`. */
-  readonly return_received_total?: number | string | null;
-  readonly detail?: { readonly return_received_quantity?: number | string | null } | null;
+export function invoicedLineValues(
+  items: readonly { readonly id?: string | null }[],
+  lines: readonly {
+    readonly quantity: string;
+    readonly netAmount: string;
+    readonly vat: { readonly rate?: string | undefined };
+  }[],
+): readonly InvoicedLineValue[] {
+  return items.flatMap((item, index) => {
+    const line = lines[index];
+    if (typeof item.id !== "string" || line === undefined) return [];
+    const rate = rateKey(line.vat.rate ?? "0");
+    const gross = Math.round((toCents(line.netAmount) * (100 + Number(rate))) / 100);
+    return [{ itemId: item.id, rate, quantity: line.quantity, gross: fromCents(gross) }];
+  });
 }
 
 /**
  * P-65: the order's received returns — fully or partly — oldest first, with the gross value still to credit
- * at each rate: each received unit at its line's gross price after discounts, less what earlier credit
- * notes paid for it (`covered`). `rateOfItem` gives the invoice rate of a line by its id.
+ * at each rate: each received unit at what the invoice stated for its line (`invoiced`), less what earlier
+ * credit notes paid for it (`covered`). A unit of a line the invoice does not name is not valued.
  */
 export function returnsToCredit(
   returns: readonly MedusaReturnForCredit[],
-  items: readonly MedusaItemValue[],
-  rateOfItem: (itemId: string) => string | undefined,
+  invoiced: readonly InvoicedLineValue[],
   covered: readonly { readonly returnId: string; readonly rate: string; readonly gross: Amount }[],
 ): readonly ReturnToCredit[] {
-  const itemsById = new Map(
-    items.flatMap((item) => (typeof item.id === "string" ? [[item.id, item] as const] : [])),
-  );
+  const linesById = new Map(invoiced.map((line) => [line.itemId, line] as const));
   // A partially received return has no `received_at` yet; it counts from when it was created.
   const time = (r: MedusaReturnForCredit): number =>
     new Date(r.received_at ?? r.created_at ?? 0).getTime();
@@ -227,14 +241,11 @@ export function returnsToCredit(
     const byRate = new Map<string, number>();
     for (const returned of ret.items ?? []) {
       const quantity = Number(returned.received_quantity ?? 0);
-      const item = returned.item_id ? itemsById.get(returned.item_id) : undefined;
-      const rate = returned.item_id ? rateOfItem(returned.item_id) : undefined;
-      const receivedOfLine = Number(item?.detail?.return_received_quantity ?? 0);
-      if (quantity <= 0 || item === undefined || rate === undefined || receivedOfLine <= 0)
-        continue;
-      const value = Math.round(
-        (Number(item.return_received_total ?? 0) * quantity * 100) / receivedOfLine,
-      );
+      const line = returned.item_id ? linesById.get(returned.item_id) : undefined;
+      const lineQuantity = Number(line?.quantity ?? 0);
+      if (quantity <= 0 || line === undefined || lineQuantity <= 0) continue;
+      const rate = line.rate;
+      const value = Math.round((toCents(line.gross) * quantity) / lineQuantity);
       byRate.set(rateKey(rate), (byRate.get(rateKey(rate)) ?? 0) + value);
     }
     for (const done of covered.filter((c) => c.returnId === ret.id)) {
