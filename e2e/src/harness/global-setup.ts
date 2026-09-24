@@ -1,10 +1,12 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { upBase, upMedusa, down, logs } from "./compose.js";
 import { publishToVerdaccio } from "./publish.js";
+import { MEDUSA_CONTAINER_NAME } from "./env.js";
+import { prepareMedusaVersion } from "./medusa-version.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -46,10 +48,16 @@ export default async function setup(): Promise<() => Promise<void>> {
   // around. Cleanup at the end (below) is politeness; cleanup at the start is the actual guarantee.
   await down();
 
+  const medusaVersion = process.env["EINVOICE_E2E_MEDUSA_VERSION"];
+  if (medusaVersion !== undefined && medusaVersion !== "") {
+    await prepareMedusaVersion(medusaVersion);
+  }
+
   try {
     await upBase();
     await Promise.all([publishToVerdaccio(), buildConformanceImages()]);
     await upMedusa();
+    await recordInstalledVersions();
   } catch (error) {
     // Vitest only calls the teardown this function returns — if setup itself throws before reaching the
     // `return` below, there is no teardown to call `down()` for us. Without this, a failed bring-up (e.g.
@@ -69,7 +77,36 @@ export default async function setup(): Promise<() => Promise<void>> {
     // for a later pass, not this one.
     await collectLogs();
     await down();
+    const appCopy = process.env["EINVOICE_E2E_APP_DIR"];
+    if (medusaVersion !== undefined && medusaVersion !== "" && appCopy !== undefined) {
+      await rm(appCopy, { recursive: true, force: true });
+    }
   };
+}
+
+/** Which Medusa and plugin versions the stand actually installed — the one fact a version-matrix run
+ * (`EINVOICE_E2E_MEDUSA_VERSION`) must not take on trust. Printed and written to `e2e/.artifacts/`. */
+async function recordInstalledVersions(): Promise<void> {
+  const packages = [
+    "@medusajs/medusa",
+    "@medusajs/framework",
+    "@medusajs/ui",
+    "@normwerk/einvoice-medusa",
+  ];
+  const script =
+    `const fs = require("fs"); console.log(${JSON.stringify(packages)}.map((p) => ` +
+    `p + "@" + JSON.parse(fs.readFileSync("/app/node_modules/" + p + "/package.json", "utf8")).version).join(" "))`;
+  const { stdout } = await execFileAsync("docker", [
+    "exec",
+    MEDUSA_CONTAINER_NAME,
+    "node",
+    "-e",
+    script,
+  ]);
+  const versions = stdout.trim();
+  console.log(`[e2e] installed: ${versions}`);
+  await mkdir(ARTIFACTS_DIR, { recursive: true });
+  await writeFile(path.join(ARTIFACTS_DIR, "versions.txt"), `${versions}\n`);
 }
 
 /** Writes each service's log to `e2e/.artifacts/`, best-effort: a service that never started has none. */

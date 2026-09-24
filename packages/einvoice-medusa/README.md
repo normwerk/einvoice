@@ -15,11 +15,22 @@ page and a Store API endpoint for a customer to fetch their own e-invoice.
 
 ## Compatibility
 
-| Medusa | Status                                                              |
-| ------ | ------------------------------------------------------------------- |
-| 2.21.0 | Tested: the end-to-end suite runs a real store on it                |
-| 2.19.0 | Tested: the version the plugin is developed and unit-tested against |
-| < 2.19 | Not tested; the peer dependencies (`^2.19.0`) do not allow it       |
+Medusa 2.19.0 or later within 2.x (the peer dependencies ask for `^2.19.0`). Each release below was run
+through the end-to-end suite — a real store, from checkout to a validated invoice, credit note and refund:
+
+| Medusa | End-to-end suite | Note                                                                                                           |
+| ------ | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| 2.21.1 | 22/22            |                                                                                                                |
+| 2.21.0 | 22/22            | The suite's default                                                                                            |
+| 2.20.1 | 22/22            |                                                                                                                |
+| 2.19.0 | 22/22            | Also the version the plugin is developed and unit-tested against                                               |
+| 2.18.0 | 14/22            | Shipping is missing from the invoice, so it totals less than was charged                                       |
+| 2.17.2 | 9/22             | Order lines reach the plugin without their tax lines: every domestic order is refused                          |
+| 2.16.0 | 9/22             | As 2.17.2                                                                                                      |
+| 2.12.6 | 12/22            | Shipping is missing from the invoice; a refund gives no credit note (the order cannot be looked up by payment) |
+
+Below 2.19 the order totals and shipping amounts the plugin reads from Medusa are not there, and nothing
+older was made to work: the peer dependencies stop an npm install below 2.19.0.
 
 Invoices and credit notes are issued for a seller in Germany only; the plugin refuses to start with any
 other seller country. Buyers can be in Germany (businesses, consumers, public-sector buyers), elsewhere in

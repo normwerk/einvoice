@@ -25,4 +25,6 @@ EXPOSE 9500
 # Idempotent on every start: `db:migrate` is a no-op against an already-migrated database, and `user`
 # tolerates a user that already exists (the harness may restart this container against the same, still
 # running stand while iterating on scenarios) rather than failing the whole chain.
-CMD ["sh", "-c", "npm install && export PATH=\"/app/node_modules/.bin:$PATH\" && medusa db:migrate && (medusa user -e admin@einvoice-e2e.example -p supersecret || true) && medusa start"]
+# EINVOICE_E2E_NPM_INSTALL_FLAGS is empty except for a Medusa release below the plugin's peer range
+# (src/harness/medusa-version.ts), which installs only with --legacy-peer-deps.
+CMD ["sh", "-c", "npm install $EINVOICE_E2E_NPM_INSTALL_FLAGS && export PATH=\"/app/node_modules/.bin:$PATH\" && medusa db:migrate && (medusa user -e admin@einvoice-e2e.example -p supersecret || true) && medusa start"]

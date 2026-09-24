@@ -8,8 +8,10 @@ work.
 ## Prerequisites
 
 - Node `^20.19.0` or `>=22.12.0` (`einvoice-medusa`'s own `engines` field).
-- Medusa 2.19 or a later 2.x release. The plugin is tested against Medusa 2.19.0 (its own development
-  version) and 2.21.0 (the [end-to-end stand](e2e.md)); its peer dependencies ask for `^2.19.0`.
+- Medusa 2.19 or a later 2.x release; the peer dependencies ask for `^2.19.0`. The
+  [end-to-end suite](e2e.md) passes on 2.19.0, 2.20.1, 2.21.0 and 2.21.1. Older releases do not give the
+  plugin the order totals and shipping amounts it needs — the invoice would leave out shipping — see the
+  [compatibility table](../packages/einvoice-medusa/README.md#compatibility).
 - A Medusa v2 project with a real Postgres database. If you don't have one yet:
   ```bash
   npx create-medusa-app@latest my-store --db-url "postgres://user:pass@localhost:5432/my_store_db"

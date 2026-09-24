@@ -36,6 +36,7 @@ export async function runMedusaOnce(
     AUTH_CORS: `http://localhost:${port}`,
     JWT_SECRET: "einvoice-e2e-test-only",
     COOKIE_SECRET: "einvoice-e2e-test-only",
+    EINVOICE_E2E_NPM_INSTALL_FLAGS: process.env["EINVOICE_E2E_NPM_INSTALL_FLAGS"] ?? "",
     ...envOverrides,
   };
   const envArgs = Object.entries(env).flatMap(([key, value]) => ["-e", `${key}=${value}`]);

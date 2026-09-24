@@ -554,3 +554,10 @@ integrations` itself states the list "is curated from npm," and its own visible 
   default rate) became a 7% line on the invoice. It now passes the summed rate on as
   `CommerceLine.chargedVatRate`, and `resolveLineRate` in `einvoice-commerce` decides: 19 or 7 on a
   domestic line, exactly the declared `ossRateOverride` on an OSS line, refusal otherwise.
+- **Below Medusa 2.19 the plugin's order query comes back incomplete, without an error.** Run through the
+  end-to-end suite (`EINVOICE_E2E_MEDUSA_VERSION`, 2026-09-24): on 2.18.0 the shipping amounts and the order
+  `total` are missing, so the invoice leaves out shipping and the total check has nothing to compare with —
+  no warning either; on 2.16.0 and 2.17.2 the order lines also arrive without `tax_lines`; on 2.12.6
+  `query.graph` cannot filter orders by `payment_collections.payments.id` at all, so a refund finds no
+  order. 2.19.0, 2.20.1, 2.21.0 and 2.21.1 pass everything. npm enforces the `^2.19.0` peer range; a
+  package manager that only warns on peers does not.

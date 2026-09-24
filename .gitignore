@@ -14,3 +14,6 @@ coverage/
 # (packages/einvoice-conformance/src/cli.ts, plan-v0.1 §3.2/T-044).
 *-report.xml
 *-report.html
+
+# The e2e stand's per-run output: container logs and the installed versions (e2e/src/harness/global-setup.ts).
+e2e/.artifacts/

@@ -71,8 +71,10 @@ services:
 
   medusa:
     build:
-      context: ../app
-      dockerfile: ../docker/medusa/Dockerfile
+      # Another Medusa release than e2e/app pins: the harness copies the app elsewhere and sets both
+      # (src/harness/medusa-version.ts, EINVOICE_E2E_MEDUSA_VERSION). Unset, the committed app is built.
+      context: ${EINVOICE_E2E_APP_DIR:-../app}
+      dockerfile: ${EINVOICE_E2E_MEDUSA_DOCKERFILE:-../docker/medusa/Dockerfile}
     # A fresh `npm install` of ~1000 packages through Verdaccio's own npmjs proxy occasionally hits a
     # transient network reset (verified against a real run) — a few automatic retries absorb that without
     # making the harness itself paper over a real, repeatable failure (`--wait`'s own timeout still bounds
@@ -103,6 +105,7 @@ services:
       COOKIE_SECRET: einvoice-e2e-test-only
       EINVOICE_E2E_VALID_VAT_ID: ${EINVOICE_E2E_VALID_VAT_ID:-FR40303265045}
       EINVOICE_E2E_NOW: ${EINVOICE_E2E_NOW:-2026-01-15T10:00:00.000Z}
+      EINVOICE_E2E_NPM_INSTALL_FLAGS: ${EINVOICE_E2E_NPM_INSTALL_FLAGS:-}
     ports:
       - "${EINVOICE_E2E_MEDUSA_PORT:-9500}:${EINVOICE_E2E_MEDUSA_PORT:-9500}"
     healthcheck:

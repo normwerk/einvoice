@@ -89,13 +89,31 @@ should show nothing from this stand at any point you're not actively mid-run.
 - **Still stuck**: [open an issue](https://github.com/normwerk/einvoice/issues) with the log files above
   attached — real container logs are far more useful here than a description of what happened.
 
+## Another Medusa release
+
+```bash
+EINVOICE_E2E_MEDUSA_VERSION=2.19.0 pnpm e2e
+```
+
+runs the same suite against another Medusa release. The harness copies `e2e/app/` to a temporary directory,
+sets every `@medusajs/*` package to that version (dropping one the release does not have yet) and the UI
+and router packages to what that release's own dashboard depends on, and builds the stand from the copy;
+the committed app is left alone. A release below the plugin's peer range (`^2.19.0`) is installed with
+`--legacy-peer-deps`, with the non-optional peer dependencies of that release's Medusa packages added to
+the app the way its own scaffold listed them. The versions actually installed are printed at the start of
+the run and written to `e2e/.artifacts/versions.txt`.
+
+Results so far are in the plugin's compatibility table
+([`packages/einvoice-medusa/README.md`](../packages/einvoice-medusa/README.md#compatibility)).
+
 ## What this doesn't cover yet
 
 This is the `fast` profile only: a committed Medusa v2 app (`e2e/app/`, scaffolded with
 `create-medusa-app@2.19.0`, its `@medusajs/*` packages pinned to 2.21.0), not a freshly scaffolded one. It catches wiring bugs (does a real
-order's data reach the plugin and come back out correctly?), not Medusa scaffold drift or compatibility
-with Medusa versions other than the one this app pins. A `fresh` profile against a newly scaffolded app,
-and a matrix against multiple Medusa versions, are tracked as follow-up work, not implemented here.
+order's data reach the plugin and come back out correctly?), not Medusa scaffold drift. Other Medusa
+releases run on the same committed app (above), so a release whose own scaffold differs more than
+package versions can need changes to the stand before its result says anything about the plugin. A
+`fresh` profile against a newly scaffolded app, and a scheduled run across releases, are follow-up work.
 
 VAT category logic itself (which category a given order should get) is deliberately **not** re-tested
 here — that's [`packages/einvoice-medusa/fixtures/tax-matrix`](../packages/einvoice-medusa/fixtures/tax-matrix)'s

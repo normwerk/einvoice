@@ -10,7 +10,6 @@ import {
   createCollectionsWorkflow,
   createInventoryLevelsWorkflow,
   createProductCategoriesWorkflow,
-  createProductOptionsWorkflow,
   createProductsWorkflow,
   createRegionsWorkflow,
   createSalesChannelsWorkflow,
@@ -328,24 +327,12 @@ export default async function initial_data_seed({
     },
   });
 
-  const { result: productOptionsResult } = await createProductOptionsWorkflow(
-    container
-  ).run({
-    input: {
-      product_options: [
-        {
-          title: "Size",
-          values: ["S", "M", "L", "XL"],
-        },
-        {
-          title: "Color",
-          values: ["Black", "White"],
-        },
-      ],
-    },
-  });
-  const sizeOption = productOptionsResult.find((o) => o.title === "Size")!;
-  const colorOption = productOptionsResult.find((o) => o.title === "Color")!;
+  // Product options inline ({ title, values }), not as reusable options made first with
+  // createProductOptionsWorkflow, as the create-medusa-app 2.19 scaffold does: Medusa 2.12 refuses that form
+  // ("Tried to create options without specifying a product_id"), and the stand runs older releases too
+  // (EINVOICE_E2E_MEDUSA_VERSION).
+  const sizeOption = { title: "Size", values: ["S", "M", "L", "XL"] };
+  const colorOption = { title: "Color", values: ["Black", "White"] };
 
   await createProductsWorkflow(container).run({
     input: {
@@ -376,8 +363,8 @@ export default async function initial_data_seed({
             },
           ],
           options: [
-            { id: sizeOption.id },
-            { id: colorOption.id },
+            sizeOption,
+            colorOption,
           ],
           variants: [
             {
@@ -550,7 +537,7 @@ export default async function initial_data_seed({
               url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/sweatshirt-vintage-back.png",
             },
           ],
-          options: [{ id: sizeOption.id }],
+          options: [sizeOption],
           variants: [
             {
               title: "S",
@@ -646,7 +633,7 @@ export default async function initial_data_seed({
               url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/sweatpants-gray-back.png",
             },
           ],
-          options: [{ id: sizeOption.id }],
+          options: [sizeOption],
           variants: [
             {
               title: "S",
@@ -742,7 +729,7 @@ export default async function initial_data_seed({
               url: "https://medusa-public-images.s3.eu-west-1.amazonaws.com/shorts-vintage-back.png",
             },
           ],
-          options: [{ id: sizeOption.id }],
+          options: [sizeOption],
           variants: [
             {
               title: "S",
