@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -101,7 +101,7 @@ jobs:
   # document — not one of our own EN 16931 fixtures (those land in T-050).
   # The full conformance suite (all levels, all fixtures) is T-040/T-004.
   conformance-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -128,7 +128,7 @@ jobs:
   # Schematron, including the XRechnung-profile BR-DE-* rules) — locally
   # and in CI identically (plan-v0.1 §4.5/§9).
   conformance-fixtures:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -160,7 +160,7 @@ jobs:
   # (packages/einvoice-commerce/fixtures/, not the root fixtures/, which is
   # strictly Invoice-model-shaped).
   conformance-commerce:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -189,7 +189,7 @@ jobs:
   # Only cells with a validated build-axis outcome reach KoSIT here; the rest
   # (error/known-bug cells) are proven by the package's own fast vitest suite.
   conformance-tax-matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -217,7 +217,7 @@ jobs:
   # (which also checks the XMP ConformanceLevel/DocumentType/
   # DocumentFileName/Version properties, not just the PDF/A shell).
   conformance-pdfa:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
