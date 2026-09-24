@@ -296,7 +296,7 @@ describe("invoiceOnFulfillmentCreated", () => {
     );
   });
 
-  it("webbers mode: throws WebbersInvoiceNotFoundError when no invoice ever appears", async () => {
+  it("webbers mode: records WebbersInvoiceNotFoundError as a refusal when no invoice ever appears (P-66)", async () => {
     mocks.waitForWebbersInvoice.mockResolvedValue(undefined);
     const einvoiceService = makeEinvoiceService({
       options: {
@@ -307,11 +307,15 @@ describe("invoiceOnFulfillmentCreated", () => {
     });
     const { container } = makeContainer(einvoiceService);
 
-    await expect(
-      invoiceOnFulfillmentCreated(
-        makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
-      ),
-    ).rejects.toThrow(WebbersInvoiceNotFoundError);
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "ful_01",
+        code: new WebbersInvoiceNotFoundError("order_01", "order_01", "debit").name,
+      }),
+    );
     expect(einvoiceService.recordDocumentIfAbsent).not.toHaveBeenCalled();
   });
 
@@ -328,20 +332,31 @@ describe("invoiceOnFulfillmentCreated", () => {
 
     expect(mocks.deleteEinvoiceFiles).toHaveBeenCalledWith(container, ["file_xml", "file_pdf"]);
   });
-  it("takes no document number for an order buildInvoice refuses (P-48)", async () => {
+  it("records an order buildInvoice refuses, with its reason, and takes no document number (P-48, P-66)", async () => {
     mocks.buildInvoice.mockImplementationOnce(() => {
-      throw new Error("refused");
+      throw Object.assign(new Error("needs a positive VIES check"), {
+        name: "TaxRuleError",
+        ruleId: "tax-semantics#3",
+      });
     });
     const einvoiceService = makeEinvoiceService();
     const { container } = makeContainer(einvoiceService);
 
-    await expect(
-      invoiceOnFulfillmentCreated(
-        makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
-      ),
-    ).rejects.toThrow("refused");
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith({
+      type: "invoice",
+      orderId: "order_01",
+      idempotencyKey: "ful_01",
+      code: "TaxRuleError",
+      details: { message: "needs a positive VIES check", ruleId: "tax-semantics#3" },
+    });
     expect(mocks.nextNumber).not.toHaveBeenCalled();
     expect(mocks.storeEinvoiceFiles).not.toHaveBeenCalled();
+    const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(logged).toContain("Not issued: needs a positive VIES check [TaxRuleError]");
   });
 
   it("reports buildInvoice's warnings without the invoice payload (P-39)", async () => {

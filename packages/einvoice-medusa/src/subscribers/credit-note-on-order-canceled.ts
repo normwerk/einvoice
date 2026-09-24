@@ -39,6 +39,9 @@ export default async function creditNoteOnOrderCanceled({
   const einvoiceService = container.resolve<EinvoiceModuleService>(EINVOICE_MODULE);
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
+  // P-66: a cancelled order needs no invoice — a refused one is no longer to be retried.
+  await einvoiceService.clearRefusalsOfOrder("invoice", data.id);
+
   const idempotencyKey = `order.canceled:${data.id}`;
   const existing = await einvoiceService.listEinvoiceDocuments({
     type: "credit_note",
@@ -90,6 +93,7 @@ export default async function creditNoteOnOrderCanceled({
     scope,
     idempotencyKey,
     reason: "cancellation",
+    trigger: { event: "order.canceled" },
   });
 }
 

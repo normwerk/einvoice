@@ -107,6 +107,12 @@ function setup(
       return documents.creditNotes;
     }),
     recordDocumentIfAbsent: vi.fn(async () => ({ document: {}, created: true })),
+    clearRefusal: vi.fn(async () => undefined),
+    clearRefusalsOfOrder: vi.fn(async () => undefined),
+    recordRefusal: vi.fn(async (input: { code: string }) => ({
+      id: "einvref_1",
+      code: input.code,
+    })),
   } as unknown as EinvoiceModuleService;
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, service],
@@ -163,6 +169,12 @@ describe("creditNoteOnOrderCanceled (P-41)", () => {
     });
     await creditNoteOnOrderCanceled(args(alreadyCredited.container));
     expect(mocks.buildInvoice).not.toHaveBeenCalled();
+  });
+
+  it("drops the order's refused invoices — a cancelled order is not to be invoiced any more (P-66)", async () => {
+    const { container, service } = setup({ invoices: [], creditNotes: [] });
+    await creditNoteOnOrderCanceled(args(container));
+    expect(service.clearRefusalsOfOrder).toHaveBeenCalledWith("invoice", "order_01");
   });
 
   it("issues nothing in Webbers mode and says so — their plugin has no credit invoice for a cancellation", async () => {

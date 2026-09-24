@@ -425,6 +425,17 @@ export default class EinvoiceModuleService extends MedusaService({
     }
   }
 
+  /** P-66: an order cancelled before its invoice was issued needs none — its invoice refusals go. */
+  async clearRefusalsOfOrder(type: EinvoiceDocumentType, orderId: string): Promise<void> {
+    const refusals = (await this.listEinvoiceRefusals({
+      type,
+      order_id: orderId,
+    })) as unknown as EinvoiceRefusalRecord[];
+    if (refusals.length > 0) {
+      await this.deleteEinvoiceRefusals(refusals.map((refusal) => refusal.id));
+    }
+  }
+
   /** P-63: the document was issued — its refusal, if one was recorded, no longer applies. */
   async clearRefusal(type: EinvoiceDocumentType, idempotencyKey: string): Promise<void> {
     const refusals = (await this.listEinvoiceRefusals({

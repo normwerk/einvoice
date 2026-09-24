@@ -17,9 +17,9 @@ import { fetchFileBytes } from "../storage.js";
 import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
 import {
   describeChargedReconciliation,
-  type InvoiceBlock,
   type InvoiceNotice,
 } from "../mapping/charged-reconciliation.js";
+import { describeRefusal } from "../refusals.js";
 
 export interface EinvoiceDocumentSummary {
   readonly id: string;
@@ -73,21 +73,6 @@ export interface AdminEinvoiceRefusalSummary extends EinvoiceStatusSummary {
   readonly idempotencyKey: string;
   readonly updatedAt: string;
   readonly retryUrl: string;
-}
-
-const REFUSAL_CODES_WITH_AMOUNTS = new Set([
-  "INVOICE_VAT_ABOVE_CHARGED",
-  "INVOICE_TOTAL_MISMATCH",
-  "CHARGED_TOTALS_MISSING",
-]);
-
-function describeRefusal(refusal: EinvoiceRefusalRecord): string {
-  return REFUSAL_CODES_WITH_AMOUNTS.has(refusal.code)
-    ? describeChargedReconciliation({
-        ...refusal.details,
-        code: refusal.code,
-      } as unknown as InvoiceBlock)
-    : `Not issued [${refusal.code}].`;
 }
 
 /**

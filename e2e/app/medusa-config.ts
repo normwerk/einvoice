@@ -7,8 +7,16 @@ loadEnv(process.env.NODE_ENV || "development", process.cwd());
 // seed step (e2e/src/seed) from the same env var, so the two sides can't drift apart (plan-e2e.md §4.1: a
 // real VIES call is never made from a test).
 const validVatId = process.env.EINVOICE_E2E_VALID_VAT_ID;
+// P-66: a VAT-ID whose VIES check is unavailable — S14's refused invoice, retried once the merchant
+// confirmed the number another way.
+const unavailableVatId = process.env.EINVOICE_E2E_UNAVAILABLE_VAT_ID;
 const vatIdVerifier = validVatId
-  ? new MapVatIdVerifier(new Map([[validVatId, "valid"]]))
+  ? new MapVatIdVerifier(
+      new Map<string, "valid" | "unavailable">([
+        [validVatId, "valid"],
+        ...(unavailableVatId ? [[unavailableVatId, "unavailable"] as const] : []),
+      ])
+    )
   : undefined;
 
 // T-078 (plan-e2e.md §5 rule 5): a real Medusa event has no other way to pin down "today" — this is what

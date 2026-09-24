@@ -7,7 +7,8 @@
  * order restated, or one VAT-inclusive line over a credited gross sum. Its VAT category and rate always
  * come from `@normwerk/einvoice-commerce` (`decideVatCategory`, and `buildInvoice` for the rate the VAT
  * is taken out at) — this file asks, it does not decide. The VAT-ID check and the partial-credit refusal run before a document number is
- * allocated, so neither burns a number.
+ * allocated, so neither burns a number. P-66: a refusal there is recorded (`refusals.ts`) rather than thrown
+ * — shown in the admin, and retried by redelivering the event named in `trigger`.
  *
  * Same dynamic-import pattern as the subscribers (ESM-only core packages, CommonJS plugin build).
  */
@@ -25,6 +26,8 @@ import {
   WebbersInvoiceNotFoundError,
 } from "../integrations/webbers.js";
 import { deleteEinvoiceFiles, fetchFileBytes, storeEinvoiceFiles } from "../storage.js";
+import { recordRefusalOfError, type CreditNoteTrigger } from "../refusals.js";
+import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
 import {
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
@@ -101,12 +104,21 @@ export interface IssueCreditNoteInput {
   /** Per refund id, or per cancelled order — the `(credit_note, key)` pair is unique. */
   readonly idempotencyKey: string;
   readonly reason: "refund" | "cancellation";
+  /** P-66: what a retry of a refused credit note redelivers. */
+  readonly trigger: CreditNoteTrigger;
   /** Webbers mode only: their credit invoice's `resource_id` (a refund id) whose number is reused. */
   readonly webbersResourceId?: string;
   /** Webbers mode only: `false` when their credit invoice shows another amount than this credit note — it
    * then gets their number but not their PDF (P-63: a refund that returns an overpayment first). */
   readonly embedWebbersPdf?: boolean;
 }
+
+export type IssueCreditNoteOutcome =
+  | { readonly kind: "issued"; readonly documentNumber: string }
+  /** Lost a concurrent insert — another delivery issued it. */
+  | { readonly kind: "exists" }
+  /** Refused before a number was taken (P-66); the refusal is recorded. */
+  | { readonly kind: "blocked"; readonly refusal: EinvoiceRefusalRecord; readonly message: string };
 
 export async function issueCreditNote({
   container,
@@ -118,7 +130,8 @@ export async function issueCreditNote({
   reason,
   webbersResourceId,
   embedWebbersPdf = true,
-}: IssueCreditNoteInput): Promise<void> {
+  trigger,
+}: IssueCreditNoteInput): Promise<IssueCreditNoteOutcome> {
   const commerce = await import("@normwerk/einvoice-commerce");
   const cii = await import("@normwerk/einvoice-cii");
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
@@ -126,53 +139,78 @@ export async function issueCreditNote({
   const now = () => einvoiceService.options.now?.() ?? new Date();
   const issueDate = issueDateInSellerTimeZone(einvoiceService.options.seller.countryCode, now());
 
-  let input = mapOrderToCommerceInvoiceInput(order, {
-    seller: einvoiceService.options.seller,
-    kind: "credit-note",
-    issueDate,
-    payment: einvoiceService.options.payment,
-    ossRegistered: einvoiceService.options.ossRegistered,
-    correctedInvoice: { number: basis.invoice.document_number, issueDate: basis.invoiceIssueDate },
+  const refused = async (error: unknown): Promise<IssueCreditNoteOutcome> => ({
+    kind: "blocked",
+    ...(await recordRefusalOfError(
+      container,
+      einvoiceService,
+      { type: "credit_note", orderId: order.id, idempotencyKey, trigger },
+      error,
+    )),
   });
 
-  const profile = commerce.selectProfile({
-    buyerCountry: input.buyer.countryCode,
-    leitwegId: input.references?.leitwegId,
-    preferredProfile: einvoiceService.options.defaultProfile,
-  });
-
-  // VAT-ID verification is I/O and happens before buildInvoice (ADR-003) — and before a number is taken.
-  const vatIdEvidence =
-    einvoiceService.options.vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
-      ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
-      : undefined;
-
-  if (scope.kind === "partial") {
-    const decision = commerce.decideVatCategory(input.taxContext, vatIdEvidence);
-    const taxContext = input.taxContext;
-    const rates = new Set(
-      input.lines.map((line) =>
-        commerce.resolveLineRate(decision, taxContext, line.taxRateKind, line.chargedVatRate),
-      ),
-    );
-    if (rates.size > 1) {
-      throw new PartialCreditAcrossRatesError(order.id);
-    }
-    input = toPartialCreditNoteInput(input, {
-      gross: scope.gross,
-      taxRateKind: input.lines[0]?.taxRateKind,
-      chargedVatRate: input.lines[0]?.chargedVatRate,
-      originalInvoiceNumber: basis.invoice.document_number,
-      reason,
+  // P-66: everything up to the check build can refuse the credit note — recorded, not thrown.
+  const prepare = async () => {
+    let input = mapOrderToCommerceInvoiceInput(order, {
+      seller: einvoiceService.options.seller,
+      kind: "credit-note",
+      issueDate,
+      payment: einvoiceService.options.payment,
+      ossRegistered: einvoiceService.options.ossRegistered,
+      correctedInvoice: {
+        number: basis.invoice.document_number,
+        issueDate: basis.invoiceIssueDate,
+      },
     });
-  }
 
-  const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
-  // P-48: refusals before a document number is taken — see invoice-on-fulfillment-created.ts.
-  commerce.buildInvoice(
-    { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
-    buildOptions,
-  );
+    const profile = commerce.selectProfile({
+      buyerCountry: input.buyer.countryCode,
+      leitwegId: input.references?.leitwegId,
+      preferredProfile: einvoiceService.options.defaultProfile,
+    });
+
+    // VAT-ID verification is I/O and happens before buildInvoice (ADR-003) — and before a number is taken.
+    const vatIdEvidence =
+      einvoiceService.options.vatIdVerifier !== undefined &&
+      input.taxContext.buyerVatId !== undefined
+        ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
+        : undefined;
+
+    if (scope.kind === "partial") {
+      const decision = commerce.decideVatCategory(input.taxContext, vatIdEvidence);
+      const taxContext = input.taxContext;
+      const rates = new Set(
+        input.lines.map((line) =>
+          commerce.resolveLineRate(decision, taxContext, line.taxRateKind, line.chargedVatRate),
+        ),
+      );
+      if (rates.size > 1) {
+        throw new PartialCreditAcrossRatesError(order.id);
+      }
+      input = toPartialCreditNoteInput(input, {
+        gross: scope.gross,
+        taxRateKind: input.lines[0]?.taxRateKind,
+        chargedVatRate: input.lines[0]?.chargedVatRate,
+        originalInvoiceNumber: basis.invoice.document_number,
+        reason,
+      });
+    }
+
+    const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
+    // P-48: refusals before a document number is taken — see invoices/issue-invoice.ts.
+    commerce.buildInvoice(
+      { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
+      buildOptions,
+    );
+    return { input, profile, buildOptions };
+  };
+  let prepared: Awaited<ReturnType<typeof prepare>>;
+  try {
+    prepared = await prepare();
+  } catch (error) {
+    return refused(error);
+  }
+  const { input, profile, buildOptions } = prepared;
 
   const integration = einvoiceService.options.integration;
   let documentNumber: string;
@@ -180,7 +218,7 @@ export async function issueCreditNote({
 
   if (integration?.kind === "webbers") {
     if (webbersResourceId === undefined) {
-      throw new WebbersInvoiceNotFoundError(order.id, order.id, "credit");
+      return refused(new WebbersInvoiceNotFoundError(order.id, order.id, "credit"));
     }
     const webbersInvoice = await waitForWebbersInvoice(container, order.id, {
       resourceId: webbersResourceId,
@@ -189,7 +227,7 @@ export async function issueCreditNote({
       pollIntervalMs: integration.pollIntervalMs,
     });
     if (webbersInvoice === undefined) {
-      throw new WebbersInvoiceNotFoundError(order.id, webbersResourceId, "credit");
+      return refused(new WebbersInvoiceNotFoundError(order.id, webbersResourceId, "credit"));
     }
     documentNumber = String(webbersInvoice.invoice.display_id);
     if (webbersInvoice.invoice.pdf_url !== null && embedWebbersPdf) {
@@ -248,5 +286,8 @@ export async function issueCreditNote({
       container,
       stored.pdfFileId === null ? [stored.xmlFileId] : [stored.xmlFileId, stored.pdfFileId],
     );
+    return { kind: "exists" };
   }
+  await einvoiceService.clearRefusal("credit_note", idempotencyKey);
+  return { kind: "issued", documentNumber };
 }

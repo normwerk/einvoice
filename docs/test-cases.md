@@ -69,7 +69,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (203 tests)
+### `einvoice-medusa` (208 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -109,11 +109,12 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/subscribers/credit-note-on-payment-refunded.test.ts` — the refund subscriber: `extractIssueDateFromCii`
   (parsing BT-2 back out of already-generated CII XML), `MissingOriginalInvoiceError`, a full refund
   restating the order, a partial refund producing a one-line credit note, never crediting beyond what is
-  outstanding, a partial refund over mixed VAT rates refused before a document number is taken, and a refund
-  of an overpayment the invoice's notice names crediting nothing while a later one credits its own amount.
+  outstanding, a partial refund over mixed VAT rates refused — and recorded — before a document number is
+  taken, a refund with no invoice recorded as a refusal naming its payment, and a refund of an overpayment
+  the invoice's notice names crediting nothing while a later one credits its own amount.
 - `src/subscribers/credit-note-on-order-canceled.test.ts` — the cancellation subscriber: no credit note
-  without an invoice, the whole invoice or only its outstanding remainder credited, and Webbers mode
-  leaving the credit note to the merchant.
+  without an invoice, the whole invoice or only its outstanding remainder credited, Webbers mode leaving
+  the credit note to the merchant, and the order's refused invoices dropped.
 - `src/integrations/webbers.test.ts` — `waitForWebbersInvoice`'s own-package-not-installed path,
   `WebbersInvoiceNotFoundError`, and `fetchWebbersPdfBytes` (both the success and the non-2xx-response
   path, via a stubbed `fetch`).
@@ -123,11 +124,16 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   subscriber's orchestration: idempotency, the order-not-found guard, standalone vs Webbers numbering and
   PDF source, the concurrency-race cleanup, split fulfillments, `buildInvoice` warnings logged without the
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
-  number, and one stating less issued with its notice.
+  number, one stating less issued with its notice, and a `buildInvoice` refusal or a Webbers invoice that
+  never appeared recorded as a refusal — code, message and rule — instead of thrown.
+- `src/refusals.test.ts` — `describeRefusal` (a refusal explained by its error's message, a block by its
+  amounts) and `recordRefusalOfError` (the error's class name as the code, its message, rule and the
+  credit note's trigger recorded and logged).
 - `src/api/einvoice-http.test.ts` — the admin/store routes' shared helpers: `listEinvoiceDocumentSummaries`, `sendEinvoiceFile` and `customerOwnsOrder` (a customer can only reach documents of their own orders), and `listAdminEinvoiceStatus` (notices and refusals with their retry route, admin only — the store listing carries no notice).
 - `src/api/admin/orders/[id]/einvoice/refusals/[refusalId]/retry/route.test.ts` — the retry route: 404 for
-  another order's refusal, the invoice issued, a retry still blocked saying why, 422 with the reason of any
-  other refusal.
+  another order's refusal, the invoice issued, a retry still blocked saying why, 500 for a failure after
+  the checks, and a credit note retried by redelivering its refund or cancellation — issued, refused again,
+  or nothing left to credit.
 
 ### `einvoice-conformance` (8 tests) / `einvoice-ubl` (1 test)
 
@@ -183,7 +189,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 16 files / 24 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 17 files / 25 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -191,7 +197,9 @@ it), S7 (promotion code → line allowance), S8 (services-only order to an EU bu
 the declared Leitweg-ID in BT-10 and the XRechnung profile), S12 (VAT charged that a K invoice does not
 state: issued with a refund-due notice; refunding the overpayment credits nothing, a further refund
 credits its own amount), S13 (an invoice stating more VAT than was charged: not issued, the reason in the
-admin API, the order corrected, the retry issues it), idempotency (an event delivered to the
+admin API, the order corrected, the retry issues it; a refund made meanwhile refused and credited by its own
+retry), S14 (VIES unavailable: the invoice refused and recorded, retried after the VAT-ID was confirmed by
+hand), idempotency (an event delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option, a seller
 outside Germany),
 and tarball contents across all six published packages. Every invoice scenario also checks that the

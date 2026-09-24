@@ -51,7 +51,8 @@ running it repeatedly.
 ✓ src/scenarios/s10-prices-incl-vat.test.ts  — prices including VAT: the invoice totals what was charged
 ✓ src/scenarios/s11-b2g-leitweg-id.test.ts   — a public-sector buyer's Leitweg-ID: BT-10 and the XRechnung profile
 ✓ src/scenarios/s12-vat-overcharged-notice.test.ts — VAT charged that a K invoice does not state: issued with a refund-due notice; refunding it credits nothing
-✓ src/scenarios/s13-blocked-then-retried.test.ts   — an invoice stating more VAT than was charged: not issued, the order corrected, retried
+✓ src/scenarios/s13-blocked-then-retried.test.ts   — an invoice stating more VAT than was charged: not issued, the order corrected, retried; a refund meanwhile credited on retry
+✓ src/scenarios/s14-vies-unavailable-retried.test.ts — VIES unavailable: the invoice refused and recorded, the VAT-ID confirmed by hand, retried
 ✓ src/scenarios/idempotency.test.ts          — delivering an event a second time never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot without a required option, or with a seller outside Germany

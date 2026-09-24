@@ -26,6 +26,10 @@ export const ONE_OFF_LABEL = `${COMPOSE_PROJECT_NAME}.one-off=true`;
 /** Must match `medusa-config.ts`'s own read of the same env var — see that file's doc comment. */
 export const VALID_VAT_ID = process.env["EINVOICE_E2E_VALID_VAT_ID"] ?? "FR40303265045";
 
+/** Must match `medusa-config.ts`'s own read of the same env var — a VAT-ID the stand's verifier answers
+ * "unavailable" for, as VIES does when a member state's service is down (S14). */
+export const UNAVAILABLE_VAT_ID = process.env["EINVOICE_E2E_UNAVAILABLE_VAT_ID"] ?? "FR99999999999";
+
 /** Must match `medusa-config.ts`'s own read of the same env var — a fixed invoice date for every document
  * this stand produces (plan-e2e.md §5 rule 5). */
 export const FIXED_NOW = process.env["EINVOICE_E2E_NOW"] ?? "2026-01-15T10:00:00.000Z";

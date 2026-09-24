@@ -5,7 +5,9 @@
  * as a subscriber. Before the document number is taken, the invoice is checked against what Medusa charged
  * (`reconcileWithCharged`, `mapping/charged-reconciliation.ts`): a block records a refusal instead of a
  * document and takes no number; a notice is stored on the document. Both go to the log at warn level with
- * codes and amounts only.
+ * codes and amounts only. P-66: so does every other refusal before the number — `buildInvoice`'s, the
+ * mapping's, a failed VAT-ID check, a Webbers invoice that never appeared (`refusals.ts`): recorded, shown
+ * in the admin and retried from there, instead of thrown into a log nobody reads.
  *
  * T-071: `order.fulfillment_created` → e-invoice XML. Event name/payload shape verified for real against
  * `@medusajs/utils@2.19.0`'s own compiled `OrderWorkflowEvents.FULFILLMENT_CREATED` (T-070,
@@ -65,6 +67,7 @@ import {
   WebbersInvoiceNotFoundError,
 } from "../integrations/webbers.js";
 import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
+import { recordRefusalOfError } from "../refusals.js";
 import {
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
@@ -93,7 +96,8 @@ export type IssueInvoiceOutcome =
       readonly documentNumber: string;
       readonly notice: InvoiceNotice | null;
     }
-  /** Not issued: the invoice disagrees with what Medusa charged. No number was taken. */
+  /** Not issued — the invoice disagrees with what Medusa charged, or was refused (P-66). No number was
+   * taken; the refusal is recorded. */
   | { readonly kind: "blocked"; readonly refusal: EinvoiceRefusalRecord; readonly message: string };
 
 export async function issueInvoiceForFulfillment(
@@ -128,38 +132,59 @@ export async function issueInvoiceForFulfillment(
 
   const now = () => einvoiceService.options.now?.() ?? new Date();
   const issueDate = issueDateInSellerTimeZone(einvoiceService.options.seller.countryCode, now());
-
-  const input = mapOrderToCommerceInvoiceInput(order, {
-    seller: einvoiceService.options.seller,
-    kind: "invoice",
-    issueDate,
-    payment: einvoiceService.options.payment,
-    ossRegistered: einvoiceService.options.ossRegistered,
+  const refused = async (error: unknown): Promise<IssueInvoiceOutcome> => ({
+    kind: "blocked",
+    ...(await recordRefusalOfError(
+      container,
+      einvoiceService,
+      { type: "invoice", orderId: order.id, idempotencyKey: fulfillmentId },
+      error,
+    )),
   });
 
-  // P-54: only a declared Leitweg-ID routes to XRechnung — never BT-10's free text, which is always filled.
-  const profile = commerce.selectProfile({
-    buyerCountry: input.buyer.countryCode,
-    leitwegId: input.references?.leitwegId,
-    preferredProfile: einvoiceService.options.defaultProfile,
-  });
+  // P-66: everything up to the check build can refuse the invoice — recorded, not thrown.
+  const prepare = async () => {
+    const input = mapOrderToCommerceInvoiceInput(order, {
+      seller: einvoiceService.options.seller,
+      kind: "invoice",
+      issueDate,
+      payment: einvoiceService.options.payment,
+      ossRegistered: einvoiceService.options.ossRegistered,
+    });
 
-  // T-079/P-12: VAT-ID verification is real I/O — it happens here, before buildInvoice, never inside it
-  // (ADR-003). Only attempted when both a verifier is configured and the buyer actually has a VAT-ID to
-  // check; omitting either keeps category K unreachable, same as today (service.ts's own doc comment).
-  const vatIdEvidence =
-    einvoiceService.options.vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
-      ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
-      : undefined;
+    // P-54: only a declared Leitweg-ID routes to XRechnung — never BT-10's free text, which is always filled.
+    const profile = commerce.selectProfile({
+      buyerCountry: input.buyer.countryCode,
+      leitwegId: input.references?.leitwegId,
+      preferredProfile: einvoiceService.options.defaultProfile,
+    });
 
-  const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
-  // P-48: every refusal `buildInvoice` can raise — a missing fact, an undecidable category, a rate it
-  // cannot invoice — happens here, before a document number is taken, so a refused order leaves no hole in
-  // the series. The number is the only input the real build below adds.
-  const check = commerce.buildInvoice(
-    { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
-    buildOptions,
-  );
+    // T-079/P-12: VAT-ID verification is real I/O — it happens here, before buildInvoice, never inside it
+    // (ADR-003). Only attempted when both a verifier is configured and the buyer actually has a VAT-ID to
+    // check; omitting either keeps category K unreachable, same as today (service.ts's own doc comment).
+    const vatIdEvidence =
+      einvoiceService.options.vatIdVerifier !== undefined &&
+      input.taxContext.buyerVatId !== undefined
+        ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
+        : undefined;
+
+    const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
+    // P-48: every refusal `buildInvoice` can raise — a missing fact, an undecidable category, a rate it
+    // cannot invoice — happens here, before a document number is taken, so a refused order leaves no hole
+    // in the series. The number is the only input the real build below adds.
+    const check = commerce.buildInvoice(
+      { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
+      buildOptions,
+    );
+    return { input, profile, buildOptions, check };
+  };
+  let prepared: Awaited<ReturnType<typeof prepare>>;
+  try {
+    prepared = await prepare();
+  } catch (error) {
+    return refused(error);
+  }
+  const { input, profile, buildOptions, check } = prepared;
 
   // P-63: the check against what Medusa charged runs on the check build's totals — the number does not
   // change them — so a blocked invoice takes no number either.
@@ -194,7 +219,7 @@ export async function issueInvoiceForFulfillment(
       pollIntervalMs: integration.pollIntervalMs,
     });
     if (webbersInvoice === undefined) {
-      throw new WebbersInvoiceNotFoundError(order.id, order.id, "debit");
+      return refused(new WebbersInvoiceNotFoundError(order.id, order.id, "debit"));
     }
     documentNumber = String(webbersInvoice.invoice.display_id);
     if (webbersInvoice.invoice.pdf_url !== null) {

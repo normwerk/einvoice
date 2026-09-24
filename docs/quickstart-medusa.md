@@ -218,6 +218,22 @@ credit, gift cards and refunds are payments), and the outcome shows in the order
 An intra-EU supply must be invoiced by the 15th of the following month (§14a UStG) — check the block for
 orders that were not issued.
 
+## Documents not issued for another reason
+
+Any document the plugin refuses before it takes a number shows in the same block as "Invoice not issued" or
+"Credit note not issued", with the reason, and can be retried — nothing is lost in a log. The code is the
+refusal's error class for now, for example:
+
+- `TaxRuleError` — the VAT category could not be decided. Most often VIES did not confirm the buyer's
+  VAT-ID when the order shipped: retry once VIES answers again, or, if you confirmed the number another way,
+  set `order.metadata.regime_override` to `{ "kind": "intra-eu-confirmed", "evidenceNote": "…" }` and retry.
+- `MissingOriginalInvoiceError` — a refund for an order whose invoice was not issued (or was issued before
+  the plugin was installed). Issue the invoice first, then retry the credit note.
+- `WebbersInvoiceNotFoundError` — with `@webbers/invoices-medusa`, their document did not appear in time.
+
+Retrying a credit note redelivers the refund or cancellation it belongs to. Cancelling an order drops its
+refused invoices: a cancelled order is not invoiced.
+
 ## Downloading a document yourself
 
 - **Admin**: the order page's own "E-Invoices" widget, or `GET /admin/orders/:id/einvoice` for the raw list

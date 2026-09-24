@@ -60,15 +60,22 @@ stored:
   `(type, idempotency_key)` unique like a document's, with the code and the amounts. A retry refused again
   updates it; the issued document deletes it.
 
+Every other refusal before a document number is taken — `buildInvoice`'s, the mapping's, a VAT-ID check that
+failed, a Webbers document that never appeared, a refund with no invoice to correct — is recorded the same
+way (`src/refusals.ts`), for invoices and credit notes alike: the code is the error's class name, the details
+its message (and, for a credit note, the event its retry redelivers). The subscriber completes instead of
+throwing. A cancelled order's invoice refusals are dropped.
+
 `GET /admin/orders/:id/einvoice` returns both: `documents` (each with its `notice`, or `null`) and
 `refusals` (each with its explanation and a `retryUrl`). `POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`
 runs the same `issueInvoiceForFulfillment` (`src/invoices/issue-invoice.ts`) as the fulfillment subscriber,
-checks included, and answers `issued`, `blocked` (with the reason), or 422 with the message of any other
-refusal. The Store API lists documents without notices — they tell the merchant what to refund.
+checks included, and answers `issued` or `blocked` (with the reason). For a credit note it redelivers the
+refund's or the cancellation's event to its subscriber and answers `issued`, `blocked`, or `none` (nothing
+left to credit). A failure after the checks — storage, the database — answers 500 with its message. The Store API lists documents without notices — they tell the merchant what to refund.
 
 The widget shows a notice as an orange badge under its document ("Refund due" or "VAT differs from Medusa")
 with the explanation, and a refused invoice as a red "Invoice not issued" badge with the explanation and a
-**Retry** button. The API behind it is covered end to end (`e2e/src/scenarios/s12-*`, `s13-*`); the widget's
+**Retry** button. The API behind it is covered end to end (`e2e/src/scenarios/s12-*`, `s13-*`, `s14-*`); the widget's
 own rendering has not been checked in a browser yet ([`docs/manual-testing.md`](../manual-testing.md#admin-widget-visually)).
 
 ## Store: a customer's own e-invoices

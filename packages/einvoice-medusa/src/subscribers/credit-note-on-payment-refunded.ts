@@ -64,6 +64,7 @@ import {
   type MedusaOrderForInvoice,
 } from "../mapping/order-to-commerce-invoice-input.js";
 import { creditableRefund, decideCreditScope } from "../mapping/credit-note.js";
+import { recordRefusalOfError } from "../refusals.js";
 import {
   creditTolerance,
   issueCreditNote,
@@ -127,7 +128,8 @@ export class MissingOriginalInvoiceError extends Error {
     super(
       `Order ${orderId} has a refunded payment but no invoice this plugin generated for it — a credit ` +
         `note needs BT-25/26 (document.correctedInvoice), and this plugin refuses to fabricate a reference ` +
-        `to an invoice it never produced (e.g. one issued before this plugin was installed).`,
+        `to an invoice it never produced (e.g. one issued before this plugin was installed). If the order's ` +
+        `invoice was not issued yet, issue it first, then retry this credit note.`,
     );
     this.name = "MissingOriginalInvoiceError";
   }
@@ -202,8 +204,17 @@ export default async function creditNoteOnPaymentRefunded({
     }
     // Re-read per refund: the previous iteration may have credited part of the invoice already.
     const basis = await loadCreditBasis(container, einvoiceService, order.id);
+    const trigger = { event: "payment.refunded", paymentId: data.id } as const;
     if (basis === undefined) {
-      throw new MissingOriginalInvoiceError(order.id);
+      // P-66: recorded, not thrown — once the invoice is issued (a blocked one retried), the credit note's
+      // own retry redelivers this event.
+      await recordRefusalOfError(
+        container,
+        einvoiceService,
+        { type: "credit_note", orderId: order.id, idempotencyKey: refund.id, trigger },
+        new MissingOriginalInvoiceError(order.id),
+      );
+      continue;
     }
     // P-63: after an invoice with an overpayment notice, a refund returns the overpayment first.
     let requested = toAmount(refund.amount);
@@ -245,6 +256,7 @@ export default async function creditNoteOnPaymentRefunded({
       reason: "refund",
       webbersResourceId: refund.id,
       embedWebbersPdf: requested === toAmount(refund.amount),
+      trigger,
     });
   }
 }

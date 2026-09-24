@@ -171,6 +171,11 @@ function makeEinvoiceService(
       overrides.recordDocumentIfAbsent ?? (async () => ({ document: {}, created: true })),
     ),
     allocateNextNumber: vi.fn(async () => 1),
+    clearRefusal: vi.fn(async () => undefined),
+    recordRefusal: vi.fn(async (input: { code: string }) => ({
+      id: "einvref_1",
+      code: input.code,
+    })),
   } as unknown as EinvoiceModuleService;
 }
 
@@ -254,15 +259,22 @@ describe("creditNoteOnPaymentRefunded", () => {
     expect(mocks.buildInvoice).not.toHaveBeenCalled();
   });
 
-  it("throws MissingOriginalInvoiceError when this plugin never generated an invoice for the order", async () => {
+  it("records MissingOriginalInvoiceError as a refusal to retry when this plugin never generated an invoice for the order (P-66)", async () => {
     const einvoiceService = makeEinvoiceService({
       listEinvoiceDocuments: async () => [],
     });
     const { container } = makeContainer({ einvoiceService });
 
-    await expect(
-      creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" })),
-    ).rejects.toThrow(MissingOriginalInvoiceError);
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith({
+      type: "credit_note",
+      orderId: "order_01",
+      idempotencyKey: "refund_01",
+      code: "MissingOriginalInvoiceError",
+      details: expect.objectContaining({ event: "payment.refunded", paymentId: "pay_01" }),
+    });
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
   });
 
   it("skips a refund that already has a credit note (per-refund idempotency), still processing the rest", async () => {
@@ -398,10 +410,17 @@ describe("creditNoteOnPaymentRefunded", () => {
       ],
     });
 
-    await expect(
-      creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" })),
-    ).rejects.toThrow(PartialCreditAcrossRatesError);
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "credit_note",
+        idempotencyKey: "refund_01",
+        code: new PartialCreditAcrossRatesError("order_01").name,
+      }),
+    );
     expect(mocks.nextNumber).not.toHaveBeenCalled();
+    expect(einvoiceService.recordDocumentIfAbsent).not.toHaveBeenCalled();
   });
 
   it("credits nothing for a refund that returns an overpayment the invoice's notice names, and only the rest of a later one (P-63)", async () => {

@@ -8,6 +8,8 @@ export interface OrderSummary {
   readonly total: number;
   /** P-63: the VAT Medusa charged. */
   readonly taxTotal: number;
+  /** P-63: store credit, gift cards and refunds Medusa subtracted from `total`. */
+  readonly creditLineTotal: number;
   readonly currencyCode: string;
   readonly itemIds: readonly string[];
   readonly items: readonly { readonly id: string; readonly quantity: number }[];
@@ -20,15 +22,20 @@ export async function getOrder(admin: AdminSession, orderId: string): Promise<Or
       readonly display_id: number;
       readonly total: number;
       readonly tax_total: number;
+      readonly credit_line_total?: number | null;
       readonly currency_code: string;
       readonly items: readonly { readonly id: string; readonly quantity: number }[];
     };
-  }>(admin, `/admin/orders/${orderId}?fields=id,display_id,total,tax_total,currency_code,*items`);
+  }>(
+    admin,
+    `/admin/orders/${orderId}?fields=id,display_id,total,tax_total,credit_line_total,currency_code,*items`,
+  );
   return {
     id: response.order.id,
     displayId: response.order.display_id,
     total: response.order.total,
     taxTotal: response.order.tax_total,
+    creditLineTotal: response.order.credit_line_total ?? 0,
     currencyCode: response.order.currency_code,
     itemIds: response.order.items.map((item) => item.id),
     items: response.order.items.map((item) => ({ id: item.id, quantity: item.quantity })),
