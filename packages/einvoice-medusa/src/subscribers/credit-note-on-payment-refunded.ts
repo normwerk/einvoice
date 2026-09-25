@@ -39,14 +39,9 @@
  * `@webbers/invoices-medusa` issues full documents was wrong: their credit invoices use `refund.amount`.
  * The shared building/storing steps live in `credit-notes/issue-credit-note.ts`.
  *
- * `einvoiceService.options.integration?.kind === "webbers"` reuses their own credit invoice's `display_id`
- * per refund instead of allocating one here — see `invoice-on-fulfillment-created.ts`'s identical comment
- * and `integrations/webbers.ts` for why this needs a poll/wait rather than a plain read.
- *
- * T-073: standalone mode's own equivalent — `einvoiceService.options.standalone?.basePdf`, called per
- * refund with the built credit-note `Invoice` — see `invoice-on-fulfillment-created.ts`'s identical
- * comment for the full reasoning (same option, same embedding step, just invoked once per refund here
- * instead of once per fulfillment).
+ * T-073: `einvoiceService.options.standalone?.basePdf`, called per refund with the built credit-note
+ * `Invoice` — see `invoices/issue-invoice.ts` for the full reasoning (same option, same embedding step, just
+ * invoked once per refund here instead of once per fulfillment).
  *
  * T-074/P-41: the original invoice's XML (BT-2 for the corrected invoice's date, BT-112 for what is
  * outstanding) and every credit note already issued are read back from the File Module (`loadCreditBasis`)
@@ -254,8 +249,6 @@ export default async function creditNoteOnPaymentRefunded({
       scope,
       idempotencyKey: refund.id,
       reason: "refund",
-      webbersResourceId: refund.id,
-      embedWebbersPdf: requested === toAmount(refund.amount),
       trigger,
     });
   }

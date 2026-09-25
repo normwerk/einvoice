@@ -21,7 +21,7 @@
  * wires file storage"), not a permanent design. Content now lives in the File Module (`storage.ts`,
  * `access: "private"`); this table only keeps the ids needed to find it again. `pdf_file_id` is `null` for
  * a pure-XML document — every document in standalone mode with no `basePdf` hook (plan-v0.1 §4.6:
- * "Standalone: только XML"), or Webbers mode before their own PDF was available.
+ * "Standalone: только XML").
  *
  * P-63: `notice` — set when the invoice was issued although it states less VAT than Medusa charged
  * (`InvoiceNotice`, `mapping/charged-reconciliation.ts`): the codes and amounts the admin widget shows, and

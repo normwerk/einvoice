@@ -42,6 +42,7 @@ import EinvoiceCounter from "./models/einvoice-counter.js";
 import { assertSupportedMedusaVersion, installedMedusaVersion } from "../../medusa-version.js";
 import EinvoiceDocument from "./models/einvoice-document.js";
 import EinvoiceRefusal from "./models/einvoice-refusal.js";
+import { otherInvoicePlugins, type InvoicePluginConfig } from "./other-invoice-plugins.js";
 import type { InvoiceNotice } from "../../mapping/charged-reconciliation.js";
 
 export interface EinvoiceModuleOptions {
@@ -73,29 +74,13 @@ export interface EinvoiceModuleOptions {
     readonly terms?: string;
   };
   /**
-   * T-072: work on top of the `@webbers/invoices-medusa` PDF plugin instead of numbering documents
-   * yourself. With `kind: "webbers"`, each invoice and credit note takes the number of the Webbers
-   * document for the same order or refund (their `display_id`) instead of one from this plugin's own
-   * counter, and this plugin's XML is embedded into their PDF as PDF/A-3 when they produce one
-   * (`integrations/webbers.ts`). Omitted (the default), the plugin works standalone, with no PDF plugin
-   * installed at all.
-   */
-  readonly integration?: {
-    readonly kind: "webbers";
-    /** How long a subscriber waits for their invoice to appear before giving up, ms — their workflow
-     * offers no hook to wait on (`integrations/webbers.ts`). Defaults to `waitForWebbersInvoice`'s own
-     * default (10s) when omitted. */
-    readonly waitForInvoiceMs?: number;
-    readonly pollIntervalMs?: number;
-  };
-  /**
-   * T-073: in standalone mode (no `integration`), a PDF to embed the XML into. The plugin calls `basePdf`
+   * T-073: a PDF to embed the XML into. The plugin calls `basePdf`
    * once per document with the built `Invoice` — the same object it serializes to XML — so the PDF can
    * show exactly the number (BT-1) and amounts the XML carries; the result is embedded as PDF/A-3
    * (`embedInvoiceInPdfA3`). Use your own invoice template, another plugin, or `renderInvoicePdf` from
    * `@normwerk/einvoice-pdfa`. Returning `undefined` — or omitting the option — produces XML only.
    *
-   * Ignored when `integration` is set. The PDF is embedded as it is: `embedInvoiceInPdfA3` does not repair
+   * The PDF is embedded as it is: `embedInvoiceInPdfA3` does not repair
    * a PDF that isn't PDF/A-eligible, such as one whose fonts are not embedded (see `render-invoice.ts`).
    */
   readonly standalone?: {
@@ -137,6 +122,18 @@ export class InvalidEinvoiceModuleOptionsError extends Error {
 }
 
 function assertValidOptions(options: EinvoiceModuleOptions): void {
+  if ("integration" in options) {
+    // P-68 (M-040): the mode that embedded this XML into @webbers/invoices-medusa's PDF is gone — their PDF
+    // shows Medusa's totals, which differ from the e-invoice wherever this plugin corrects the VAT, and two
+    // documents for one supply are two invoices. Refused rather than ignored, so a configuration written
+    // for it does not start as if it still worked.
+    throw new InvalidEinvoiceModuleOptionsError(
+      "options.integration is not supported — the plugin issues its own invoices and does not embed its XML " +
+        "into another invoice plugin's PDF: that PDF shows Medusa's totals, which differ from the e-invoice " +
+        "wherever the plugin corrects the VAT, and two documents for one supply are two invoices. Remove the " +
+        "option; to add a PDF of your own, use options.standalone.basePdf.",
+    );
+  }
   if (options.seller === undefined || options.seller === null) {
     throw new InvalidEinvoiceModuleOptionsError(
       "options.seller is required — every invoice this plugin builds needs a seller party " +
@@ -225,9 +222,7 @@ export interface EinvoiceDocumentRecord {
   /** File Module file id (T-074, `storage.ts`) — the XML content itself is no longer stored on this row,
    * `fetchFileBytes`/an admin or store download route reads it back from there. */
   readonly xml_file_id: string;
-  /** File Module file id for the PDF/A-3 (T-072's Webbers integration, or T-073's standalone
-   * `basePdf` hook) — `null` for a pure-XML document (standalone mode with no hook, or Webbers mode
-   * before their PDF was ready). */
+  /** File Module file id for the PDF/A-3 (T-073's `basePdf` hook) — `null` for a pure-XML document. */
   readonly pdf_file_id: string | null;
   /** P-63: issued although it states less VAT than Medusa charged — `null` otherwise. */
   readonly notice: InvoiceNotice | null;
@@ -311,6 +306,10 @@ interface MinimalTransactionManager {
 
 interface InjectedDependencies {
   readonly baseRepository: { transaction: (...args: unknown[]) => Promise<unknown> };
+  /** Medusa's loaded configuration and logger — every module's container carries both
+   * (`@medusajs/modules-sdk` `loadInternalModule`). */
+  readonly configModule?: InvoicePluginConfig;
+  readonly logger?: { warn(message: string): void };
 }
 
 /**
@@ -328,18 +327,22 @@ export default class EinvoiceModuleService extends MedusaService({
 }) {
   readonly options: EinvoiceModuleOptions;
 
-  constructor(_container: InjectedDependencies, options: EinvoiceModuleOptions) {
-    // `_container` (unused directly, `noUnusedParameters`' own underscore-prefix exemption) is still a real,
-    // required part of this signature, not dead code to remove — `super(...arguments)` is the documented
-    // pattern every MedusaService-based module service uses (e.g. @medusajs/api-key's own
-    // ApiKeyModuleService); the generated base class reads more off the full container than this
-    // constructor's own declared parameter type describes, which is exactly why `arguments` is used here
-    // instead of a named reference to this parameter.
+  constructor(container: InjectedDependencies, options: EinvoiceModuleOptions) {
+    // `super(...arguments)` is the documented pattern every MedusaService-based module service uses (e.g.
+    // @medusajs/api-key's own ApiKeyModuleService); the generated base class reads more off the full
+    // container than this constructor's own declared parameter type describes, which is exactly why
+    // `arguments` is used here instead of a named reference to this parameter.
     // eslint-disable-next-line prefer-rest-params
     super(...arguments);
     assertValidOptions(options);
     assertSupportedMedusaVersion(installedMedusaVersion());
     this.options = options;
+    for (const plugin of otherInvoicePlugins(container.configModule)) {
+      container.logger?.warn(
+        `einvoice: ${plugin} is also installed. Two plugins that issue invoices give the buyer two invoices ` +
+          "for one supply, and VAT is owed on each (§14c UStG) — turn off invoice creation in the other plugin.",
+      );
+    }
   }
 
   /**

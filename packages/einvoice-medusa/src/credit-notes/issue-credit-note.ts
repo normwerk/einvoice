@@ -20,11 +20,6 @@ import type { Amount, IsoDate } from "@normwerk/einvoice-model" with {
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import type { EinvoiceDocumentRecord } from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
-import {
-  fetchWebbersPdfBytes,
-  waitForWebbersInvoice,
-  WebbersInvoiceNotFoundError,
-} from "../integrations/webbers.js";
 import { deleteEinvoiceFiles, fetchFileBytes, storeEinvoiceFiles } from "../storage.js";
 import { recordRefusalOfError, type CreditNoteTrigger } from "../refusals.js";
 import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
@@ -135,11 +130,6 @@ export interface IssueCreditNoteInput {
   readonly reason: "refund" | "cancellation";
   /** P-66: what a retry of a refused credit note redelivers. */
   readonly trigger: CreditNoteTrigger;
-  /** Webbers mode only: their credit invoice's `resource_id` (a refund id) whose number is reused. */
-  readonly webbersResourceId?: string;
-  /** Webbers mode only: `false` when their credit invoice shows another amount than this credit note — it
-   * then gets their number but not their PDF (P-63: a refund that returns an overpayment first). */
-  readonly embedWebbersPdf?: boolean;
 }
 
 /** P-65: the order's returns — what a partial credit pays for first. Queried as returns, not through the
@@ -180,8 +170,6 @@ export async function issueCreditNote({
   scope,
   idempotencyKey,
   reason,
-  webbersResourceId,
-  embedWebbersPdf = true,
   trigger,
 }: IssueCreditNoteInput): Promise<IssueCreditNoteOutcome> {
   const commerce = await import("@normwerk/einvoice-commerce");
@@ -301,31 +289,8 @@ export async function issueCreditNote({
   }
   const { input, profile, buildOptions, coveredReturns } = prepared;
 
-  const integration = einvoiceService.options.integration;
-  let documentNumber: string;
-  let basePdfBytes: Uint8Array | undefined;
-
-  if (integration?.kind === "webbers") {
-    if (webbersResourceId === undefined) {
-      return refused(new WebbersInvoiceNotFoundError(order.id, order.id, "credit"));
-    }
-    const webbersInvoice = await waitForWebbersInvoice(container, order.id, {
-      resourceId: webbersResourceId,
-      type: "credit",
-      timeoutMs: integration.waitForInvoiceMs,
-      pollIntervalMs: integration.pollIntervalMs,
-    });
-    if (webbersInvoice === undefined) {
-      return refused(new WebbersInvoiceNotFoundError(order.id, webbersResourceId, "credit"));
-    }
-    documentNumber = String(webbersInvoice.invoice.display_id);
-    if (webbersInvoice.invoice.pdf_url !== null && embedWebbersPdf) {
-      basePdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
-    }
-  } else {
-    const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
-    documentNumber = await numberer.next({ kind: "credit-note", issueDate });
-  }
+  const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
+  const documentNumber = await numberer.next({ kind: "credit-note", issueDate });
 
   const buildResult = commerce.buildInvoice(
     { ...input, document: { ...input.document, number: documentNumber } },
@@ -336,10 +301,8 @@ export async function issueCreditNote({
     logger.warn(`einvoice: order ${order.id}: ${warning.message} [${warning.code}]`);
   }
 
-  // T-073: standalone mode's own PDF source — see invoice-on-fulfillment-created.ts's identical comment.
-  if (integration?.kind !== "webbers") {
-    basePdfBytes = await einvoiceService.options.standalone?.basePdf?.(buildResult.invoice);
-  }
+  // T-073: the merchant's own PDF, if any — see `invoices/issue-invoice.ts`.
+  const basePdfBytes = await einvoiceService.options.standalone?.basePdf?.(buildResult.invoice);
 
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });

@@ -147,6 +147,49 @@ describe("EinvoiceModuleService", () => {
     });
     expect(service.options.standalone?.basePdf).toBe(basePdf);
   });
+
+  // P-68 (M-040): the Webbers mode is gone; a configuration that still sets it must not start as if the
+  // plugin issued documents the way it describes.
+  it("rejects options.integration at startup — embedding the XML into another plugin's PDF is not supported", () => {
+    expect(
+      () =>
+        new EinvoiceModuleService(FAKE_CONTAINER, {
+          seller: VALID_SELLER,
+          payment: VALID_PAYMENT,
+          integration: { kind: "webbers" },
+        } as never),
+    ).toThrow(/options\.integration is not supported/);
+  });
+
+  it("warns at startup when another invoice plugin is registered — two invoices for one supply (P-68)", () => {
+    const warn = vi.fn();
+    new EinvoiceModuleService(
+      {
+        ...FAKE_CONTAINER,
+        logger: { warn },
+        configModule: {
+          plugins: [{ resolve: "@webbers/invoices-medusa", options: {} }],
+          modules: {},
+        },
+      },
+      { seller: VALID_SELLER, payment: VALID_PAYMENT },
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/@webbers\/invoices-medusa/);
+  });
+
+  it("stays silent without another invoice plugin", () => {
+    const warn = vi.fn();
+    new EinvoiceModuleService(
+      {
+        ...FAKE_CONTAINER,
+        logger: { warn },
+        configModule: { plugins: ["@normwerk/einvoice-medusa"], modules: { einvoice: {} } },
+      },
+      { seller: VALID_SELLER, payment: VALID_PAYMENT },
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
 });
 
 describe("EinvoiceModuleService.recordDocumentIfAbsent (P-49)", () => {

@@ -7,7 +7,7 @@ import type EinvoiceModuleService from "../modules/einvoice/service.js";
 // Same isolation rationale as invoice-on-fulfillment-created.test.ts: this file unit-tests
 // `creditNoteOnPaymentRefunded`'s own orchestration (the two-step payment→order resolution, the
 // no-refunds/no-order/no-original-invoice guards, per-refund idempotency, and the same
-// webbers/standalone/PDF-embed/lost-race logic invoice-on-fulfillment-created.ts has) — the business-rule
+// PDF-embed/lost-race logic invoice-on-fulfillment-created.ts has) — the business-rule
 // engines it calls into (`@normwerk/einvoice-commerce`, `-cii`, `-pdfa`) already have their own exhaustive
 // suites elsewhere.
 const mocks = vi.hoisted(() => ({
@@ -22,8 +22,6 @@ const mocks = vi.hoisted(() => ({
   logger: { warn: vi.fn(), info: vi.fn() },
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   embedInvoiceInPdfA3: vi.fn(async () => ({ pdfBytes: new Uint8Array([1, 2, 3]) })),
-  waitForWebbersInvoice: vi.fn(),
-  fetchWebbersPdfBytes: vi.fn(),
   storeEinvoiceFiles: vi.fn(async () => ({
     xmlFileId: "file_xml",
     pdfFileId: null as string | null,
@@ -57,15 +55,6 @@ vi.mock("@normwerk/einvoice-cii", () => ({
 vi.mock("@normwerk/einvoice-pdfa", () => ({
   embedInvoiceInPdfA3: mocks.embedInvoiceInPdfA3,
 }));
-
-vi.mock("../integrations/webbers.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../integrations/webbers.js")>();
-  return {
-    ...actual,
-    waitForWebbersInvoice: mocks.waitForWebbersInvoice,
-    fetchWebbersPdfBytes: mocks.fetchWebbersPdfBytes,
-  };
-});
 
 vi.mock("../storage.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../storage.js")>();

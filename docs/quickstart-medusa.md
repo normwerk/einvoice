@@ -90,7 +90,7 @@ changes to any core Medusa table).
 
 Start the dev server (`npx medusa develop`), then fulfill any real order (admin dashboard, or
 `POST /admin/orders/:id/fulfillments`). Within about a second, open that order's page: a new "E-Invoices"
-side-panel section lists the invoice, with XML (and PDF, once you've done step 5 or 6) download links.
+side-panel section lists the invoice, with XML (and PDF, once you've done step 5) download links.
 Refund a captured payment and a credit note appears the same way, for the refunded amount; cancel an
 invoiced order and a credit note reverses what is still outstanding.
 
@@ -115,19 +115,17 @@ XML can never disagree on numbers. `renderInvoicePdf` is a real, font-embedded, 
 ships with `@normwerk/einvoice-pdfa`; use your own renderer instead if you have one (same option, any
 function returning `Uint8Array | undefined`).
 
-## 6. Optional: integrate with `@webbers/invoices-medusa`
+## 6. Another plugin that issues invoices
 
-If you already run `@webbers/invoices-medusa` for PDF invoices, don't configure `standalone` at all — set:
+This plugin numbers and issues the invoices itself. If another plugin issues invoices too — a PDF invoice
+plugin such as `@webbers/invoices-medusa` — the buyer gets two invoices for one supply, and the VAT shown is
+owed on each (§14c Abs. 1 UStG). Turn invoice creation off in the other plugin, or remove it. The plugin
+warns at startup when it finds `@webbers/invoices-medusa` registered.
 
-```ts
-integration: { kind: "webbers" },
-```
-
-This plugin then reuses _their_ invoice's own number instead of allocating its own, and embeds this
-plugin's XML into their PDF. See
-[`docs/domain-glossary.md`](domain-glossary.md)'s `@webbers/invoices-medusa` integration section for real,
-tested caveats with their
-package (some genuine bugs in their `1.0.6` release, worked around or documented there).
+There is no mode that embeds this plugin's XML into another plugin's PDF: such a PDF shows Medusa's totals,
+which differ from the e-invoice wherever the plugin corrects the VAT (a reverse-charge supply, shipping
+split across rates). An `integration` option is refused at startup. For a PDF, use `standalone.basePdf`
+(step 5).
 
 ## Buyer VAT-ID and B2G references
 
@@ -232,7 +230,6 @@ refusal's error class for now, for example:
   set `order.metadata.regime_override` to `{ "kind": "intra-eu-confirmed", "evidenceNote": "…" }` and retry.
 - `MissingOriginalInvoiceError` — a refund for an order whose invoice was not issued (or was issued before
   the plugin was installed). Issue the invoice first, then retry the credit note.
-- `WebbersInvoiceNotFoundError` — with `@webbers/invoices-medusa`, their document did not appear in time.
 
 Retrying a credit note redelivers the refund or cancellation it belongs to. Cancelling an order drops its
 refused invoices: a cancelled order is not invoiced.

@@ -30,8 +30,8 @@ The seller is in **Germany**. What each buyer receives:
 | 🇪🇺 Any EU/EEA buyer of a German seller, except Italy and Poland | ZUGFeRD / Factur-X, `EN 16931` profile                                      |
 | 🇨🇭 🇬🇧 Swiss / UK buyer of a German seller                       | ZUGFeRD / Factur-X, `EN 16931` profile                                      |
 
-Every document is UN/CEFACT CII XML. When a PDF is configured — the bundled renderer, your own, or
-`@webbers/invoices-medusa` — the XML is embedded into a PDF/A-3b hybrid. Documents are stored privately with
+Every document is UN/CEFACT CII XML. When a PDF is configured — the bundled renderer or your own — the XML
+is embedded into a PDF/A-3b hybrid. Documents are stored privately with
 the order and can be downloaded from the order page in Medusa Admin, and by the customer who placed the
 order through the Store API.
 

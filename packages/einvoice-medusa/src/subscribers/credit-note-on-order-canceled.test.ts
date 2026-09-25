@@ -183,14 +183,4 @@ describe("creditNoteOnOrderCanceled (P-41)", () => {
     await creditNoteOnOrderCanceled(args(container));
     expect(service.clearRefusalsOfOrder).toHaveBeenCalledWith("invoice", "order_01");
   });
-
-  it("issues nothing in Webbers mode and says so — their plugin has no credit invoice for a cancellation", async () => {
-    const { container } = setup(
-      { invoices: [INVOICE], creditNotes: [] },
-      { integration: { kind: "webbers" } },
-    );
-    await creditNoteOnOrderCanceled(args(container));
-    expect(mocks.buildInvoice).not.toHaveBeenCalled();
-    expect(mocks.logger.warn).toHaveBeenCalledWith(expect.stringContaining("issue it yourself"));
-  });
 });

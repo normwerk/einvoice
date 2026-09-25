@@ -7,9 +7,10 @@ and stores the result — idempotently, with no duplicate documents on event red
 XML live in this package; that's `@normwerk/einvoice-commerce`/`@normwerk/einvoice-cii`'s job, kept
 platform-agnostic.
 
-Two PDF modes: reuse an already-installed PDF plugin's own invoice (`@webbers/invoices-medusa`), or
-generate PDF/A-3 standalone from any PDF renderer you supply (including a bundled one,
-[`@normwerk/einvoice-pdfa`](https://www.npmjs.com/package/@normwerk/einvoice-pdfa)'s `renderInvoicePdf`).
+A PDF/A-3 hybrid from any PDF renderer you supply (including a bundled one,
+[`@normwerk/einvoice-pdfa`](https://www.npmjs.com/package/@normwerk/einvoice-pdfa)'s `renderInvoicePdf`), or
+XML only. The plugin numbers and issues the invoices itself: next to another plugin that issues invoices, the
+buyer gets two invoices for one supply — turn invoicing off in the other plugin.
 Documents are stored in Medusa's own File Module (private), with an admin "E-Invoices" widget on the order
 page and a Store API endpoint for a customer to fetch their own e-invoice.
 

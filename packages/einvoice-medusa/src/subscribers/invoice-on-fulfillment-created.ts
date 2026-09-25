@@ -1,7 +1,7 @@
 /**
  * T-071: `order.fulfillment_created` → the invoice for that fulfillment, issued by
  * `issueInvoiceForFulfillment` (`invoices/issue-invoice.ts`, which carries the whole story: idempotency,
- * numbering, the Webbers and standalone PDF paths, file storage, and the P-63 check against what Medusa
+ * numbering, the merchant's own PDF, file storage, and the P-63 check against what Medusa
  * charged). Event name and payload shape verified against `@medusajs/utils@2.19.0`'s own compiled
  * `OrderWorkflowEvents.FULFILLMENT_CREATED` (T-070, `docs/domain-glossary.md`) —
  * `{ order_id, fulfillment_id, no_notification }`.

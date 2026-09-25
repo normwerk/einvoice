@@ -2,16 +2,13 @@
  * T-074: real File Module storage for `EinvoiceDocument`'s XML/PDF content — replaces the T-071/T-072
  * stopgap (`xml` as an inline Postgres text column, `pdf` as an inline base64 text column, both flagged in
  * their own doc comments as deliberately provisional, "T-074 is the task that actually designs and wires
- * file storage") with real files: `Modules.FILE`'s own `createFiles`/`retrieveFile`, the same module
- * `integrations/webbers.ts` already reads Webbers' own PDFs through (T-072). `EinvoiceDocument` now stores
+ * file storage") with real files: `Modules.FILE`'s own `createFiles`/`retrieveFile`. `EinvoiceDocument` now stores
  * a file id per artifact (`xml_file_id`, `pdf_file_id`), not the content itself.
  *
  * `access: "private"` (plan-v0.1 §4.6: "хранение в File Module (private)") — an e-invoice carries the same
  * class of personal/business data (buyer name, address, in some cases a VAT-ID) a merchant would not want
  * publicly listable; `retrieveFile` still hands back a real, usable URL for a private file (confirmed
- * already in T-072 — Webbers' own PDFs are private by the File Module's own default, and
- * `fetchWebbersPdfBytes` downloads them successfully via exactly this method), so this costs nothing at
- * read time.
+ * in T-072 against the File Module's own default, which is private), so this costs nothing at read time.
  */
 import { Modules } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
@@ -103,10 +100,7 @@ export async function deleteEinvoiceFiles(
 
 /**
  * Downloads a file's bytes by id. `retrieveFile` hands back `{ id, url }` — a real, presigned download
- * URL even for a private file, not the bytes themselves — so this still needs a real `fetch()`, the same
- * two-step shape `integrations/webbers.ts`'s own `fetchWebbersPdfBytes` already established for reading
- * Webbers' own files (T-072); that function now delegates here rather than duplicating this logic for a
- * second file source.
+ * URL even for a private file, not the bytes themselves — so this still needs a real `fetch()`.
  */
 export async function fetchFileBytes(
   container: MedusaContainer,

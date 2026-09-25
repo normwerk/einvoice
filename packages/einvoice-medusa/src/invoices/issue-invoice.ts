@@ -6,8 +6,8 @@
  * (`reconcileWithCharged`, `mapping/charged-reconciliation.ts`): a block records a refusal instead of a
  * document and takes no number; a notice is stored on the document. Both go to the log at warn level with
  * codes and amounts only. P-66: so does every other refusal before the number — `buildInvoice`'s, the
- * mapping's, a failed VAT-ID check, a Webbers invoice that never appeared (`refusals.ts`): recorded, shown
- * in the admin and retried from there, instead of thrown into a log nobody reads.
+ * mapping's, a failed VAT-ID check (`refusals.ts`): recorded, shown in the admin and retried from there,
+ * instead of thrown into a log nobody reads.
  *
  * T-071: `order.fulfillment_created` → e-invoice XML. Event name/payload shape verified for real against
  * `@medusajs/utils@2.19.0`'s own compiled `OrderWorkflowEvents.FULFILLMENT_CREATED` (T-070,
@@ -32,19 +32,10 @@
  * event both passing this check before either has inserted — a real edge case worth naming rather than
  * silently assuming away, not one this plugin's local event bus can actually produce today.
  *
- * T-072: `einvoiceService.options.integration?.kind === "webbers"` reuses `@webbers/invoices-medusa`'s own
- * invoice `display_id` instead of allocating a number here at all ("не дублировать нумерацию",
- * plan-v0.1 §4.6) — see `integrations/webbers.ts` for the real, structural reason this needs a poll/wait
- * rather than a plain read (their workflow defines no `createHook()`, and Medusa's local event bus starts
- * every subscriber of the same event without waiting for any of them to finish). When their own PDF is
- * available, this plugin's XML is embedded into it as PDF/A-3 (`embedInvoiceInPdfA3`, `@normwerk/einvoice-pdfa`,
- * T-030) instead of shipping bare XML.
- *
- * T-073: standalone mode's (`integration` omitted) own equivalent of that same "XML + PDF/A-3" outcome —
- * `einvoiceService.options.standalone?.basePdf` is called with the built `Invoice` once numbering has been
- * resolved, and its return value (or `undefined`, for pure XML) is embedded the same way Webbers' own PDF
- * would be — `basePdfBytes` below is deliberately the same variable regardless of which of the two sources
- * it came from, since `embedInvoiceInPdfA3` itself doesn't care.
+ * T-073: `einvoiceService.options.standalone?.basePdf` is called with the built `Invoice` once it has its
+ * number, and its return value (or `undefined`, for pure XML) is embedded as PDF/A-3 (`embedInvoiceInPdfA3`,
+ * `@normwerk/einvoice-pdfa`). P-68 (M-040): the mode that reused `@webbers/invoices-medusa`'s number and PDF
+ * is gone — their PDF shows Medusa's totals, not the e-invoice's.
  *
  * T-074: the XML/PDF this subscriber produces are uploaded to the File Module (`storage.ts`,
  * `access: "private"`) instead of being stored inline — `recordDocumentIfAbsent` now takes file ids, not
@@ -61,11 +52,6 @@ import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
-import {
-  fetchWebbersPdfBytes,
-  waitForWebbersInvoice,
-  WebbersInvoiceNotFoundError,
-} from "../integrations/webbers.js";
 import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
 import { recordRefusalOfError } from "../refusals.js";
 import { invoicedLineValues } from "../mapping/credit-note.js";
@@ -208,28 +194,8 @@ export async function issueInvoiceForFulfillment(
   }
   const notice = reconciliation.outcome === "notice" ? reconciliation.notice : null;
 
-  const integration = einvoiceService.options.integration;
-  let documentNumber: string;
-  let basePdfBytes: Uint8Array | undefined;
-
-  if (integration?.kind === "webbers") {
-    const webbersInvoice = await waitForWebbersInvoice(container, order.id, {
-      resourceId: order.id,
-      type: "debit",
-      timeoutMs: integration.waitForInvoiceMs,
-      pollIntervalMs: integration.pollIntervalMs,
-    });
-    if (webbersInvoice === undefined) {
-      return refused(new WebbersInvoiceNotFoundError(order.id, order.id, "debit"));
-    }
-    documentNumber = String(webbersInvoice.invoice.display_id);
-    if (webbersInvoice.invoice.pdf_url !== null) {
-      basePdfBytes = await fetchWebbersPdfBytes(container, webbersInvoice.invoice.pdf_url);
-    }
-  } else {
-    const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
-    documentNumber = await numberer.next({ kind: "invoice", issueDate });
-  }
+  const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
+  const documentNumber = await numberer.next({ kind: "invoice", issueDate });
 
   const buildResult = commerce.buildInvoice(
     { ...input, document: { ...input.document, number: documentNumber } },
@@ -249,11 +215,8 @@ export async function issueInvoiceForFulfillment(
     );
   }
 
-  // T-073: standalone mode's own PDF source — see this file's own doc comment. Webbers mode already
-  // resolved `basePdfBytes` (or left it `undefined`) above; this only runs for the other branch.
-  if (integration?.kind !== "webbers") {
-    basePdfBytes = await einvoiceService.options.standalone?.basePdf?.(buildResult.invoice);
-  }
+  // T-073: the merchant's own PDF, if any — see this file's own doc comment.
+  const basePdfBytes = await einvoiceService.options.standalone?.basePdf?.(buildResult.invoice);
 
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });

@@ -5,8 +5,8 @@
  * - the invoice disagrees with what Medusa charged (P-63, `mapping/charged-reconciliation.ts`) — the code is
  *   the block's, the details its amounts;
  * - the document was refused: `buildInvoice` could not decide or build it (a VAT-ID VIES did not confirm, a
- *   fact missing, a rate it cannot invoice), the order could not be mapped, the VAT-ID check itself failed,
- *   or a Webbers document never appeared. The code is the error's class name until errors carry codes of
+ *   fact missing, a rate it cannot invoice), the order could not be mapped, or the VAT-ID check itself failed.
+ *   The code is the error's class name until errors carry codes of
  *   their own (T-077); the details hold its message.
  *
  * A thrown error used to reach only the log, and the event that would have issued the document does not

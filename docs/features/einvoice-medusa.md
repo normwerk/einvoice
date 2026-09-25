@@ -2,7 +2,7 @@
 
 Back to [`docs/README.md`](../README.md). Covers private storage in the File Module, the admin widget, and
 the Store API endpoint — what happens to a document _after_ it's generated. Generating it (the subscribers,
-idempotency, and the two numbering/PDF modes, Webbers and standalone) is not covered on this page.
+idempotency, numbering and the PDF) is not covered on this page.
 
 ## Storage: real File Module files, not inline columns
 
@@ -61,7 +61,7 @@ stored:
   updates it; the issued document deletes it.
 
 Every other refusal before a document number is taken — `buildInvoice`'s, the mapping's, a VAT-ID check that
-failed, a Webbers document that never appeared, a refund with no invoice to correct — is recorded the same
+failed, a refund with no invoice to correct — is recorded the same
 way (`src/refusals.ts`), for invoices and credit notes alike: the code is the error's class name, the details
 its message (and, for a credit note, the event its retry redelivers). The subscriber completes instead of
 throwing. A cancelled order's invoice refusals are dropped.

@@ -10,8 +10,7 @@
  *
  * Credits everything outstanding: the whole order when nothing was credited before, otherwise one line over
  * the rest (`decideCreditScope`) — never more than the invoice, even if a `payment.refunded` for the same
- * money is handled too. Not in `@webbers/invoices-medusa` mode: their plugin issues no credit invoice on
- * cancellation, and this plugin never allocates its own number in that mode; a warning is logged instead.
+ * money is handled too.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
@@ -37,7 +36,6 @@ export default async function creditNoteOnOrderCanceled({
   container,
 }: SubscriberArgs<OrderCanceledEventData>): Promise<void> {
   const einvoiceService = container.resolve<EinvoiceModuleService>(EINVOICE_MODULE);
-  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
   // P-66: a cancelled order needs no invoice — a refused one is no longer to be retried.
   await einvoiceService.clearRefusalsOfOrder("invoice", data.id);
@@ -54,14 +52,6 @@ export default async function creditNoteOnOrderCanceled({
   const basis = await loadCreditBasis(container, einvoiceService, data.id);
   if (basis === undefined) {
     // Cancelled before it was ever invoiced — nothing to correct.
-    return;
-  }
-
-  if (einvoiceService.options.integration?.kind === "webbers") {
-    logger.warn(
-      `einvoice: order ${data.id} was cancelled after its e-invoice was issued; in @webbers/invoices-medusa ` +
-        "mode this plugin issues no credit note for a cancellation — issue it yourself.",
-    );
     return;
   }
 

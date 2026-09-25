@@ -31,7 +31,7 @@ export default defineConfig({
       ],
       thresholds: {
         // Real, current floor for the code this config leaves in scope (`storage.ts`, `api/einvoice-http.ts`,
-        // `mapping/**`, `integrations/webbers.ts`, `modules/einvoice/**` minus migrations, `subscribers/**`,
+        // `mapping/**`, `modules/einvoice/**` minus migrations, `subscribers/**`,
         // `tax-matrix/**` minus the type-only file above) — not an aspirational number; today's actuals are
         // ~88/83/95/88 (stmts/branch/funcs/lines), this sits a few points under each as a real floor, not a
         // ceiling to stop at.

@@ -75,7 +75,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (212 tests)
+### `einvoice-medusa` (211 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -104,9 +104,13 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   the app root.
 - `src/modules/einvoice/service.test.ts` — `EinvoiceModuleService`'s constructor-time option validation
   (`assertValidOptions`): every field a real KoSIT rejection found mandatory, seller contact
-  and street included, and that `standalone.basePdf` passes through unchanged; `recordDocumentIfAbsent`
+  and street included, and that `standalone.basePdf` passes through unchanged; an `integration` option
+  refused, and a warning at startup when another invoice plugin is registered; `recordDocumentIfAbsent`
   telling a lost idempotency race (the key exists after a failed insert) from a real failure; and refusals
   — one row per key, updated by a retry refused again and by a lost insert race, cleared once issued.
+- `src/modules/einvoice/other-invoice-plugins.test.ts` — `otherInvoicePlugins`: a known invoice plugin
+  found under `plugins` (by name or with options) or as a module Medusa merged from it, named once, and
+  nothing without one.
 - `src/mapping/credit-note.test.ts` — `decideCreditScope` (a refund credits at most what is still
   outstanding on the invoice; the whole order is restated only when nothing was credited before),
   `toPartialCreditNoteInput` (VAT-inclusive lines over the credited sums), `extractGrandTotalFromCii`,
@@ -123,19 +127,15 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   invoice recorded as a refusal naming its payment, and a refund of an overpayment
   the invoice's notice names crediting nothing while a later one credits its own amount.
 - `src/subscribers/credit-note-on-order-canceled.test.ts` — the cancellation subscriber: no credit note
-  without an invoice, the whole invoice or only its outstanding remainder credited, Webbers mode leaving
-  the credit note to the merchant, and the order's refused invoices dropped.
-- `src/integrations/webbers.test.ts` — `waitForWebbersInvoice`'s own-package-not-installed path,
-  `WebbersInvoiceNotFoundError`, and `fetchWebbersPdfBytes` (both the success and the non-2xx-response
-  path, via a stubbed `fetch`).
+  without an invoice, the whole invoice or only its outstanding remainder credited, and the order's refused
+  invoices dropped.
 - `src/storage.test.ts` — `storeEinvoiceFiles` (XML-only vs. XML+PDF upload shape), `deleteEinvoiceFiles`
   (including that a failed delete is swallowed, not thrown), and `fetchFileBytes`.
 - `src/subscribers/invoice-on-fulfillment-created.test.ts` and `…split-fulfillments.test.ts` — the invoice
-  subscriber's orchestration: idempotency, the order-not-found guard, standalone vs Webbers numbering and
-  PDF source, the concurrency-race cleanup, split fulfillments, `buildInvoice` warnings logged without the
+  subscriber's orchestration: idempotency, the order-not-found guard, numbering and the merchant's own PDF,
+  the concurrency-race cleanup, split fulfillments, `buildInvoice` warnings logged without the
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
-  number, one stating less issued with its notice, and a `buildInvoice` refusal or a Webbers invoice that
-  never appeared recorded as a refusal — code, message and rule — instead of thrown.
+  number, one stating less issued with its notice, and a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown.
 - `src/refusals.test.ts` — `describeRefusal` (a refusal explained by its error's message, a block by its
   amounts) and `recordRefusalOfError` (the error's class name as the code, its message, rule and the
   credit note's trigger recorded and logged).

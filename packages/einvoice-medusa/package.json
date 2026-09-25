@@ -83,13 +83,7 @@
     "@medusajs/framework": ">=2.12.0 <2.16.0 || >=2.18.0 <3.0.0",
     "@medusajs/icons": ">=2.12.0 <2.16.0 || >=2.18.0 <3.0.0",
     "@medusajs/medusa": ">=2.12.0 <2.16.0 || >=2.18.0 <3.0.0",
-    "@medusajs/ui": "^4.0.0",
-    "@webbers/invoices-medusa": ">=1.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@webbers/invoices-medusa": {
-      "optional": true
-    }
+    "@medusajs/ui": "^4.0.0"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

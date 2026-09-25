@@ -3,17 +3,13 @@ import type { MedusaContainer, SubscriberArgs } from "@medusajs/framework";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
-import { WebbersInvoiceNotFoundError } from "../integrations/webbers.js";
 
 // This file unit-tests `invoiceOnFulfillmentCreated`'s own orchestration (idempotency, the
-// order-not-found guard, webbers-vs-standalone branching, the PDF-embed conditional, and the
+// order-not-found guard, the PDF-embed conditional, and the
 // concurrency-race cleanup) — not the business-rule engines it calls into. `@normwerk/einvoice-commerce`,
 // `@normwerk/einvoice-cii`, and `@normwerk/einvoice-pdfa` already have their own exhaustive test suites
 // (build-invoice.test.ts, index.test.ts, render-invoice.test.ts); re-validating EN 16931 business rules
 // here would just duplicate that coverage while making this file fragile to unrelated changes there.
-// `../integrations/webbers.js` is mocked for the same reason `webbers.test.ts` itself can only exercise
-// the "not installed" path directly: `@webbers/invoices-medusa` is a deliberately-uninstalled optional
-// peer in this repo (T-072's own doc comment), so its success path is unreachable without mocking.
 const mocks = vi.hoisted(() => ({
   selectProfile: vi.fn(() => "EN16931" as const),
   // Shaped like a real BuildResult where the subscriber reads it (`invoice.totals`: what ORDER below
@@ -29,8 +25,6 @@ const mocks = vi.hoisted(() => ({
   })),
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   embedInvoiceInPdfA3: vi.fn(async () => ({ pdfBytes: new Uint8Array([1, 2, 3]) })),
-  waitForWebbersInvoice: vi.fn(),
-  fetchWebbersPdfBytes: vi.fn(),
   storeEinvoiceFiles: vi.fn(async () => ({
     xmlFileId: "file_xml",
     pdfFileId: null as string | null,
@@ -57,15 +51,6 @@ vi.mock("@normwerk/einvoice-cii", () => ({
 vi.mock("@normwerk/einvoice-pdfa", () => ({
   embedInvoiceInPdfA3: mocks.embedInvoiceInPdfA3,
 }));
-
-vi.mock("../integrations/webbers.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../integrations/webbers.js")>();
-  return {
-    ...actual,
-    waitForWebbersInvoice: mocks.waitForWebbersInvoice,
-    fetchWebbersPdfBytes: mocks.fetchWebbersPdfBytes,
-  };
-});
 
 vi.mock("../storage.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../storage.js")>();
@@ -266,58 +251,6 @@ describe("invoiceOnFulfillmentCreated", () => {
       container,
       expect.objectContaining({ pdfBytes: new Uint8Array([1, 2, 3]) }),
     );
-  });
-
-  it("webbers mode: reuses their display_id as the document number and their PDF, without allocating one", async () => {
-    mocks.waitForWebbersInvoice.mockResolvedValue({
-      invoice: { display_id: 4242, pdf_url: "https://webbers.example.test/inv.pdf" },
-    });
-    mocks.fetchWebbersPdfBytes.mockResolvedValue(new Uint8Array([7, 7, 7]));
-    const einvoiceService = makeEinvoiceService({
-      options: {
-        seller: SELLER,
-        payment: PAYMENT,
-        integration: { kind: "webbers", waitForInvoiceMs: 1000, pollIntervalMs: 10 },
-      },
-    });
-    const { container } = makeContainer(einvoiceService);
-
-    await invoiceOnFulfillmentCreated(
-      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
-    );
-
-    expect(mocks.waitForWebbersInvoice).toHaveBeenCalledTimes(1);
-    expect(mocks.fetchWebbersPdfBytes).toHaveBeenCalledWith(
-      container,
-      "https://webbers.example.test/inv.pdf",
-    );
-    expect(mocks.embedInvoiceInPdfA3).toHaveBeenCalledTimes(1);
-    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
-      expect.objectContaining({ documentNumber: "4242" }),
-    );
-  });
-
-  it("webbers mode: records WebbersInvoiceNotFoundError as a refusal when no invoice ever appears (P-66)", async () => {
-    mocks.waitForWebbersInvoice.mockResolvedValue(undefined);
-    const einvoiceService = makeEinvoiceService({
-      options: {
-        seller: SELLER,
-        payment: PAYMENT,
-        integration: { kind: "webbers", waitForInvoiceMs: 1000, pollIntervalMs: 10 },
-      },
-    });
-    const { container } = makeContainer(einvoiceService);
-
-    await invoiceOnFulfillmentCreated(
-      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
-    );
-    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith(
-      expect.objectContaining({
-        idempotencyKey: "ful_01",
-        code: new WebbersInvoiceNotFoundError("order_01", "order_01", "debit").name,
-      }),
-    );
-    expect(einvoiceService.recordDocumentIfAbsent).not.toHaveBeenCalled();
   });
 
   it("cleans up the just-uploaded files when recordDocumentIfAbsent loses the concurrency race", async () => {

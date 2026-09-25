@@ -109,7 +109,7 @@ installed `@medusajs/*` package's compiled source.
   against a real compiled module provider (`@medusajs/notification-local@2.19.0`'s
   `LocalNotificationService`, `constructor({ logger }, options)`), not the (accurate but non-concrete)
   prose in the plugin scaffold's own `src/modules/README.md`.
-- **A real, currently-published Medusa v2 invoicing plugin, the one this adapter integrates with,**
+- **A real, currently-published Medusa v2 invoicing plugin, the one this adapter once integrated with,**
   exists and was inspected directly: `@webbers/invoices-medusa@1.0.6` (npm, MIT). It defines its own
   `invoice` module (`INVOICE_MODULE = "invoice"`) with a data model carrying `display_id` (autoincrement —
   the human-readable invoice number the Webbers integration reads), `resource_id`, `type`
@@ -292,6 +292,18 @@ installed `@medusajs/*` package's compiled source.
     the error message go away.
 
 ### `@webbers/invoices-medusa` integration
+
+The integration was removed before 0.1.0: their PDF shows Medusa's totals, which differ from the e-invoice
+wherever the plugin corrects the VAT, and two documents for one supply are two invoices. The findings below
+describe their package and stay as reference; the plugin now only warns at startup when their module is
+registered (`modules/einvoice/other-invoice-plugins.ts`).
+
+- **A module can see which plugins and modules the app registered**: every module's container carries
+  `configModule` and `logger` (`@medusajs/modules-sdk` `loadInternalModule`), and Medusa merges each plugin's
+  modules into `configModule.modules` before loading them (`mergePluginModules`, `@medusajs/utils`) — keyed by
+  the module's service name (`invoice` for Webbers), `resolve` pointing inside the plugin
+  (`@webbers/invoices-medusa/.medusa/server/src/modules/invoice`). The module service is constructed with
+  `localContainer.cradle`, so `configModule` is readable in its constructor, at boot.
 
 - **`@webbers/invoices-medusa@1.0.6`'s own `package.json` declares two more broken export subpaths**, the
   same class of gap first found for `"./links"` (that file simply doesn't exist in the published tarball):
