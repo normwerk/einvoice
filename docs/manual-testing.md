@@ -66,6 +66,13 @@ reach both on a local stand: a Spanish delivery to a business buyer with a verif
 charging Spanish VAT (the notice), and an order whose shipping option carries a 0% tax rate override (the
 refusal) — the same setup as the end-to-end scenarios S12 and S13.
 
+Codes and support (not yet verified in a browser): every notice's and refusal's code, in brackets after the
+explanation, opens its anchor on the error reference; a refusal for a buyer in Italy (end-to-end scenario
+S17) also shows "Ask for support of this country", which opens a new GitHub issue with the title and body
+filled in and nothing sent. **Settings → Store** shows an "E-Invoicing" block below the store details: the
+seller country, one line on what the release supports (from `GET /admin/einvoice/support`), and a link to
+the error reference.
+
 No screenshot of this is committed to the repository — the environment this was built in has no accessible
 display for a real screenshot (`screencapture` genuinely fails with "could not create image from display",
 confirmed, not assumed) and the preview browser tool used has no "save frame to file" capability either.

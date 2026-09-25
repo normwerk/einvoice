@@ -6,7 +6,8 @@
  * that walks it (`serialize.ts`) is hand-written and doesn't change per
  * profile (ADR-004).
  */
-import type { Invoice } from "@normwerk/einvoice-model";
+import { EinvoiceError, type Invoice } from "@normwerk/einvoice-model";
+import type { CiiErrorCode } from "./error-codes.js";
 import { invoicePlan } from "./generated/plan.js";
 import { serializeWithPlan, unmappedPaths } from "./serialize.js";
 
@@ -39,9 +40,10 @@ export interface SerializeResult {
  * this package does not write yet (BT-6/7/8, BT-111, BG-24, BG-26, BG-32); without this refusal they were
  * dropped from the XML without a trace.
  */
-export class UnmappedInvoiceFieldsError extends Error {
+export class UnmappedInvoiceFieldsError extends EinvoiceError<CiiErrorCode> {
   constructor(readonly paths: readonly string[]) {
     super(
+      "UNMAPPED_INVOICE_FIELDS",
       `serializeCii cannot write these Invoice fields to CII yet, and refuses rather than dropping them: ` +
         `${paths.join(", ")}. See docs/mapping-reference.md for the fields it writes.`,
     );
@@ -66,3 +68,4 @@ export {
   unmappedPaths,
 } from "./serialize.js";
 export type { PlanNode, QName } from "./plan-types.js";
+export type { CiiErrorCode } from "./error-codes.js";

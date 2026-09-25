@@ -20,6 +20,7 @@ import {
   type InvoiceNotice,
 } from "../mapping/charged-reconciliation.js";
 import { describeRefusal } from "../refusals.js";
+import { ERROR_REFERENCE_URL, errorDocsUrl, supportRequestUrl } from "../errors.js";
 
 export interface EinvoiceDocumentSummary {
   readonly id: string;
@@ -58,6 +59,8 @@ export interface EinvoiceStatusSummary {
   readonly code: string;
   readonly message: string;
   readonly details: Record<string, unknown>;
+  /** T-077: where the code is explained. */
+  readonly docsUrl: string;
 }
 
 export interface AdminEinvoiceDocumentSummary extends EinvoiceDocumentSummary {
@@ -73,6 +76,20 @@ export interface AdminEinvoiceRefusalSummary extends EinvoiceStatusSummary {
   readonly idempotencyKey: string;
   readonly updatedAt: string;
   readonly retryUrl: string;
+  /** T-077: for a buyer country the release does not support, a support request to open — `null` otherwise. */
+  readonly supportRequestUrl: string | null;
+}
+
+const UNSUPPORTED_COUNTRY_CODES: ReadonlySet<string> = new Set([
+  "UNSUPPORTED_BUYER_COUNTRY",
+  "UNSUPPORTED_BUYER_COUNTRY_CLEARANCE",
+]);
+
+function supportRequestOf(refusal: EinvoiceRefusalRecord): string | null {
+  const country = refusal.details["country"];
+  return UNSUPPORTED_COUNTRY_CODES.has(refusal.code) && typeof country === "string"
+    ? supportRequestUrl("buyer", country)
+    : null;
 }
 
 /**
@@ -112,6 +129,7 @@ export async function listAdminEinvoiceStatus(
                 code: notice.code,
                 message: describeChargedReconciliation(notice),
                 details: { ...notice },
+                docsUrl: errorDocsUrl(notice.code),
               },
       };
     }),
@@ -122,9 +140,29 @@ export async function listAdminEinvoiceStatus(
       code: refusal.code,
       message: describeRefusal(refusal),
       details: refusal.details,
+      docsUrl: errorDocsUrl(refusal.code),
       updatedAt: new Date(refusal.updated_at).toISOString(),
       retryUrl: `${basePath}/einvoice/refusals/${refusal.id}/retry`,
+      supportRequestUrl: supportRequestOf(refusal),
     })),
+  };
+}
+
+/** T-077: what the store page's status widget shows — the release's support, the configured seller. */
+export interface EinvoiceSupportStatus {
+  /** One line on what this release supports (`describeSupport`, `@normwerk/einvoice-commerce`). */
+  readonly support: string;
+  readonly sellerCountry: string;
+  readonly errorReferenceUrl: string;
+}
+
+export async function einvoiceSupportStatus(req: MedusaRequest): Promise<EinvoiceSupportStatus> {
+  const commerce = await import("@normwerk/einvoice-commerce");
+  const einvoiceService = req.scope.resolve<EinvoiceModuleService>(EINVOICE_MODULE);
+  return {
+    support: commerce.describeSupport(),
+    sellerCountry: einvoiceService.options.seller.countryCode,
+    errorReferenceUrl: ERROR_REFERENCE_URL,
   };
 }
 

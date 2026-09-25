@@ -84,6 +84,8 @@ export interface EinvoiceStatusEntry {
   readonly code: string;
   readonly message: string;
   readonly details: Readonly<Record<string, unknown>>;
+  /** T-077: where the code is explained. */
+  readonly docsUrl: string;
 }
 
 export interface EinvoiceRefusalSummary extends EinvoiceStatusEntry {
@@ -91,6 +93,17 @@ export interface EinvoiceRefusalSummary extends EinvoiceStatusEntry {
   readonly type: "invoice" | "credit_note";
   readonly idempotencyKey: string;
   readonly retryUrl: string;
+  /** T-077: a support request for a buyer country the release does not support. */
+  readonly supportRequestUrl: string | null;
+}
+
+/** T-077: `GET /admin/einvoice/support` — what the release supports, for the store page's widget. */
+export async function getEinvoiceSupport(admin: AdminSession): Promise<{
+  readonly support: string;
+  readonly sellerCountry: string;
+  readonly errorReferenceUrl: string;
+}> {
+  return adminGetJson(admin, "/admin/einvoice/support");
 }
 
 /** P-63: the admin listing — documents with their notices, and the documents the plugin did not issue. */

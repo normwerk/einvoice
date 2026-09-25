@@ -4,6 +4,7 @@
   "build": {
     "kind": "error",
     "errorClass": "TaxRuleError",
+    "errorCode": "CROSS_BORDER_SERVICE_UNDECLARED",
     "messageIncludes": "no official artifact example confirms a real validator accepts it"
   },
   "profile": { "kind": "ok", "profile": "EN16931" }

@@ -419,3 +419,86 @@ describe("decideVatCategory — docs/tax-semantics.md, row by row", () => {
     expect(decision.ruleId).toBe("tax-semantics#1");
   });
 });
+
+describe("refusal codes (T-077)", () => {
+  function codeOf(run: () => unknown): string | undefined {
+    try {
+      run();
+    } catch (error) {
+      return (error as { readonly code?: string }).code;
+    }
+    return undefined;
+  }
+  const intraEu: TaxContext = { ...BASE, buyerCountry: "FR", buyerVatId: "FR12345678901" };
+  const valid = (vatId: string): VatIdEvidence => ({
+    vatId,
+    status: "valid",
+    checkedAt: "2026-09-14",
+  });
+
+  it("names each reason decideVatCategory refuses with its own code", () => {
+    expect(codeOf(() => decideVatCategory({ ...BASE, sellerCountry: "NL" }))).toBe(
+      "UNSUPPORTED_SELLER_COUNTRY",
+    );
+    expect(
+      codeOf(() =>
+        decideVatCategory({
+          ...intraEu,
+          regimeOverride: { kind: "exempt", reasonText: "§4 Nr. 14 UStG" },
+        }),
+      ),
+    ).toBe("OVERRIDE_OUT_OF_SCOPE");
+    expect(codeOf(() => decideVatCategory({ ...intraEu, supplyType: "services" }))).toBe(
+      "CROSS_BORDER_SERVICE_UNDECLARED",
+    );
+    expect(codeOf(() => decideVatCategory({ ...intraEu, buyerVatId: "DE987654321" }))).toBe(
+      "BUYER_VAT_ID_DOMESTIC",
+    );
+    expect(codeOf(() => decideVatCategory(intraEu, valid("FR99999999999")))).toBe(
+      "BUYER_VAT_ID_MISMATCH",
+    );
+    expect(codeOf(() => decideVatCategory(intraEu))).toBe("VAT_ID_UNVERIFIED");
+    expect(
+      codeOf(() => decideVatCategory({ ...BASE, buyerCountry: "US", supplyType: "services" })),
+    ).toBe("NON_EU_SERVICE_UNSUPPORTED");
+    expect(
+      codeOf(() =>
+        decideVatCategory({
+          ...BASE,
+          buyerCountry: "FR",
+          buyerIsBusiness: false,
+          ossRegistered: true,
+        }),
+      ),
+    ).toBe("OSS_RATE_MISSING");
+    expect(
+      codeOf(() => decideVatCategory({ ...BASE, supplyType: "mixed", buyerCountry: "FR" })),
+    ).toBe("MIXED_SUPPLY_CROSS_BORDER");
+  });
+
+  it("names each reason resolveLineRate refuses with its own code", () => {
+    const decision = decideVatCategory(BASE);
+    expect(codeOf(() => resolveLineRate(decision, BASE, undefined, "16"))).toBe(
+      "UNSUPPORTED_CHARGED_RATE",
+    );
+    expect(codeOf(() => resolveLineRate(decision, BASE, "standard", "7"))).toBe(
+      "CHARGED_RATE_MISMATCH",
+    );
+    expect(codeOf(() => resolveLineRate(decision, BASE, undefined))).toBe("LINE_RATE_UNKNOWN");
+    expect(codeOf(() => resolveLineRate(decision, BASE, undefined, "19%"))).toBe(
+      "INVALID_CHARGED_RATE",
+    );
+  });
+
+  it("links each code to its explanation", () => {
+    try {
+      decideVatCategory(intraEu);
+    } catch (error) {
+      expect(error).toBeInstanceOf(TaxRuleError);
+      expect((error as TaxRuleError).docsUrl).toBe(
+        "https://normwerk.dev/einvoice/docs/errors#vat-id-unverified",
+      );
+      expect((error as TaxRuleError).ruleId).toBe("tax-semantics#3");
+    }
+  });
+});

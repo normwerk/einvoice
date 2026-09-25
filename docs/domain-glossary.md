@@ -479,6 +479,15 @@ access?: "public" | "private" }`, defaulting to `"private"` when `access` is omi
   answers every query this
   plugin needs, and Webbers needs a link only because their own `Invoice` model carries no order-identifying
   field at all (confirmed by reading it directly — no redundant mechanism to choose between, unlike here).
+- **The store's settings page takes widgets too**: zone `store.details.after` (`@medusajs/admin-shared`
+  2.19's zone list) — where the "E-Invoicing" support statement sits, visible before an order hits a limit.
+- **The plugin cannot extend the core packages' error class.** It compiles to CommonJS and loads the
+  ESM-only packages with a dynamic `import()`, so a class that exists only after that import cannot be a
+  base class when a module loads, and the options are checked synchronously in the module's constructor.
+  Its own errors (`PluginError`, `src/errors.ts`) restate the same shape — `code`, `docsUrl` — and the
+  supported seller countries are restated in `service.ts`; unit tests compare both with the core packages'.
+  An error from either side is recognised by its shape (`code` and `docsUrl` both strings), not by
+  `instanceof`.
 
 ### npm publish preparation
 

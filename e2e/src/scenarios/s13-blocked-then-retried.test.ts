@@ -102,7 +102,7 @@ describe("S13: invoice VAT above what Medusa charged -> not issued, corrected, r
     if (creditRefusal === undefined) {
       throw new Error("unreachable: waitFor guarantees a credit note refusal");
     }
-    expect(creditRefusal.code).toBe("MissingOriginalInvoiceError");
+    expect(creditRefusal.code).toBe("MISSING_ORIGINAL_INVOICE");
 
     if (taxRateId !== undefined) {
       await deleteTaxRate(admin, taxRateId);

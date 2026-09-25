@@ -69,7 +69,7 @@ describe("S14: VIES unavailable -> not issued, confirmed by hand, retried", () =
     if (refusal === undefined) {
       throw new Error("unreachable: waitFor guarantees a refusal");
     }
-    expect(refusal.code).toBe("TaxRuleError");
+    expect(refusal.code).toBe("VAT_ID_UNVERIFIED");
     expect(refusal.message).toContain("positive VIES check");
     expect((await getEinvoiceStatus(admin, orderId)).documents).toEqual([]);
 

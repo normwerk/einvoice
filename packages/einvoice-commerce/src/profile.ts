@@ -31,47 +31,23 @@
  * Seller-side jurisdiction is unaffected and stays Germany-only until v0.2 (`decideVatCategory`,
  * `tax-rules.ts`) — this function only ever decides the *document format*, never the VAT category.
  */
-import type { CountryCode } from "@normwerk/einvoice-model";
-import { EU_MEMBER_STATES } from "./tax-rules.js";
+import { EinvoiceError, type CountryCode } from "@normwerk/einvoice-model";
+import type { CommerceErrorCode } from "./error-codes.js";
+import { buyerCountrySupport } from "./supported-jurisdictions.js";
 
 export type EInvoiceProfileName = "EN16931" | "XRECHNUNG";
 
-/**
- * EEA member states that are not also EU members (ISO 3166-1 alpha-2) — Iceland, Liechtenstein, Norway.
- * Verified directly against https://www.efta.int/eea ("the three EEA EFTA States — Iceland, Liechtenstein
- * and Norway"), fetched 2026-09-19 — not assumed from memory.
- */
-const EEA_NON_EU_COUNTRIES: ReadonlySet<CountryCode> = new Set(["IS", "LI", "NO"]);
-
-/**
- * Countries outside the EU/EEA that this package still accepts an EN 16931 hybrid document for (T-066):
- * Switzerland and the UK. Not an EEA-membership fact — a deliberate v0.1 acceptance decision (neither
- * country runs a clearance system of its own that would reject a Factur-X/ZUGFeRD hybrid PDF; see
- * `README.md`'s own country-roadmap table, "Swiss / UK buyer of a German seller"). Kept as its own named
- * set rather than folded into the EEA one so the two provenances stay distinguishable.
- */
-const NON_EEA_ACCEPTED_COUNTRIES: ReadonlySet<CountryCode> = new Set(["CH", "GB"]);
-
-/**
- * EU member states that run their own mandatory pre-clearance e-invoicing platform — Italy's SDI (Sistema
- * di Interscambio) and Poland's KSeF (Krajowy System e-Faktur) — each with its own national XML format, not
- * EN 16931. Neither a pure-XML XRechnung document nor a plain EN 16931 hybrid can be submitted through
- * either platform. Source: this repo's own already-verified position, `README.md`'s country-roadmap table
- * ("SDI / KSeF are clearance systems with their own XML — no EN 16931 document can serve them") and
- * `ecom docs/STRATEGY.md` §2's explicit out-of-scope list — not re-derived here. A subset of
- * `EU_MEMBER_STATES`; checked *before* the general EU/EEA/CH/UK branch, since membership alone is not
- * sufficient for these two.
- */
-const CLEARANCE_MODEL_COUNTRIES: ReadonlySet<CountryCode> = new Set(["IT", "PL"]);
-
 export type UnsupportedCountryReason = "not-yet-supported" | "clearance-model";
 
-export class UnsupportedCountryError extends Error {
+export class UnsupportedCountryError extends EinvoiceError<CommerceErrorCode> {
   constructor(
     readonly countryCode: CountryCode,
     readonly reason: UnsupportedCountryReason = "not-yet-supported",
   ) {
     super(
+      reason === "clearance-model"
+        ? "UNSUPPORTED_BUYER_COUNTRY_CLEARANCE"
+        : "UNSUPPORTED_BUYER_COUNTRY",
       reason === "clearance-model"
         ? `selectProfile: buyer country "${countryCode}" runs a mandatory clearance e-invoicing platform ` +
             `of its own (SDI/KSeF-style national XML) — no EN 16931 document, hybrid or pure XML, can be ` +
@@ -104,17 +80,12 @@ export function selectProfile(options: SelectProfileOptions): EInvoiceProfileNam
     return preferredProfile ?? "EN16931";
   }
 
-  if (CLEARANCE_MODEL_COUNTRIES.has(buyerCountry)) {
-    throw new UnsupportedCountryError(buyerCountry, "clearance-model");
+  switch (buyerCountrySupport(buyerCountry)) {
+    case "en16931":
+      return preferredProfile ?? "EN16931";
+    case "clearance-unsupported":
+      throw new UnsupportedCountryError(buyerCountry, "clearance-model");
+    case "unsupported":
+      throw new UnsupportedCountryError(buyerCountry);
   }
-
-  if (
-    EU_MEMBER_STATES.has(buyerCountry) ||
-    EEA_NON_EU_COUNTRIES.has(buyerCountry) ||
-    NON_EEA_ACCEPTED_COUNTRIES.has(buyerCountry)
-  ) {
-    return preferredProfile ?? "EN16931";
-  }
-
-  throw new UnsupportedCountryError(buyerCountry);
 }

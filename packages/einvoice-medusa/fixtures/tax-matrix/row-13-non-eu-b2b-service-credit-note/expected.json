@@ -4,11 +4,13 @@
   "build": {
     "kind": "error",
     "errorClass": "TaxRuleError",
+    "errorCode": "NON_EU_SERVICE_UNSUPPORTED",
     "messageIncludes": "CONTESTED"
   },
   "profile": {
     "kind": "error",
     "errorClass": "UnsupportedCountryError",
+    "errorCode": "UNSUPPORTED_BUYER_COUNTRY",
     "messageIncludes": "buyer country \"US\" is not yet supported"
   }
 }

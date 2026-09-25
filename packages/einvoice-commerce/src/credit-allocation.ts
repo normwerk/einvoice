@@ -22,7 +22,8 @@ import {
   subtractAmounts,
   sumAmounts,
 } from "./decimal.js";
-import type { Amount } from "@normwerk/einvoice-model";
+import { EinvoiceError, type Amount } from "@normwerk/einvoice-model";
+import type { CommerceErrorCode } from "./error-codes.js";
 
 /** A gross amount at one VAT rate. */
 export interface AmountAtRate {
@@ -50,12 +51,13 @@ export interface CreditPiece extends AmountAtRate {
   readonly returnId?: string | undefined;
 }
 
-export class CreditExceedsInvoiceError extends Error {
+export class CreditExceedsInvoiceError extends EinvoiceError<CommerceErrorCode> {
   constructor(
     readonly amount: Amount,
     readonly uncredited: Amount,
   ) {
     super(
+      "CREDIT_EXCEEDS_INVOICE",
       `A credit of ${amount} exceeds the ${uncredited} still uncredited on the invoice — refusing to ` +
         "credit more than was invoiced.",
     );

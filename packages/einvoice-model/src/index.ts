@@ -9,3 +9,4 @@ export * from "./generated/codelists.js";
 export type { Amount, IsoDate } from "./generated/primitives.js";
 export { invoiceJsonSchema } from "./generated/json-schema.js";
 export { validateModel, type ModelValidationResult } from "./validate.js";
+export { EinvoiceError, errorDocsUrl, ERROR_REFERENCE_URL } from "./errors.js";

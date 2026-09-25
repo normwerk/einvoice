@@ -14,6 +14,9 @@
  * P-63: a document issued with a notice shows it under its row (the buyer overpaid, or Medusa counts VAT
  * differently), and a document the plugin did not issue shows why, with a "Retry" button
  * (`POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`) for after the order was corrected.
+ *
+ * T-077: each code links to its explanation on the error reference; a buyer country the release does not
+ * support also links to a support request, filled in beforehand — opened by the merchant, never sent.
  */
 import { defineWidgetConfig } from "@medusajs/admin-sdk";
 import { Badge, Button, Container, Heading, IconButton, Text } from "@medusajs/ui";
@@ -27,7 +30,11 @@ interface EinvoiceDocumentSummary {
   readonly documentNumber: string;
   readonly xmlUrl: string;
   readonly pdfUrl: string | null;
-  readonly notice: { readonly code: string; readonly message: string } | null;
+  readonly notice: {
+    readonly code: string;
+    readonly message: string;
+    readonly docsUrl: string;
+  } | null;
 }
 
 interface EinvoiceRefusalSummary {
@@ -35,7 +42,9 @@ interface EinvoiceRefusalSummary {
   readonly type: "invoice" | "credit_note";
   readonly code: string;
   readonly message: string;
+  readonly docsUrl: string;
   readonly retryUrl: string;
+  readonly supportRequestUrl: string | null;
 }
 
 interface EinvoiceStatus {
@@ -47,6 +56,18 @@ type LoadState =
   | { readonly status: "loading" }
   | { readonly status: "error" }
   | ({ readonly status: "ready" } & EinvoiceStatus);
+
+/** The code, linked to where it is explained. */
+const CodeLink = ({ code, docsUrl }: { readonly code: string; readonly docsUrl: string }) => (
+  <a
+    href={docsUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-ui-fg-interactive hover:text-ui-fg-interactive-hover"
+  >
+    [{code}]
+  </a>
+);
 
 function documentLabel(document: EinvoiceDocumentSummary): string {
   return `${document.type === "invoice" ? "Invoice" : "Credit note"} ${document.documentNumber}`;
@@ -134,8 +155,18 @@ const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminO
                   </Button>
                 </div>
                 <Text size="small" className="text-ui-fg-subtle">
-                  {refusal.message} [{refusal.code}]
+                  {refusal.message} <CodeLink code={refusal.code} docsUrl={refusal.docsUrl} />
                 </Text>
+                {refusal.supportRequestUrl !== null && (
+                  <a
+                    href={refusal.supportRequestUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-ui-fg-interactive hover:text-ui-fg-interactive-hover self-start text-xs"
+                  >
+                    Ask for support of this country
+                  </a>
+                )}
               </div>
             ))}
             {retryError !== null && (
@@ -189,7 +220,8 @@ const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminO
                         : "VAT differs from Medusa"}
                     </Badge>
                     <Text size="small" className="text-ui-fg-subtle">
-                      {document.notice.message} [{document.notice.code}]
+                      {document.notice.message}{" "}
+                      <CodeLink code={document.notice.code} docsUrl={document.notice.docsUrl} />
                     </Text>
                   </div>
                 )}

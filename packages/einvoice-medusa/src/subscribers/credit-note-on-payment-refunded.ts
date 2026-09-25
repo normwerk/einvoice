@@ -60,6 +60,7 @@ import {
 } from "../mapping/order-to-commerce-invoice-input.js";
 import { creditableRefund, decideCreditScope } from "../mapping/credit-note.js";
 import { recordRefusalOfError } from "../refusals.js";
+import { PluginError } from "../errors.js";
 import {
   creditTolerance,
   issueCreditNote,
@@ -118,9 +119,10 @@ function sumBefore(refunds: readonly OrderRefund[], refundId: string): string {
   return toAmount(before.reduce((sum, refund) => sum + Number(refund.amount ?? 0), 0));
 }
 
-export class MissingOriginalInvoiceError extends Error {
+export class MissingOriginalInvoiceError extends PluginError {
   constructor(readonly orderId: string) {
     super(
+      "MISSING_ORIGINAL_INVOICE",
       `Order ${orderId} has a refunded payment but no invoice this plugin generated for it — a credit ` +
         `note needs BT-25/26 (document.correctedInvoice), and this plugin refuses to fabricate a reference ` +
         `to an invoice it never produced (e.g. one issued before this plugin was installed). If the order's ` +

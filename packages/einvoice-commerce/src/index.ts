@@ -76,6 +76,16 @@ export {
 export { MapVatIdVerifier, StaticVatIdVerifier } from "./vat-id-verifier.js";
 
 export {
+  buyerCountrySupport,
+  describeSupport,
+  SUPPORTED_SELLER_COUNTRIES,
+  SUPPORTED_SINCE,
+  type BuyerCountrySupport,
+} from "./supported-jurisdictions.js";
+
+export type { CommerceErrorCode, TaxRuleCode } from "./error-codes.js";
+
+export {
   InMemoryNumberingStore,
   SequentialNumberer,
   type InvoiceNumberer,

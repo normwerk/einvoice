@@ -70,7 +70,10 @@ Where a correct invoice cannot be derived, the plugin refuses and names the reas
 - business services to a buyer outside the EU, for which there is no settled basis yet;
 - a domestic line that Medusa charged at a rate other than 19% or 7%.
 
-The full list, each with its reason, is in [`docs/tax-semantics.md`](docs/tax-semantics.md). Corrected
+The full list, each with its reason, is in [`docs/tax-semantics.md`](docs/tax-semantics.md). A refused
+document never holds up the order: it shows in the order's "E-Invoices" block in Medusa Admin with its
+reason and a stable code, explained in the [error reference](https://normwerk.dev/einvoice/docs/errors), and
+can be issued again once the cause is fixed. Corrected
 invoices (document type 384) are not produced; corrections are credit notes.
 
 ## How correctness is verified

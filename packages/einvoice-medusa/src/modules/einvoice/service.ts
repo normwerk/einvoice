@@ -43,6 +43,12 @@ import { assertSupportedMedusaVersion, installedMedusaVersion } from "../../medu
 import EinvoiceDocument from "./models/einvoice-document.js";
 import EinvoiceRefusal from "./models/einvoice-refusal.js";
 import { otherInvoicePlugins, type InvoicePluginConfig } from "./other-invoice-plugins.js";
+import {
+  errorDocsUrl,
+  PluginError,
+  supportRequestUrl,
+  type PluginErrorCode,
+} from "../../errors.js";
 import type { InvoiceNotice } from "../../mapping/charged-reconciliation.js";
 
 export interface EinvoiceModuleOptions {
@@ -114,9 +120,17 @@ export interface EinvoiceModuleOptions {
   readonly now?: () => Date;
 }
 
-export class InvalidEinvoiceModuleOptionsError extends Error {
-  constructor(readonly reason: string) {
-    super(`@normwerk/einvoice-medusa plugin options are invalid: ${reason}`);
+/** T-077: the seller countries this release supports — `SUPPORTED_SELLER_COUNTRIES` of
+ * `@normwerk/einvoice-commerce`, restated because the options are checked synchronously when the module loads,
+ * before an ESM package can be imported. `service.test.ts` checks the two agree. */
+export const SUPPORTED_SELLER_COUNTRIES: readonly string[] = ["DE"];
+
+export class InvalidEinvoiceModuleOptionsError extends PluginError {
+  constructor(
+    readonly reason: string,
+    code: PluginErrorCode = "INVALID_PLUGIN_OPTIONS",
+  ) {
+    super(code, `@normwerk/einvoice-medusa plugin options are invalid: ${reason}`);
     this.name = "InvalidEinvoiceModuleOptionsError";
   }
 }
@@ -132,6 +146,7 @@ function assertValidOptions(options: EinvoiceModuleOptions): void {
         "into another invoice plugin's PDF: that PDF shows Medusa's totals, which differ from the e-invoice " +
         "wherever the plugin corrects the VAT, and two documents for one supply are two invoices. Remove the " +
         "option; to add a PDF of your own, use options.standalone.basePdf.",
+      "UNSUPPORTED_PLUGIN_OPTION",
     );
   }
   if (options.seller === undefined || options.seller === null) {
@@ -145,14 +160,17 @@ function assertValidOptions(options: EinvoiceModuleOptions): void {
       "options.seller.name is required and cannot be empty.",
     );
   }
-  if (options.seller.countryCode !== "DE") {
+  if (!SUPPORTED_SELLER_COUNTRIES.includes(options.seller.countryCode)) {
     // T-077: every VAT rule, rate and invoice requirement this plugin applies is German law, and
     // `decideVatCategory` refuses any other seller country — but only once an order arrives. Checked here so
     // an unsupported seller fails at boot, not on the first order.
+    const country = String(options.seller.countryCode);
     throw new InvalidEinvoiceModuleOptionsError(
-      `options.seller.countryCode "${String(options.seller.countryCode)}" is not supported — this release ` +
-        'invoices for a seller established in Germany only (countryCode "DE"): the VAT rules, rates and ' +
-        "invoice requirements it applies are German law.",
+      `seller country "${country}" is not supported by this release of @normwerk/einvoice-medusa ` +
+        `(supported: ${SUPPORTED_SELLER_COUNTRIES.join(", ")}) — the VAT rules, rates and invoice ` +
+        `requirements it applies are German law. See ${errorDocsUrl("UNSUPPORTED_SELLER_COUNTRY")}. ` +
+        `Want ${country} sooner? ${supportRequestUrl("seller", country)}`,
+      "UNSUPPORTED_SELLER_COUNTRY",
     );
   }
   if (!options.seller.vatIdentifier || options.seller.vatIdentifier.trim() === "") {

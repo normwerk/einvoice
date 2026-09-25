@@ -44,6 +44,7 @@ import type {
 } from "@normwerk/einvoice-model" with {
   "resolution-mode": "import",
 };
+import { PluginError } from "../errors.js";
 
 export const ORDER_QUERY_FIELDS = [
   "id",
@@ -195,9 +196,10 @@ export interface MedusaOrderForInvoice {
   readonly credit_line_total?: number | string | null;
 }
 
-export class MissingBuyerCountryError extends Error {
+export class MissingBuyerCountryError extends PluginError {
   constructor(readonly orderId: string) {
     super(
+      "MISSING_BUYER_COUNTRY",
       `Order ${orderId} has no billing or shipping address country_code — CommerceInvoiceInput.buyer.` +
         `countryCode/taxContext.buyerCountry have no source to map from. This is real order data missing a ` +
         `fact EN 16931 requires (BT-55/BT-40), not a mapping bug this file can paper over.`,

@@ -63,6 +63,7 @@ describe("selectProfile", () => {
         expect(error).toBeInstanceOf(UnsupportedCountryError);
         expect((error as UnsupportedCountryError).countryCode).toBe("IT");
         expect((error as UnsupportedCountryError).reason).toBe("clearance-model");
+        expect((error as UnsupportedCountryError).code).toBe("UNSUPPORTED_BUYER_COUNTRY_CLEARANCE");
         expect((error as Error).message).toContain("national platform");
       }
     });
@@ -75,6 +76,7 @@ describe("selectProfile", () => {
         expect(error).toBeInstanceOf(UnsupportedCountryError);
         expect((error as UnsupportedCountryError).countryCode).toBe("PL");
         expect((error as UnsupportedCountryError).reason).toBe("clearance-model");
+        expect((error as UnsupportedCountryError).code).toBe("UNSUPPORTED_BUYER_COUNTRY_CLEARANCE");
         expect((error as Error).message).toContain("national platform");
       }
     });
@@ -83,6 +85,9 @@ describe("selectProfile", () => {
   describe("branch 5: everything else (not DE, not EU/EEA/CH/UK, not a clearance country)", () => {
     it("throws UnsupportedCountryError with the generic not-yet-supported message", () => {
       expect(() => selectProfile({ buyerCountry: "US" })).toThrow(UnsupportedCountryError);
+      expect(() => selectProfile({ buyerCountry: "US" })).toThrow(
+        expect.objectContaining({ code: "UNSUPPORTED_BUYER_COUNTRY" }),
+      );
       try {
         selectProfile({ buyerCountry: "US" });
         expect.unreachable();

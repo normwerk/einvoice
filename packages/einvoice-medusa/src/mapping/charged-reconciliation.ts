@@ -43,11 +43,28 @@ import type { MedusaOrderForInvoice } from "./order-to-commerce-invoice-input.js
 export type PriceBasis = "net" | "gross" | "mixed";
 
 /** Issued, with a notice for the merchant. */
-export type InvoiceNoticeCode = "VAT_OVERCHARGED" | "VAT_DIFFERS_FROM_MEDUSA";
+export type InvoiceNoticeCode =
+  /** Issued. Prices without VAT: the invoice states less VAT than Medusa charged — typically a business
+   * buyer in another EU member state, invoiced at 0 % — and the buyer paid the difference on top. Refund
+   * the amount the notice names; that refund issues no credit note. */
+  | "VAT_OVERCHARGED"
+  /** Issued. Prices including VAT: the buyer paid the invoice total, but Medusa counts a different VAT than
+   * the invoice. Nothing to refund; take VAT from the invoices, not from Medusa's order totals, and check
+   * Medusa's tax rates for the order's region, products and shipping option. */
+  | "VAT_DIFFERS_FROM_MEDUSA";
 
 /** Not issued. */
 export type InvoiceBlockCode =
-  "INVOICE_VAT_ABOVE_CHARGED" | "INVOICE_TOTAL_MISMATCH" | "CHARGED_TOTALS_MISSING";
+  /** Not issued: the invoice would state more VAT than Medusa charged, and so a higher total than the
+   * buyer paid — VAT stated on an invoice is owed (§14c UStG). Correct the tax rate in Medusa and the
+   * order's tax lines, then retry. */
+  | "INVOICE_VAT_ABOVE_CHARGED"
+  /** Not issued: the invoice total does not match what Medusa charged, and a difference in VAT does not
+   * explain it — or the order mixes prices with and without VAT. Correct the order and retry, or issue this
+   * invoice outside the plugin. */
+  | "INVOICE_TOTAL_MISMATCH"
+  /** Not issued: Medusa returned no order total or VAT total to check the invoice against. */
+  | "CHARGED_TOTALS_MISSING";
 
 /** The amounts compared — stored with a notice or a block, and shown to the merchant. */
 export interface ChargedComparison {

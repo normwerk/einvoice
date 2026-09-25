@@ -270,6 +270,8 @@ describe("invoiceOnFulfillmentCreated", () => {
     mocks.buildInvoice.mockImplementationOnce(() => {
       throw Object.assign(new Error("needs a positive VIES check"), {
         name: "TaxRuleError",
+        code: "VAT_ID_UNVERIFIED",
+        docsUrl: "https://normwerk.dev/einvoice/docs/errors#vat-id-unverified",
         ruleId: "tax-semantics#3",
       });
     });
@@ -284,13 +286,17 @@ describe("invoiceOnFulfillmentCreated", () => {
       type: "invoice",
       orderId: "order_01",
       idempotencyKey: "ful_01",
-      code: "TaxRuleError",
-      details: { message: "needs a positive VIES check", ruleId: "tax-semantics#3" },
+      code: "VAT_ID_UNVERIFIED",
+      details: {
+        message: "needs a positive VIES check",
+        errorClass: "TaxRuleError",
+        ruleId: "tax-semantics#3",
+      },
     });
     expect(mocks.nextNumber).not.toHaveBeenCalled();
     expect(mocks.storeEinvoiceFiles).not.toHaveBeenCalled();
     const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
-    expect(logged).toContain("Not issued: needs a positive VIES check [TaxRuleError]");
+    expect(logged).toContain("Not issued: needs a positive VIES check [VAT_ID_UNVERIFIED]");
   });
 
   it("reports buildInvoice's warnings without the invoice payload (P-39)", async () => {

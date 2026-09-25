@@ -6,6 +6,8 @@
  * Deterministic by construction: no `Date.now()`, no random IDs, no
  * pretty-printing, element order is exactly the plan's own child order.
  */
+import { EinvoiceError } from "@normwerk/einvoice-model";
+import type { CiiErrorCode } from "./error-codes.js";
 import type { AttributeNode, PlanNode, QName } from "./plan-types.js";
 
 const NAMESPACES: Record<string, string> = {
@@ -20,12 +22,13 @@ const NAMESPACES: Record<string, string> = {
 // eslint-disable-next-line no-control-regex -- matching the control characters is this pattern's purpose.
 const NOT_XML_CHARACTER = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/;
 
-export class UnrepresentableCharacterError extends Error {
+export class UnrepresentableCharacterError extends EinvoiceError<CiiErrorCode> {
   constructor(
     readonly element: string,
     readonly codePoint: number,
   ) {
     super(
+      "UNREPRESENTABLE_CHARACTER",
       `${element}: the value contains the control character U+` +
         `${codePoint.toString(16).toUpperCase().padStart(4, "0")}, which XML 1.0 cannot carry, not even ` +
         "escaped — the document would not parse. Remove it from the source data (a product name, an address).",

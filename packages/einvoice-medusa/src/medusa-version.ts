@@ -11,6 +11,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { PluginError } from "./errors.js";
 
 /** A half-open range of releases: `from` included, `below` not. */
 export interface MedusaVersionRange {
@@ -103,9 +104,10 @@ export function installedMedusaVersion(appRoot: string = process.cwd()): string 
   return undefined;
 }
 
-export class UnsupportedMedusaVersionError extends Error {
+export class UnsupportedMedusaVersionError extends PluginError {
   constructor(readonly installed: string | undefined) {
     super(
+      "UNSUPPORTED_MEDUSA_VERSION",
       (installed === undefined
         ? "@normwerk/einvoice-medusa could not determine the installed Medusa version (@medusajs/framework)"
         : `@normwerk/einvoice-medusa does not support Medusa ${installed}`) +

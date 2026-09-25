@@ -2,6 +2,7 @@
   "build": {
     "kind": "error",
     "errorClass": "TaxRuleError",
+    "errorCode": "UNSUPPORTED_SELLER_COUNTRY",
     "messageIncludes": "decideVatCategory only covers a German seller"
   },
   "profile": { "kind": "ok", "profile": "EN16931" }

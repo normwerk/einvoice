@@ -36,11 +36,20 @@ export interface CellRunResult {
   readonly profile: ProfileAxisOutcome;
 }
 
-function errorOf(error: unknown): { errorClass: string; messageIncludes: string } {
+function errorOf(error: unknown): {
+  errorClass: string;
+  errorCode: string;
+  messageIncludes: string;
+} {
   if (error instanceof Error) {
-    return { errorClass: error.name, messageIncludes: error.message };
+    const code = (error as { readonly code?: unknown }).code;
+    return {
+      errorClass: error.name,
+      errorCode: typeof code === "string" ? code : "",
+      messageIncludes: error.message,
+    };
   }
-  return { errorClass: "UnknownError", messageIncludes: String(error) };
+  return { errorClass: "UnknownError", errorCode: "", messageIncludes: String(error) };
 }
 
 /** Same seller record the real subscribers thread through `MapOrderOptions.seller` — kept out of each

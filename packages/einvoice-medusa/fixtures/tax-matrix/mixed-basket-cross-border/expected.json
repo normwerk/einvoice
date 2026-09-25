@@ -2,6 +2,7 @@
   "build": {
     "kind": "error",
     "errorClass": "MixedSupplyCrossBorderError",
+    "errorCode": "MIXED_SUPPLY_CROSS_BORDER",
     "messageIncludes": "has no single correct EN 16931 category"
   },
   "profile": { "kind": "ok", "profile": "EN16931" }

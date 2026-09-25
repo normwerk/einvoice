@@ -19,6 +19,7 @@ vi.mock("../storage.js", async (importOriginal) => {
 
 import {
   customerOwnsOrder,
+  einvoiceSupportStatus,
   listAdminEinvoiceStatus,
   listEinvoiceDocumentSummaries,
   sendEinvoiceFile,
@@ -152,6 +153,7 @@ describe("listAdminEinvoiceStatus (P-63)", () => {
       code: "VAT_OVERCHARGED",
       message: expect.stringContaining("overpaid 20.90"),
       details: notice,
+      docsUrl: "https://normwerk.dev/einvoice/docs/errors#vat-overcharged",
     });
     expect(result.refusals).toEqual([
       {
@@ -161,10 +163,34 @@ describe("listAdminEinvoiceStatus (P-63)", () => {
         code: "INVOICE_VAT_ABOVE_CHARGED",
         message: expect.stringContaining("Not issued"),
         details: expect.objectContaining({ invoicedVat: "3.80" }),
+        docsUrl: "https://normwerk.dev/einvoice/docs/errors#invoice-vat-above-charged",
         updatedAt: "2026-01-15T10:00:00.000Z",
         retryUrl: "/admin/orders/order_01/einvoice/refusals/einvref_1/retry",
+        supportRequestUrl: null,
       },
     ]);
+  });
+
+  it("offers a support request for a buyer country the release does not support (T-077)", async () => {
+    const req = makeRequest({
+      listEinvoiceDocuments: vi.fn(async () => []),
+      listEinvoiceRefusals: vi.fn(async () => [
+        {
+          id: "einvref_2",
+          type: "invoice" as const,
+          order_id: "order_01",
+          idempotency_key: "ful_01",
+          code: "UNSUPPORTED_BUYER_COUNTRY_CLEARANCE",
+          details: { message: "buyer country IT runs a clearance platform", country: "IT" },
+          updated_at: new Date("2026-01-15T10:00:00Z"),
+        },
+      ]),
+    });
+    const [refusal] = (await listAdminEinvoiceStatus(req, "order_01")).refusals;
+    expect(refusal?.docsUrl).toBe(
+      "https://normwerk.dev/einvoice/docs/errors#unsupported-buyer-country-clearance",
+    );
+    expect(refusal?.supportRequestUrl).toContain("title=Support%20for%20buyer%20country%20IT");
   });
 
   it("keeps notices out of the store listing — they tell the merchant what to refund", async () => {
@@ -283,5 +309,16 @@ describe("customerOwnsOrder", () => {
   it("returns false when the order doesn't exist", async () => {
     const req = makeAuthedRequest("cus_01", undefined);
     await expect(customerOwnsOrder(req, "order_missing")).resolves.toBe(false);
+  });
+});
+
+describe("einvoiceSupportStatus (T-077)", () => {
+  it("states what the release supports and the configured seller country", async () => {
+    const status = await einvoiceSupportStatus(
+      makeRequest({ options: { seller: { countryCode: "DE" } } }),
+    );
+    expect(status.sellerCountry).toBe("DE");
+    expect(status.support).toContain("not supported: IT, PL");
+    expect(status.errorReferenceUrl).toBe("https://normwerk.dev/einvoice/docs/errors");
   });
 });

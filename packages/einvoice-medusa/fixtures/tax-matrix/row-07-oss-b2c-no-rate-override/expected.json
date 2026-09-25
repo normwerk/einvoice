@@ -4,6 +4,7 @@
   "build": {
     "kind": "error",
     "errorClass": "TaxRuleError",
+    "errorCode": "OSS_RATE_MISSING",
     "messageIncludes": "needs taxContext.ossRateOverride"
   },
   "profile": { "kind": "ok", "profile": "EN16931" }

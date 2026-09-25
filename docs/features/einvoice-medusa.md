@@ -62,12 +62,19 @@ stored:
 
 Every other refusal before a document number is taken — `buildInvoice`'s, the mapping's, a VAT-ID check that
 failed, a refund with no invoice to correct — is recorded the same
-way (`src/refusals.ts`), for invoices and credit notes alike: the code is the error's class name, the details
-its message (and, for a credit note, the event its retry redelivers). The subscriber completes instead of
+way (`src/refusals.ts`), for invoices and credit notes alike: the code is the error's own `code` — every error
+the packages raise carries one, with a `docsUrl` to its explanation (`EinvoiceError` in
+`@normwerk/einvoice-model`, `PluginError` in `src/errors.ts`) — or `INTERNAL_ERROR` for anything else; the
+details hold its message and class (and, for a credit note, the event its retry redelivers; for an
+unsupported buyer country, the country). The subscriber completes instead of
 throwing. A cancelled order's invoice refusals are dropped.
 
 `GET /admin/orders/:id/einvoice` returns both: `documents` (each with its `notice`, or `null`) and
-`refusals` (each with its explanation and a `retryUrl`). `POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`
+`refusals` (each with its explanation, a `retryUrl`, and for an unsupported buyer country a
+`supportRequestUrl` — a new issue in the public repository, filled in with the country only). Every notice
+and refusal carries the `docsUrl` of its code, which the widget links. `GET /admin/einvoice/support` states
+what the release supports (`describeSupport`, `@normwerk/einvoice-commerce`) for the "E-Invoicing" block on
+the store's settings page (`src/admin/widgets/einvoice-support.tsx`, zone `store.details.after`). `POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`
 runs the same `issueInvoiceForFulfillment` (`src/invoices/issue-invoice.ts`) as the fulfillment subscriber,
 checks included, and answers `issued` or `blocked` (with the reason). For a credit note it redelivers the
 refund's or the cancellation's event to its subscriber and answers `issued`, `blocked`, or `none` (nothing

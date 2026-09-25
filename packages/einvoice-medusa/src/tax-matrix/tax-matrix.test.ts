@@ -22,6 +22,7 @@ function assertAxis(
   expect(actual.kind, JSON.stringify(actual)).toBe("error");
   if (actual.kind === "error") {
     expect(actual.errorClass).toBe(expected.errorClass);
+    expect(actual.errorCode).toBe(expected.errorCode);
     if (expected.messageIncludes !== undefined) {
       expect(actual.messageIncludes).toContain(expected.messageIncludes);
     }

@@ -73,9 +73,12 @@ TypeScript types alone — they aren't. §14 Abs. 4 Satz 1 Nr. 1 UStG requires t
 every invoice, street included (`addressLine2` is optional). Every document this plugin builds targets the
 full XRechnung 3.0 CIUS regardless of who the buyer is, and that CIUS makes seller contact (BR-DE-2) and
 payment instructions (BR-DE-1) mandatory. `seller.countryCode` has to be `"DE"`: the VAT rules the plugin
-applies are German law. Leave any of them out, or give another seller country, and the plugin refuses to start at all
-(`InvalidEinvoiceModuleOptionsError`, thrown from the module's own constructor) — a loud failure at boot,
-not a document that silently fails validation later.
+applies are German law. Leave any of them out, or give another seller country, and the plugin refuses to
+start at all (`InvalidEinvoiceModuleOptionsError`, thrown from the module's own constructor, with the code
+`INVALID_PLUGIN_OPTIONS` or `UNSUPPORTED_SELLER_COUNTRY`) — a loud failure at boot, not a document that
+silently fails validation later. The store's settings page in Medusa Admin shows an "E-Invoicing" block
+with what this release supports: the seller country, the documents, the buyers it serves and the ones it
+refuses.
 
 ## 3. Run migrations
 
@@ -143,7 +146,7 @@ Neither has a first-class Medusa field — set them on the order's customer, und
 
 An order from a business in another EU member state with a VAT-ID is an intra-Community supply (category K,
 0%) — but only once that VAT-ID has been confirmed. Without the `vatIdVerifier` option such an order is
-refused (`TaxRuleError`) rather than invoiced on an unverified number. The plugin does not ship a VIES client;
+refused (`VAT_ID_UNVERIFIED`) rather than invoiced on an unverified number. The plugin does not ship a VIES client;
 you provide one that implements `VatIdVerifier` from `@normwerk/einvoice-commerce`:
 
 ```ts
@@ -224,14 +227,21 @@ orders that were not issued.
 ## Documents not issued for another reason
 
 Any document the plugin refuses before it takes a number shows in the same block as "Invoice not issued" or
-"Credit note not issued", with the reason, and can be retried — nothing is lost in a log. The code is the
-refusal's error class for now, for example:
+"Credit note not issued", with the reason and a code, and can be retried — nothing is lost in a log. The
+code stays the same across releases and links to its explanation on the
+[error reference](https://normwerk.dev/einvoice/docs/errors). For example:
 
-- `TaxRuleError` — the VAT category could not be decided. Most often VIES did not confirm the buyer's
-  VAT-ID when the order shipped: retry once VIES answers again, or, if you confirmed the number another way,
-  set `order.metadata.regime_override` to `{ "kind": "intra-eu-confirmed", "evidenceNote": "…" }` and retry.
-- `MissingOriginalInvoiceError` — a refund for an order whose invoice was not issued (or was issued before
+- `VAT_ID_UNVERIFIED` — VIES did not confirm the buyer's VAT-ID when the order shipped: retry once VIES
+  answers again, or, if you confirmed the number another way, set `order.metadata.regime_override` to
+  `{ "kind": "intra-eu-confirmed", "evidenceNote": "…" }` and retry.
+- `MISSING_ORIGINAL_INVOICE` — a refund for an order whose invoice was not issued (or was issued before
   the plugin was installed). Issue the invoice first, then retry the credit note.
+- `UNSUPPORTED_BUYER_COUNTRY_CLEARANCE` — a buyer in Italy or Poland, whose clearance platforms take their
+  own national XML; this release does not serve them. The block links to a support request for the
+  country, filled in beforehand — nothing is sent unless you open and submit it.
+- `INTERNAL_ERROR` — anything unexpected; the reason says what happened.
+
+The order itself is never held up: a refusal only means the document is missing.
 
 Retrying a credit note redelivers the refund or cancellation it belongs to. Cancelling an order drops its
 refused invoices: a cancelled order is not invoiced.

@@ -11,7 +11,13 @@
  * function only ever throws typed errors it defines itself or propagates
  * from `decideVatCategory`; it never guesses a way around a missing fact.
  */
-import { validateModel, type Invoice, type VatCategoryCode } from "@normwerk/einvoice-model";
+import {
+  EinvoiceError,
+  validateModel,
+  type Invoice,
+  type VatCategoryCode,
+} from "@normwerk/einvoice-model";
+import type { CommerceErrorCode } from "./error-codes.js";
 import {
   EU_MEMBER_STATES,
   TaxRuleError,
@@ -50,18 +56,20 @@ const XRECHNUNG_SPECIFICATION_IDENTIFIER =
   "urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0";
 const PEPPOL_BILLING_PROCESS_TYPE = "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0";
 
-export class UnsupportedSchemaVersionError extends Error {
+export class UnsupportedSchemaVersionError extends EinvoiceError<CommerceErrorCode> {
   constructor(readonly received: unknown) {
     super(
+      "UNSUPPORTED_SCHEMA_VERSION",
       `CommerceInvoiceInput.schemaVersion ${JSON.stringify(received)} is not supported (only 1 exists).`,
     );
     this.name = "UnsupportedSchemaVersionError";
   }
 }
 
-export class MissingCorrectedInvoiceReferenceError extends Error {
+export class MissingCorrectedInvoiceReferenceError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "MISSING_CORRECTED_INVOICE_REFERENCE",
       "A credit note (document.kind === 'credit-note') must carry document.correctedInvoice (BT-25/26) — " +
         "the base EN 16931 Schematron does not force this (BR-55 only fires if a preceding-invoice-reference " +
         "group exists at all, docs/tax-semantics.md row 10); this package enforces it itself.",
@@ -70,9 +78,10 @@ export class MissingCorrectedInvoiceReferenceError extends Error {
   }
 }
 
-export class MissingDocumentNumberError extends Error {
+export class MissingDocumentNumberError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "MISSING_DOCUMENT_NUMBER",
       "document.number is required — buildInvoice does not allocate one itself (ADR-001: no I/O in this " +
         "layer). Resolve one first, e.g. with numbering.ts's SequentialNumberer, then pass it in.",
     );
@@ -80,9 +89,10 @@ export class MissingDocumentNumberError extends Error {
   }
 }
 
-export class MissingDeliveryInfoForIntraCommunitySupplyError extends Error {
+export class MissingDeliveryInfoForIntraCommunitySupplyError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "MISSING_INTRA_EU_DELIVERY",
       "An intra-EU supply (category K) requires delivery.actualDeliveryDate and delivery.deliverToCountryCode " +
         "— BR-IC-11/BR-IC-12 (a real KoSIT rejection; no other category in " +
         "docs/tax-semantics.md's table needs delivery info the same way).",
@@ -91,9 +101,10 @@ export class MissingDeliveryInfoForIntraCommunitySupplyError extends Error {
   }
 }
 
-export class MissingBuyerVatIdError extends Error {
+export class MissingBuyerVatIdError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "MISSING_BUYER_VAT_ID",
       "An intra-EU supply (category K) requires buyer.vatIdentifier (BT-48) on the document itself, not " +
         "just a positive VIES check — BR-IC-02 (a real KoSIT rejection): 'shall contain the Seller VAT " +
         "Identifier (BT-31) or the Seller tax representative VAT identifier (BT-63) and the Buyer VAT " +
@@ -103,9 +114,10 @@ export class MissingBuyerVatIdError extends Error {
   }
 }
 
-export class MissingBuyerIdentifierForReverseChargeError extends Error {
+export class MissingBuyerIdentifierForReverseChargeError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "MISSING_BUYER_IDENTIFIER_REVERSE_CHARGE",
       "A reverse-charge supply (category AE) requires buyer.vatIdentifier (BT-48) and/or " +
         "buyer.legalRegistrationIdentifier (BT-47) on the document — BR-AE-02 (a real KoSIT rejection), " +
         "which requires the buyer identifier the same way BR-IC-02 requires it for category K.",
@@ -114,9 +126,10 @@ export class MissingBuyerIdentifierForReverseChargeError extends Error {
   }
 }
 
-export class MissingBuyerVatIdForCrossBorderServiceError extends Error {
+export class MissingBuyerVatIdForCrossBorderServiceError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "MISSING_BUYER_VAT_ID_CROSS_BORDER_SERVICE",
       "A B2B service to a business in another EU member state under reverse charge (category AE, " +
         "docs/tax-semantics.md row 12) requires buyer.vatIdentifier (BT-48): §14a Abs. 1 UStG requires the " +
         "VAT identification numbers of both parties on this invoice, and the buyer's is also needed for the " +
@@ -126,13 +139,14 @@ export class MissingBuyerVatIdForCrossBorderServiceError extends Error {
   }
 }
 
-export class LineAllowanceExceedsLineAmountError extends Error {
+export class LineAllowanceExceedsLineAmountError extends EinvoiceError<CommerceErrorCode> {
   constructor(
     readonly lineIdentifier: string,
     readonly allowances: string,
     readonly lineAmount: string,
   ) {
     super(
+      "LINE_ALLOWANCE_EXCEEDS_LINE",
       `Line ${lineIdentifier}: its discounts (${allowances}) exceed the line's own amount (${lineAmount}) — ` +
         "a line's net amount (BT-131) cannot go below zero.",
     );
@@ -140,12 +154,13 @@ export class LineAllowanceExceedsLineAmountError extends Error {
   }
 }
 
-export class InvalidLeitwegIdError extends Error {
+export class InvalidLeitwegIdError extends EinvoiceError<CommerceErrorCode> {
   constructor(
     readonly value: string,
     readonly reason: string,
   ) {
     super(
+      "INVALID_LEITWEG_ID",
       `references.leitwegId "${value}" is not a valid Leitweg-ID (${reason}) — KoSIT only checks that ` +
         "BT-10 is present (BR-DE-15), not its format, so a mistyped Leitweg-ID would pass KoSIT and " +
         "misroute at the receiving public-sector system.",
@@ -154,9 +169,10 @@ export class InvalidLeitwegIdError extends Error {
   }
 }
 
-export class DuplicateBuyerReferenceError extends Error {
+export class DuplicateBuyerReferenceError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "DUPLICATE_BUYER_REFERENCE",
       "references.buyerReference and references.leitwegId both fill BT-10 (Buyer reference), which holds " +
         "one value. For a public-sector buyer, give the Leitweg-ID alone.",
     );
@@ -164,9 +180,10 @@ export class DuplicateBuyerReferenceError extends Error {
   }
 }
 
-export class MissingSellerContactError extends Error {
+export class MissingSellerContactError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "MISSING_SELLER_CONTACT",
       "seller.contact (name/telephone/email) is required — every invoice this package emits declares the " +
         "XRechnung 3.0 CIUS (specificationIdentifier), whose own BR-DE-2 rule makes seller contact " +
         "mandatory regardless of buyer country (unlike the base EN 16931 Schematron).",
@@ -175,9 +192,10 @@ export class MissingSellerContactError extends Error {
   }
 }
 
-export class MissingElectronicAddressError extends Error {
+export class MissingElectronicAddressError extends EinvoiceError<CommerceErrorCode> {
   constructor(readonly party: "seller" | "buyer") {
     super(
+      "MISSING_ELECTRONIC_ADDRESS",
       `${party}.electronicAddress and ${party}.electronicAddressScheme are required — every invoice this ` +
         "package emits declares the XRechnung 3.0 CIUS, whose validation requires the seller's and the " +
         `buyer's electronic address with a scheme (PEPPOL-EN16931-R020/R010, BR-62/BR-63). An email address ` +
@@ -190,9 +208,10 @@ export class MissingElectronicAddressError extends Error {
 /** §33 UStDV: the gross amount up to which an invoice may leave out the buyer's name and address. */
 const SMALL_AMOUNT_INVOICE_LIMIT = "250.00";
 
-export class InvalidPriceBasisError extends Error {
+export class InvalidPriceBasisError extends EinvoiceError<CommerceErrorCode> {
   constructor(readonly where: string) {
     super(
+      "INVALID_PRICE_BASIS",
       `${where}: give exactly one of a net amount (netPrice / amount) and a VAT-inclusive one ` +
         "(priceInclVat / amountInclVat).",
     );
@@ -200,9 +219,10 @@ export class InvalidPriceBasisError extends Error {
   }
 }
 
-export class MissingSellerAddressError extends Error {
+export class MissingSellerAddressError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
+      "MISSING_SELLER_ADDRESS",
       "seller.addressLine1 (street and house number, or a PO box) is required — §14 Abs. 4 Satz 1 Nr. 1 " +
         "UStG requires the seller's full address on every invoice, and §33 UStDV keeps that requirement " +
         "for small-amount invoices too. EN 16931 and the XRechnung rules leave the street optional, so " +
@@ -212,16 +232,20 @@ export class MissingSellerAddressError extends Error {
   }
 }
 
-export class InvalidAssembledInvoiceError extends Error {
+export class InvalidAssembledInvoiceError extends EinvoiceError<CommerceErrorCode> {
   constructor(readonly errors: readonly string[]) {
-    super(`buildInvoice assembled an Invoice that fails validateModel(): ${errors.join("; ")}`);
+    super(
+      "INVALID_ASSEMBLED_INVOICE",
+      `buildInvoice assembled an Invoice that fails validateModel(): ${errors.join("; ")}`,
+    );
     this.name = "InvalidAssembledInvoiceError";
   }
 }
 
-export class InvalidCommerceInvoiceInputError extends Error {
+export class InvalidCommerceInvoiceInputError extends EinvoiceError<CommerceErrorCode> {
   constructor(readonly errors: readonly string[]) {
     super(
+      "INVALID_INPUT",
       `input fails structural validation against the generated CommerceInvoiceInput JSON Schema ` +
         `(ADR-003): ${errors.join("; ")} — TypeScript cannot catch this for a hand-built or ` +
         "non-TypeScript payload, which is exactly the caller ADR-003 names as the reason this contract " +
@@ -288,6 +312,7 @@ function assertTaxFactsMatchDocument(decision: TaxDecision, input: CommerceInvoi
   if (decision.categoryCode === "K") {
     if (deliverTo === undefined || deliverTo === "DE" || !EU_MEMBER_STATES.has(deliverTo)) {
       throw new TaxRuleError(
+        "DELIVERY_NOT_INTRA_EU",
         `An intra-EU supply (category K) needs the goods delivered to another EU member state (§6a Abs. 1 ` +
           `Nr. 1 UStG) — the deliver-to country (BT-80) is ${deliverTo ?? "missing"}. Refusing category K.`,
         "tax-semantics#3",
@@ -301,6 +326,7 @@ function assertTaxFactsMatchDocument(decision: TaxDecision, input: CommerceInvoi
       normalizeVatId(documentVatId) !== normalizeVatId(decidedVatId)
     ) {
       throw new TaxRuleError(
+        "BUYER_VAT_ID_MISMATCH",
         `The document's buyer VAT-ID (BT-48) ${documentVatId} is not the VAT-ID the tax decision was made ` +
           `on (${decidedVatId}) — refusing category K on a document that names a different buyer number.`,
         "tax-semantics#3",
@@ -309,6 +335,7 @@ function assertTaxFactsMatchDocument(decision: TaxDecision, input: CommerceInvoi
   }
   if (decision.categoryCode === "G" && deliverTo !== undefined && EU_MEMBER_STATES.has(deliverTo)) {
     throw new TaxRuleError(
+      "EXPORT_DELIVERED_IN_EU",
       `An export (category G) needs the goods to leave the EU (§6 Abs. 1 UStG) — they are delivered to ` +
         `${deliverTo}. A buyer outside the EU does not make a delivery inside it an export; refusing ` +
         `rather than guessing which domestic or intra-EU regime applies instead.`,
@@ -328,7 +355,7 @@ function lineRate(
     return resolveLineRate(decision, input.taxContext, line.taxRateKind, line.chargedVatRate);
   } catch (error) {
     if (error instanceof TaxRuleError) {
-      throw new TaxRuleError(`Line ${identifier}: ${error.message}`, error.ruleId);
+      throw new TaxRuleError(error.code, `Line ${identifier}: ${error.message}`, error.ruleId);
     }
     throw error;
   }
@@ -517,6 +544,7 @@ export function buildInvoice(
     const weights = lineRates.map(lineNetOfRate);
     if (weights.every(isZeroAmount)) {
       throw new TaxRuleError(
+        "CHARGE_SPLIT_IMPOSSIBLE",
         `The ${what} cannot be split across the invoice's VAT rates: its lines add up to zero at every ` +
           "rate, so there is no proportion to split it in.",
         "tax-semantics#9",

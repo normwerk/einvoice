@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { MedusaError } from "@medusajs/framework/utils";
-import EinvoiceModuleService, { InvalidEinvoiceModuleOptionsError } from "./service.js";
+import EinvoiceModuleService, {
+  InvalidEinvoiceModuleOptionsError,
+  SUPPORTED_SELLER_COUNTRIES,
+} from "./service.js";
 
 const VALID_SELLER = {
   name: "Musterfirma GmbH",
@@ -72,7 +75,19 @@ describe("EinvoiceModuleService", () => {
           seller: { ...VALID_SELLER, countryCode: "AT", vatIdentifier: "ATU12345678" },
           payment: VALID_PAYMENT,
         }),
-    ).toThrow(/options\.seller\.countryCode "AT" is not supported/);
+    ).toThrow(
+      expect.objectContaining({
+        code: "UNSUPPORTED_SELLER_COUNTRY",
+        message: expect.stringMatching(
+          /seller country "AT" is not supported .*\(supported: DE\).*errors#unsupported-seller-country.*Want AT sooner\? https:\/\/github\.com\/normwerk\/einvoice\/issues\/new\?title=Support%20for%20seller%20country%20AT/,
+        ),
+      }),
+    );
+  });
+
+  it("restates the core's supported seller countries (T-077)", async () => {
+    const commerce = await import("@normwerk/einvoice-commerce");
+    expect(SUPPORTED_SELLER_COUNTRIES).toEqual(commerce.SUPPORTED_SELLER_COUNTRIES);
   });
 
   it("rejects a seller without contact at startup — BR-DE-2 would otherwise refuse every order (P-55)", () => {

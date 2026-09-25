@@ -42,7 +42,7 @@ Expectations are written from `docs/tax-semantics.md` **before** a cell is first
 from whatever the adapter happens to return.
 
 - `build` — the mapper → `buildInvoice` outcome: `{ kind: "ok", category }` or
-  `{ kind: "error", errorClass, messageIncludes? }`.
+  `{ kind: "error", errorClass, errorCode, messageIncludes? }` — `errorCode` is the error's stable code.
 - `profile` — the mapper's B2G signal → `selectProfile` outcome: `{ kind: "ok", profile }` or an
   error in the same shape.
 - `specRow` — the `docs/tax-semantics.md` row the cell exercises (absent on policy and scope cells).

@@ -6,8 +6,9 @@
  *   the block's, the details its amounts;
  * - the document was refused: `buildInvoice` could not decide or build it (a VAT-ID VIES did not confirm, a
  *   fact missing, a rate it cannot invoice), the order could not be mapped, or the VAT-ID check itself failed.
- *   The code is the error's class name until errors carry codes of
- *   their own (T-077); the details hold its message.
+ *   The code is the error's own (T-077: `code` on every error the packages raise), `INTERNAL_ERROR` for
+ *   anything else; the details hold its message, its class and, for a country the release does not
+ *   support, the country.
  *
  * A thrown error used to reach only the log, and the event that would have issued the document does not
  * come again — the order silently had no invoice. A refusal is shown in the admin widget and retried from
@@ -18,6 +19,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
 import type EinvoiceModuleService from "./modules/einvoice/service.js";
 import type { EinvoiceDocumentType, EinvoiceRefusalRecord } from "./modules/einvoice/service.js";
+import { errorCodeOf } from "./errors.js";
 import {
   describeChargedReconciliation,
   type InvoiceBlock,
@@ -69,11 +71,16 @@ export async function recordRefusalOfError(
   target: RefusalTarget,
   error: unknown,
 ): Promise<{ readonly refusal: EinvoiceRefusalRecord; readonly message: string }> {
-  const code = error instanceof Error && error.name !== "" ? error.name : "Error";
-  const ruleId = (error as { readonly ruleId?: unknown } | null)?.ruleId;
+  const { code } = errorCodeOf(error);
+  const { ruleId, countryCode } = (error ?? {}) as {
+    readonly ruleId?: unknown;
+    readonly countryCode?: unknown;
+  };
   const details: Record<string, unknown> = {
     message: error instanceof Error ? error.message : String(error),
+    ...(error instanceof Error ? { errorClass: error.name } : {}),
     ...(typeof ruleId === "string" ? { ruleId } : {}),
+    ...(typeof countryCode === "string" ? { country: countryCode } : {}),
     ...target.trigger,
   };
   const refusal = await einvoiceService.recordRefusal({

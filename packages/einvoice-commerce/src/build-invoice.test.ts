@@ -354,7 +354,11 @@ describe("buildInvoice — intra-EU supply (row 3), needs vatIdEvidence", () => 
       buyer: { ...intraEuInput.buyer, vatIdentifier: "FR99999999999" },
     };
     expect(() => buildInvoice(mismatched, { vatIdEvidence: evidence })).toThrow(
-      expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#3" }),
+      expect.objectContaining({
+        name: "TaxRuleError",
+        ruleId: "tax-semantics#3",
+        code: "BUYER_VAT_ID_MISMATCH",
+      }),
     );
   });
 
@@ -365,7 +369,11 @@ describe("buildInvoice — intra-EU supply (row 3), needs vatIdEvidence", () => 
         delivery: { ...intraEuInput.delivery, deliverToCountryCode },
       };
       expect(() => buildInvoice(input, { vatIdEvidence: evidence })).toThrow(
-        expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#3" }),
+        expect.objectContaining({
+          name: "TaxRuleError",
+          ruleId: "tax-semantics#3",
+          code: "DELIVERY_NOT_INTRA_EU",
+        }),
       );
     }
   });
@@ -511,7 +519,11 @@ describe("buildInvoice — export (row 4) is decided by where the goods go, not 
   it("refuses G when the goods stay inside the EU — a non-EU buyer does not make it an export (§6 Abs. 1 UStG)", () => {
     for (const country of ["DE", "FR"] as const) {
       expect(() => buildInvoice(exportInput(country))).toThrow(
-        expect.objectContaining({ name: "TaxRuleError", ruleId: "tax-semantics#4" }),
+        expect.objectContaining({
+          name: "TaxRuleError",
+          ruleId: "tax-semantics#4",
+          code: "EXPORT_DELIVERED_IN_EU",
+        }),
       );
     }
   });
@@ -641,7 +653,11 @@ describe("buildInvoice — input validation", () => {
       },
     });
     expect(() => buildInvoice(withoutBuyerAddress)).toThrow(
-      expect.objectContaining({ name: "MissingElectronicAddressError", party: "buyer" }),
+      expect.objectContaining({
+        name: "MissingElectronicAddressError",
+        party: "buyer",
+        code: "MISSING_ELECTRONIC_ADDRESS",
+      }),
     );
     const withoutSellerScheme = domesticInput({
       seller: { ...SELLER, electronicAddressScheme: undefined },

@@ -285,7 +285,7 @@ describe("creditNoteOnPaymentRefunded", () => {
       type: "credit_note",
       orderId: "order_01",
       idempotencyKey: "refund_01",
-      code: "MissingOriginalInvoiceError",
+      code: "MISSING_ORIGINAL_INVOICE",
       details: expect.objectContaining({ event: "payment.refunded", paymentId: "pay_01" }),
     });
     expect(mocks.buildInvoice).not.toHaveBeenCalled();

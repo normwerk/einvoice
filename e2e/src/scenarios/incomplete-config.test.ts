@@ -25,11 +25,18 @@ describe("incomplete config: the plugin refuses to boot without required options
   // T-077: the release checklist's own item — an unsupported seller country stops the boot with a message
   // a merchant can act on, instead of every order failing later.
   it("refuses a seller outside Germany and never starts the server", async () => {
-    const result = await runMedusaOnce({ EINVOICE_E2E_SELLER_COUNTRY: "AT" }, { port: 9597 });
+    const result = await runMedusaOnce({ EINVOICE_E2E_SELLER_COUNTRY: "NL" }, { port: 9597 });
 
     expect(result.exitCode).not.toBe(0);
     expect(result.output).toContain("InvalidEinvoiceModuleOptionsError");
-    expect(result.output).toContain('options.seller.countryCode "AT" is not supported');
+    expect(result.output).toContain('seller country "NL" is not supported');
+    expect(result.output).toContain("(supported: DE)");
+    // Where the code is explained, and where to ask for the country — no private planning references.
+    expect(result.output).toContain(
+      "https://normwerk.dev/einvoice/docs/errors#unsupported-seller-country",
+    );
+    expect(result.output).toContain("title=Support%20for%20seller%20country%20NL");
+    expect(result.output).not.toMatch(/\b[TPMD]-\d{2,3}\b|STRATEGY\.md|plan-v0\.1/);
     expect(result.output).not.toContain("Server is ready");
   }, 240_000);
 });

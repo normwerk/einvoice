@@ -33,6 +33,8 @@ export type KnownBugId = string;
 export interface ErrorOutcome {
   readonly kind: "error";
   readonly errorClass: string;
+  /** T-077: the error's stable code (`EinvoiceError.code`) — part of the public contract, unlike the message. */
+  readonly errorCode: string;
   readonly messageIncludes?: string;
 }
 

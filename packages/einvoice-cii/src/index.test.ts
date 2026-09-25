@@ -277,6 +277,9 @@ describe("serializeCii", () => {
     expect(() => serializeCii(invoice, { profile: "en16931-cii" })).toThrow(
       "lines[].invoicingPeriod.startDate, taxPointDate, totals.totalVatAmountInAccountingCurrency",
     );
+    expect(() => serializeCii(invoice, { profile: "en16931-cii" })).toThrow(
+      expect.objectContaining({ code: "UNMAPPED_INVOICE_FIELDS" }),
+    );
   });
 
   it("refuses a C0 control character, which no XML 1.0 document can carry (P-43)", () => {
@@ -287,6 +290,9 @@ describe("serializeCii", () => {
     );
     expect(() => serializeCii(invoice, { profile: "en16931-cii" })).toThrow(
       "ram:Name: the value contains the control character U+0007",
+    );
+    expect(() => serializeCii(invoice, { profile: "en16931-cii" })).toThrow(
+      expect.objectContaining({ code: "UNREPRESENTABLE_CHARACTER" }),
     );
     // Tab and line feed are XML characters and pass through.
     const withTab: Invoice = { ...base, buyer: { ...base.buyer, name: "Kunde\tGmbH" } };

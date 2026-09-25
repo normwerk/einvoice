@@ -9,14 +9,16 @@ that genuinely can't be automated are in [`docs/manual-testing.md`](manual-testi
 
 Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 
-### `einvoice-model` (20 tests)
+### `einvoice-model` (23 tests)
 
 - `src/index.test.ts` — `validateModel`: structural validation of an `Invoice` against the generated JSON
   Schema, and that BG-16 without BT-81 does not type-check (BR-49).
 - `src/fixtures.test.ts` — every fixture in `fixtures/` validates against that same generated
   schema — the model-level counterpart to the conformance suite's real KoSIT run below.
+- `src/errors.test.ts` — `EinvoiceError`: a stable code and the link to its explanation, anchored in lower
+  case with hyphens.
 
-### `einvoice-commerce` (135 tests)
+### `einvoice-commerce` (141 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -34,7 +36,10 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany, OSS for services,
   at a rate of zero or with a reduced line) and `resolveLineRate` never invoicing a line at a rate other
-  than the one it was charged at.
+  than the one it was charged at; each refusal names its own code, linked to its explanation.
+- `src/supported-jurisdictions.test.ts` — what the release supports: a seller in Germany; buyers in
+  Germany, the EU/EEA, Switzerland and the UK served with EN 16931; Italy and Poland refused as clearance
+  countries; the one-line statement of it, with nothing planned in it.
 - `src/decimal.test.ts` — exact decimal arithmetic and BR-CO-\* rounding (ties towards +Infinity, ADR-004),
   and the arithmetic for prices including VAT: the VAT contained in a gross amount, a group's net spread
   over its parts to the cent (largest remainder), a net unit price from a line amount, comparing rates
@@ -48,7 +53,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/numbering.test.ts` — `SequentialNumberer`, and `InMemoryNumberingStore`'s own concurrency behavior
   (no duplicate or skipped numbers under concurrent calls within one process).
 - `src/profile.test.ts` — `selectProfile`: the ZUGFeRD/Factur-X profile by recipient geography,
-  including the refusal of clearance-model countries (IT, PL), and XRechnung only for a declared Leitweg-ID.
+  including the refusal of clearance-model countries (IT, PL) with its own code, and XRechnung only for a
+  declared Leitweg-ID.
 - `src/validate.test.ts` — `validateCommerceInvoiceInput` against the generated `CommerceInvoiceInput` JSON
   Schema.
 - `src/vat-id-verifier.test.ts` — `StaticVatIdVerifier` (the three real VIES outcomes: valid, invalid,
@@ -75,7 +81,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (214 tests)
+### `einvoice-medusa` (223 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -97,7 +103,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   `mapOrderToCommerceInvoiceInput` → `buildInvoice`/`selectProfile` (two independent axes, not the
   subscribers' own early-exit chaining — see `src/tax-matrix/types.ts`'s doc comment for why), asserted
   against an `expected.json` written from `docs/tax-semantics.md` before the first run. Fast, no Docker —
-  covers every cell's category/error outcome; `pnpm conformance:tax-matrix` (below) covers the remaining
+  covers every cell's category/error outcome, a refusal by its class and its code; `pnpm conformance:tax-matrix` (below) covers the remaining
   half, that a cell expected to validate really passes the real KoSIT validator. Full matrix inventory and
   result: [`packages/einvoice-medusa/fixtures/tax-matrix/README.md`](../packages/einvoice-medusa/fixtures/tax-matrix/README.md).
 - `src/medusa-version.test.ts` — the supported Medusa releases: which versions are in and out, that every
@@ -139,9 +145,15 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
   number, one stating less issued with its notice, and a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown.
 - `src/refusals.test.ts` — `describeRefusal` (a refusal explained by its error's message, a block by its
-  amounts) and `recordRefusalOfError` (the error's class name as the code, its message, rule and the
-  credit note's trigger recorded and logged).
-- `src/api/einvoice-http.test.ts` — the admin/store routes' shared helpers: `listEinvoiceDocumentSummaries`, `sendEinvoiceFile` and `customerOwnsOrder` (a customer can only reach documents of their own orders), and `listAdminEinvoiceStatus` (notices and refusals with their retry route, admin only — the store listing carries no notice).
+  amounts) and `recordRefusalOfError` (the error's code, its message, class, rule and the credit note's
+  trigger recorded and logged; an unsupported buyer country kept for the support request; an error without a
+  code recorded as `INTERNAL_ERROR`).
+- `src/errors.test.ts` — the plugin's own errors: a code and its link built exactly as the core packages
+  build them, a core package's code read back and anything else called `INTERNAL_ERROR`, and a support
+  request filled in with the country only.
+- `src/api/einvoice-http.test.ts` — the admin/store routes' shared helpers: `listEinvoiceDocumentSummaries`, `sendEinvoiceFile` and `customerOwnsOrder` (a customer can only reach documents of their own orders), and `listAdminEinvoiceStatus` (notices and refusals with their retry route and the link to their code's
+  explanation, a support request for an unsupported buyer country, admin only — the store listing carries no
+  notice), and `einvoiceSupportStatus` (what the release supports and the configured seller country).
 - `src/api/admin/orders/[id]/einvoice/refusals/[refusalId]/retry/route.test.ts` — the retry route: 404 for
   another order's refusal, the invoice issued, a retry still blocked saying why, 500 for a failure after
   the checks, and a credit note retried by redelivering its refund or cancellation — issued, refused again,
@@ -201,7 +213,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 19 files / 28 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 20 files / 30 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -215,8 +227,10 @@ hand), S15 (a 7 % / 19 % basket: shipping split into a charge per rate with the 
 cause; a received return credited at its own rate, a goodwill refund and the rest of a cancelled order
 credited per rate, every document KoSIT-green), S16 (prices including VAT, shipping without VAT in Medusa:
 the invoice takes 19% out of what was paid and is issued with a notice that Medusa counts less VAT),
-idempotency (an event delivered to the
-subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option, a seller
+S17 (a buyer in Italy: the order ships, the invoice is refused with `UNSUPPORTED_BUYER_COUNTRY_CLEARANCE`,
+the link to its explanation and a support request; the store page's support statement), idempotency (an event
+delivered to the
+subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option; a seller
 outside Germany),
 and tarball contents across all six published packages. Every invoice scenario also checks that the
 invoice totals what Medusa charged (`order.total`) — the stand's German tax region charges 19%, its

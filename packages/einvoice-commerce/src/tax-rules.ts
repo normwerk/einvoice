@@ -11,7 +11,9 @@
  * `"DE"` is refused outright rather than silently reusing Germany's rates
  * or regime logic for a jurisdiction this table was never reviewed against.
  */
-import type { CountryCode } from "@normwerk/einvoice-model";
+import { EinvoiceError } from "@normwerk/einvoice-model";
+import type { CommerceErrorCode, TaxRuleCode } from "./error-codes.js";
+import { EU_MEMBER_STATES, SUPPORTED_SELLER_COUNTRIES } from "./supported-jurisdictions.js";
 import { compareDecimals } from "./decimal.js";
 import type { TaxContext, TaxDecision, TaxDecisionScope, VatIdEvidence } from "./types.js";
 
@@ -20,43 +22,7 @@ export const DE_STANDARD_RATE = "19";
 /** UStG §12 Abs. 2 Nr. 1 + Anlage 2 — docs/tax-semantics.md row 2. */
 export const DE_REDUCED_RATE = "7";
 
-/**
- * The 27 EU member states (ISO 3166-1 alpha-2), current as of this repo's
- * scope (post-Brexit; the UK is not included). A well-known public fact,
- * not sourced from a specific vendored artifact — same "well-known"
- * provenance honesty this repo already uses for facts like this
- * (`tools/codegen/model/terms.mjs`'s `verified: "well-known"` tier) rather
- * than falsely implying it was extracted from an EN 16931 artifact.
- */
-export const EU_MEMBER_STATES: ReadonlySet<CountryCode> = new Set([
-  "AT",
-  "BE",
-  "BG",
-  "HR",
-  "CY",
-  "CZ",
-  "DK",
-  "EE",
-  "FI",
-  "FR",
-  "DE",
-  "GR",
-  "HU",
-  "IE",
-  "IT",
-  "LV",
-  "LT",
-  "LU",
-  "MT",
-  "NL",
-  "PL",
-  "PT",
-  "RO",
-  "SK",
-  "SI",
-  "ES",
-  "SE",
-] as const);
+export { EU_MEMBER_STATES };
 
 /** Compares VAT-IDs the way VIES does — ignoring case, spaces, dots and dashes — so a formatting difference
  * is never mistaken for a different number, and a different number is never mistaken for the same one. */
@@ -64,12 +30,14 @@ export function normalizeVatId(vatId: string): string {
   return vatId.replace(/[\s.-]/g, "").toUpperCase();
 }
 
-export class TaxRuleError extends Error {
+/** A refusal to decide the VAT, with the `docs/tax-semantics.md` row it is about (`ruleId`) and why (`code`). */
+export class TaxRuleError extends EinvoiceError<TaxRuleCode> {
   constructor(
+    code: TaxRuleCode,
     message: string,
     readonly ruleId: string,
   ) {
-    super(message);
+    super(code, message);
     this.name = "TaxRuleError";
   }
 }
@@ -78,9 +46,10 @@ export class TaxRuleError extends Error {
  * the whole document — its own distinct class (not generic `TaxRuleError`) so a caller can catch this
  * specific, expected-and-actionable refusal instead of pattern-matching message text, which would break
  * the moment the message wording changes. */
-export class MixedSupplyCrossBorderError extends Error {
+export class MixedSupplyCrossBorderError extends EinvoiceError<CommerceErrorCode> {
   constructor(readonly ruleId: string) {
     super(
+      "MIXED_SUPPLY_CROSS_BORDER",
       'A cross-border order with supplyType "mixed" (goods and services on one document) has no single ' +
         "correct EN 16931 category — decideVatCategory resolves exactly one category per document " +
         "(docs/tax-semantics.md's own rule; row 9's mixed rates are still one category, S, just two rates). " +
@@ -116,8 +85,9 @@ const CROSS_BORDER_REVERSE_CHARGE_DEFAULT_TEXT =
  * case must not silently fall through to a domestic-standard-rate guess.
  */
 export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvidence): TaxDecision {
-  if (context.sellerCountry !== "DE") {
+  if (!SUPPORTED_SELLER_COUNTRIES.includes(context.sellerCountry)) {
     throw new TaxRuleError(
+      "UNSUPPORTED_SELLER_COUNTRY",
       `decideVatCategory only covers a German seller in this release — got sellerCountry "${context.sellerCountry}"`,
       "tax-semantics#scope",
     );
@@ -136,6 +106,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
   ) {
     const row = override.kind === "zero-rated" ? 8 : 6;
     throw new TaxRuleError(
+      "OVERRIDE_OUT_OF_SCOPE",
       `${override.kind} override given for a buyer in ${context.buyerCountry} — docs/tax-semantics.md row ` +
         `${row} covers a domestic (DE → DE) supply only. A cross-border order takes its category from the ` +
         `intra-EU, export, OSS or reverse-charge rows instead.`,
@@ -181,6 +152,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       !context.buyerIsBusiness
     ) {
       throw new TaxRuleError(
+        "OVERRIDE_OUT_OF_SCOPE",
         "reverse-charge override given for a non-domestic-B2B transaction — docs/tax-semantics.md row 5 " +
           "is DE→DE B2B only; a cross-border reverse-charge service is row 12's own " +
           'regimeOverride: { kind: "reverse-charge-cross-border" } instead — a different legal ' +
@@ -215,6 +187,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       context.supplyType !== "services"
     ) {
       throw new TaxRuleError(
+        "OVERRIDE_OUT_OF_SCOPE",
         "reverse-charge-cross-border override given outside its scope — docs/tax-semantics.md row 12 is " +
           "DE→(other EU state) B2B service only. A domestic reverse-charge service is row 5's " +
           '"reverse-charge" override instead; a non-EU B2B service is row 13, which has no override: its ' +
@@ -259,6 +232,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     context.supplyType === "services"
   ) {
     throw new TaxRuleError(
+      "CROSS_BORDER_SERVICE_UNDECLARED",
       `DE→EU B2B service to ${context.buyerCountry} (docs/tax-semantics.md row 12) has a settled category ` +
         `(AE) but no official artifact example confirms a real validator accepts it — refusing rather than ` +
         `guessing, per that row's own documented rule. If the supply is one, declare it: ` +
@@ -282,6 +256,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     const buyerVatId = normalizeVatId(context.buyerVatId);
     if (buyerVatId.startsWith("DE")) {
       throw new TaxRuleError(
+        "BUYER_VAT_ID_DOMESTIC",
         `Intra-EU supply needs a buyer VAT-ID issued by another member state (§6a Abs. 1 Nr. 4 UStG, ` +
           `Art. 138(1) VAT Directive) — got the German VAT-ID ${context.buyerVatId}. Refusing category K.`,
         "tax-semantics#3",
@@ -290,6 +265,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     if (vatIdEvidence?.status === "valid") {
       if (normalizeVatId(vatIdEvidence.vatId) !== buyerVatId) {
         throw new TaxRuleError(
+          "BUYER_VAT_ID_MISMATCH",
           `The positive VIES check is for VAT-ID ${vatIdEvidence.vatId}, not for the buyer's ` +
             `${context.buyerVatId} — refusing category K on evidence about a different number.`,
           "tax-semantics#3",
@@ -317,6 +293,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       };
     }
     throw new TaxRuleError(
+      "VAT_ID_UNVERIFIED",
       `Intra-EU supply to buyer VAT-ID ${context.buyerVatId} needs a positive VIES check (vatIdEvidence.status === "valid") ` +
         `or an explicit regimeOverride: { kind: "intra-eu-confirmed" } — refusing to select category K on an ` +
         `unverified VAT-ID. This does not need to block the underlying order — defer invoice issuance ` +
@@ -335,6 +312,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     context.supplyType === "services"
   ) {
     throw new TaxRuleError(
+      "NON_EU_SERVICE_UNSUPPORTED",
       `DE→non-EU B2B service to ${context.buyerCountry} (docs/tax-semantics.md row 13) is CONTESTED — no ` +
         `artifact resolves whether this is AE, O, or G. Refusing rather than guessing; an explicit ` +
         `regimeOverride is the only way to force a specific outcome, and none exists for this case.`,
@@ -365,6 +343,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
   ) {
     if (context.ossRateOverride === undefined) {
       throw new TaxRuleError(
+        "OSS_RATE_MISSING",
         `OSS distance sale to ${context.buyerCountry} needs taxContext.ossRateOverride — this package does ` +
           `not maintain a table of EU member states' VAT rates (docs/tax-semantics.md row 7).`,
         "tax-semantics#7",
@@ -377,6 +356,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       compareDecimals(context.ossRateOverride, "0") <= 0
     ) {
       throw new TaxRuleError(
+        "OSS_RATE_INVALID",
         `taxContext.ossRateOverride "${context.ossRateOverride}" is not a VAT rate above zero — an OSS ` +
           `distance sale is taxed at the destination country's rate (docs/tax-semantics.md row 7).`,
         "tax-semantics#7",
@@ -388,6 +368,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     // TaxContext tells the two apart. A mixed order never gets here: it is refused above as cross-border.
     if (context.supplyType !== "goods") {
       throw new TaxRuleError(
+        "OSS_SERVICES_UNSUPPORTED",
         `OSS sale of services to a consumer in ${context.buyerCountry} — this package covers OSS distance ` +
           `sales of goods only. A service to a consumer is taxed in Germany as a rule (§3a Abs. 1 UStG), ` +
           `and in the consumer's country only for the services §3a Abs. 5 UStG lists; which one this is ` +
@@ -420,6 +401,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
   }
 
   throw new TaxRuleError(
+    "NO_TAX_RULE",
     `No rule in docs/tax-semantics.md matches this TaxContext (seller ${context.sellerCountry}, buyer ` +
       `${context.buyerCountry}, buyerIsBusiness ${context.buyerIsBusiness}, ossRegistered ${context.ossRegistered}) ` +
       `— refusing to guess a category rather than silently producing a document nobody reviewed this scenario for.`,
@@ -457,6 +439,7 @@ export function resolveLineRate(
   }
   if (chargedVatRate !== undefined && !/^\d+(\.\d+)?$/.test(chargedVatRate)) {
     throw new TaxRuleError(
+      "INVALID_CHARGED_RATE",
       `chargedVatRate "${chargedVatRate}" is not a VAT rate (a percentage such as "19").`,
       decision.ruleId,
     );
@@ -466,10 +449,15 @@ export function resolveLineRate(
     // function can in principle be called independently of decideVatCategory in a test.
     const ossRate = context.ossRateOverride;
     if (ossRate === undefined) {
-      throw new TaxRuleError("OSS rate missing — see decideVatCategory", "tax-semantics#7");
+      throw new TaxRuleError(
+        "OSS_RATE_MISSING",
+        "OSS rate missing — see decideVatCategory",
+        "tax-semantics#7",
+      );
     }
     if (taxRateKind === "reduced") {
       throw new TaxRuleError(
+        "OSS_REDUCED_RATE_UNSUPPORTED",
         `An OSS order with a reduced-rate line: taxContext.ossRateOverride declares one rate for the order, ` +
           `the destination country's standard rate, and a reduced destination rate cannot be declared yet. ` +
           `Refusing rather than invoicing the line at ${ossRate}%.`,
@@ -478,6 +466,7 @@ export function resolveLineRate(
     }
     if (chargedVatRate !== undefined && compareDecimals(chargedVatRate, ossRate) !== 0) {
       throw new TaxRuleError(
+        "OSS_RATE_MISMATCH",
         `An OSS order line was charged ${chargedVatRate}% VAT, not the declared destination rate ` +
           `${ossRate}% (taxContext.ossRateOverride). Refusing rather than invoicing a rate the buyer was ` +
           `not charged; a reduced destination rate cannot be declared yet.`,
@@ -489,6 +478,7 @@ export function resolveLineRate(
   const chargedKind = chargedVatRate === undefined ? undefined : germanRateKind(chargedVatRate);
   if (chargedVatRate !== undefined && chargedKind === undefined) {
     throw new TaxRuleError(
+      "UNSUPPORTED_CHARGED_RATE",
       `A domestic line was charged ${chargedVatRate}% VAT, which is neither of Germany's rates (19%, 7%). ` +
         `Refusing rather than invoicing a rate the buyer was not charged — check the shop's tax settings.`,
       "tax-semantics#1",
@@ -496,6 +486,7 @@ export function resolveLineRate(
   }
   if (taxRateKind !== undefined && chargedKind !== undefined && taxRateKind !== chargedKind) {
     throw new TaxRuleError(
+      "CHARGED_RATE_MISMATCH",
       `A domestic line is classified as ${taxRateKind} rate but was charged ${chargedVatRate}% VAT — ` +
         `refusing to pick one of the two.`,
       "tax-semantics#1",
@@ -504,6 +495,7 @@ export function resolveLineRate(
   const kind = taxRateKind ?? chargedKind;
   if (kind === undefined) {
     throw new TaxRuleError(
+      "LINE_RATE_UNKNOWN",
       "A domestic line needs taxRateKind ('standard' | 'reduced') or the rate the shop charged " +
         "(chargedVatRate) to resolve its rate — refusing to default to either 19% or 7% silently.",
       "tax-semantics#1",

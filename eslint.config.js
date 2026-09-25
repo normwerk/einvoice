@@ -27,6 +27,27 @@ export default tseslint.config(
     },
   },
   {
+    // T-077 / AGENTS.md §12: text a user reads — an error message, a log line, the admin UI — never points
+    // into the private planning workspace. Comments may; string literals in shipped source may not.
+    files: ["packages/*/src/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.ts", "**/*.test.tsx", "**/generated/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: String.raw`Literal[value=/\b[TPMD]-\d{2,3}\b|STRATEGY\.md|plan-v0\.1|plan-[a-z0-9.-]+\.md|ecom docs/]`,
+          message:
+            "Internal planning references belong in comments, not in text a user reads (AGENTS.md §12).",
+        },
+        {
+          selector: String.raw`TemplateElement[value.raw=/\b[TPMD]-\d{2,3}\b|STRATEGY\.md|plan-v0\.1|plan-[a-z0-9.-]+\.md|ecom docs/]`,
+          message:
+            "Internal planning references belong in comments, not in text a user reads (AGENTS.md §12).",
+        },
+      ],
+    },
+  },
+  {
     // tools/codegen/* are plain Node scripts (ADR-002), not bundled — they
     // need Node's globals (console, process, ...).
     files: ["tools/**/*.mjs"],
