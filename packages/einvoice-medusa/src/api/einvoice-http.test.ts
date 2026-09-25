@@ -171,6 +171,49 @@ describe("listAdminEinvoiceStatus (P-63)", () => {
     ]);
   });
 
+  it("shows each document's rule and, on an intra-EU supply, the VIES answer it rests on (T-192)", async () => {
+    const decision = {
+      ruleId: "tax-semantics#3",
+      categoryCode: "K",
+      reasoning: "Buyer VAT-ID FR98765432109 confirmed valid by VIES.",
+      scope: { kind: "document" },
+    };
+    const req = makeRequest({
+      listEinvoiceDocuments: vi.fn(async () => [
+        {
+          id: "doc_1",
+          type: "invoice" as const,
+          document_number: "RE-2026-0001",
+          pdf_file_id: null,
+          notice: null,
+          tax_decisions: [decision],
+          vat_id_evidence: { vatId: "FR98765432109", status: "valid", checkedAt: "2026-09-25" },
+        },
+        {
+          id: "doc_0",
+          type: "invoice" as const,
+          document_number: "RE-2026-0000",
+          pdf_file_id: null,
+          notice: null,
+        },
+      ]),
+      listEinvoiceRefusals: vi.fn(async () => []),
+    });
+    const [kept, older] = (await listAdminEinvoiceStatus(req, "order_01")).documents;
+    expect(kept?.taxDecisions).toEqual([
+      { ruleId: "tax-semantics#3", categoryCode: "K", reasoning: decision.reasoning },
+    ]);
+    expect(kept?.vatIdEvidence).toEqual({
+      vatId: "FR98765432109",
+      status: "valid",
+      checkedAt: "2026-09-25",
+      consultationNumber: null,
+    });
+    // A document issued before any of this was kept.
+    expect(older?.taxDecisions).toEqual([]);
+    expect(older?.vatIdEvidence).toBeNull();
+  });
+
   it("offers a support request for a buyer country the release does not support (T-077)", async () => {
     const req = makeRequest({
       listEinvoiceDocuments: vi.fn(async () => []),

@@ -77,6 +77,19 @@ export interface EinvoiceDocumentSummary {
   readonly pdfUrl: string | null;
   /** P-63: admin listing only. */
   readonly notice?: EinvoiceStatusEntry | null;
+  /** T-192: admin listing only — the rule the document followed. */
+  readonly taxDecisions?: readonly {
+    readonly ruleId: string;
+    readonly categoryCode: string;
+    readonly reasoning: string;
+  }[];
+  /** T-192: admin listing only — on a document of category K, the VIES answer it rests on. */
+  readonly vatIdEvidence?: {
+    readonly vatId: string;
+    readonly status: string;
+    readonly checkedAt: string;
+    readonly consultationNumber: string | null;
+  } | null;
 }
 
 /** P-63: a notice on a document, or why a document was not issued. */

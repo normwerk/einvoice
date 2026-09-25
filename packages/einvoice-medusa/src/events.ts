@@ -63,6 +63,27 @@ export interface EinvoiceDocumentDTO {
   readonly pdf_file_id: string | null;
   /** An invoice issued although it disagrees with what Medusa charged: the codes and amounts. */
   readonly notice: Record<string, unknown> | null;
+  /** An intra-EU supply (category K): the VIES answer its exemption rests on, as the merchant's
+   * `vatIdVerifier` returned it — the evidence for an audit. `null` for any other document. */
+  readonly vat_id_evidence: {
+    readonly vatId: string;
+    readonly status: "valid" | "invalid" | "unavailable";
+    /** `YYYY-MM-DD`. */
+    readonly checkedAt: string;
+    /** VIES's own reference for the check. */
+    readonly consultationNumber?: string;
+  } | null;
+  /** The rule of the plugin's tax semantics the document followed (`ruleId`, e.g. `tax-semantics#3`), the
+   * VAT category and why. `null` only on a document issued by a pre-release version. */
+  readonly tax_decisions:
+    | readonly {
+        readonly ruleId: string;
+        readonly categoryCode: string;
+        readonly exemptionReasonCode?: string;
+        readonly exemptionReasonText?: string;
+        readonly reasoning: string;
+      }[]
+    | null;
 }
 
 async function emit(

@@ -77,6 +77,7 @@ import {
   type InvoiceNotice,
 } from "../mapping/charged-reconciliation.js";
 import { shipmentLines, type LineInvoicedBefore } from "../mapping/shipment.js";
+import { taxEvidenceToKeep } from "../mapping/tax-evidence.js";
 import { PluginError } from "../errors.js";
 import { emitDocumentIssued, emitIssuanceBlocked } from "../events.js";
 
@@ -330,6 +331,8 @@ export async function issueInvoiceForFulfillment(
     // of the line's discount.
     lineValues: invoicedLineValues(shipment.lines, buildResult.invoice.lines),
     includesShipping: shipment.includesShipping,
+    // T-192: the VIES answer a K invoice rests on, and the rule it followed.
+    ...taxEvidenceToKeep(buildResult),
   });
 
   if (!result.created) {

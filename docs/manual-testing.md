@@ -66,6 +66,10 @@ reach both on a local stand: a Spanish delivery to a business buyer with a verif
 charging Spanish VAT (the notice), and an order whose shipping option carries a 0% tax rate override (the
 refusal) — the same setup as the end-to-end scenarios S12 and S13.
 
+The rule and the VIES answer (not yet verified in a browser): under each document, a small line "VAT
+category S · tax-semantics#1" (the reasoning on hover); under an intra-EU invoice (end-to-end scenario S2)
+also "VIES: FR… valid on <date> · consultation …".
+
 Codes and support (not yet verified in a browser): every notice's and refusal's code, in brackets after the
 explanation, opens its anchor on the error reference; a refusal for a buyer in Italy (end-to-end scenario
 S17) also shows "Ask for support of this country", which opens a new GitHub issue with the title and body

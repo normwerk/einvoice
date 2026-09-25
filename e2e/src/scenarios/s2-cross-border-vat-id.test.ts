@@ -76,6 +76,16 @@ describe("S2: DE -> FR B2B with VAT-ID", () => {
 
     expect(bt.vatCategoryCode(xml)).toBe("K");
     expect(bt.buyerVatId(xml)).toBe(VALID_VAT_ID);
+    // T-192: the VIES answer the exemption rests on is kept with the invoice, and the rule it followed.
+    expect(document.vatIdEvidence).toEqual({
+      vatId: VALID_VAT_ID,
+      status: "valid",
+      checkedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      consultationNumber: `MOCK-${VALID_VAT_ID}`,
+    });
+    expect(document.taxDecisions).toEqual([
+      expect.objectContaining({ ruleId: "tax-semantics#3", categoryCode: "K" }),
+    ]);
     // France has no rate on this stand, so Medusa charges no VAT — as category K requires (P-59).
     const order = await getOrder(admin, orderId);
     expect(bt.grandTotalAmount(xml)).toBeCloseTo(order.total, 2);

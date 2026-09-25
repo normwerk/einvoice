@@ -86,7 +86,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (262 tests)
+### `einvoice-medusa` (267 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -169,7 +169,10 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   each dated the day it shipped, through the real core), an order paid in full stated as paid, a cancelled
   fulfillment not invoiced, a missing one refused, `buildInvoice` warnings logged without the
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
-  number, one stating less issued with its notice, and a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown.
+  number, one stating less issued with its notice, a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown, and the VIES answer an intra-EU invoice rests on kept with the document together with its rule, and carried by no event.
+- `src/mapping/tax-evidence.test.ts` — `taxEvidenceToKeep`: a document of category K keeps the VIES answer
+  it rests on, even "unavailable" when the number was confirmed another way; any other document keeps its
+  decision and no VIES answer.
 - `src/refusals.test.ts` — `describeRefusal` (a refusal explained by its error's message, a block by its
   amounts) and `recordRefusalOfError` (the error's code, its message, class, rule and the credit note's
   trigger recorded and logged; an unsupported buyer country kept for the support request; an error without a
@@ -178,8 +181,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   build them, a core package's code read back and anything else called `INTERNAL_ERROR`, and a support
   request filled in with the country only.
 - `src/api/einvoice-http.test.ts` — the admin/store routes' shared helpers: `listEinvoiceDocumentSummaries`, `sendEinvoiceFile` and `customerOwnsOrder` (a customer can only reach documents of their own orders), and `listAdminEinvoiceStatus` (notices and refusals with their retry route and the link to their code's
-  explanation, a support request for an unsupported buyer country, admin only — the store listing carries no
-  notice), and `einvoiceSupportStatus` (what the release supports and the configured seller country).
+  explanation, a support request for an unsupported buyer country, each document's rule and the VIES answer
+  of an intra-EU supply, admin only — the store listing carries no notice), and `einvoiceSupportStatus` (what the release supports and the configured seller country).
 - `src/api/admin/orders/[id]/einvoice/refusals/[refusalId]/retry/route.test.ts` — the retry route: 404 for
   another order's refusal, the invoice issued, a retry still blocked saying why, 500 for a failure after
   the checks, and a credit note retried by redelivering its refund or cancellation — issued, refused again,
@@ -240,7 +243,7 @@ conformance suite above — a different kind of test from either: it proves **wi
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
 conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 22 files / 34 checks:
-S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
+S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID; the VIES answer kept with the invoice), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
 (private guest buyer), S10 (prices including VAT, with and without a promotion), S11 (public-sector buyer:
@@ -249,7 +252,7 @@ state: issued with a refund-due notice; refunding the overpayment credits nothin
 credits its own amount), S13 (an invoice stating more VAT than was charged: not issued, the reason in the
 admin API, the order corrected, the retry issues it; a refund made meanwhile refused and credited by its own
 retry), S14 (VIES unavailable: the invoice refused and recorded, retried after the VAT-ID was confirmed by
-hand), S15 (a 7 % / 19 % basket: shipping split into a charge per rate with the notice naming it as the
+hand, the invoice keeping VIES's "unavailable"), S15 (a 7 % / 19 % basket: shipping split into a charge per rate with the notice naming it as the
 cause; a received return credited at its own rate, a goodwill refund and the rest of a cancelled order
 credited per rate, every document KoSIT-green), S16 (prices including VAT, shipping without VAT in Medusa:
 the invoice takes 19% out of what was paid and is issued with a notice that Medusa counts less VAT),

@@ -14,7 +14,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import { fetchFileBytes } from "../storage.js";
-import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
+import type { EinvoiceDocumentRecord, EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
 import {
   describeChargedReconciliation,
   type InvoiceNotice,
@@ -63,10 +63,30 @@ export interface EinvoiceStatusSummary {
   readonly docsUrl: string;
 }
 
+/** T-192: the rule a document followed, as the admin widget shows it. */
+export interface AdminTaxDecisionSummary {
+  /** The `docs/tax-semantics.md` rule, e.g. `tax-semantics#3`. */
+  readonly ruleId: string;
+  readonly categoryCode: string;
+  readonly reasoning: string;
+}
+
+/** T-192: the VIES answer an intra-EU supply rests on, as the merchant's `vatIdVerifier` returned it. */
+export interface AdminVatIdEvidenceSummary {
+  readonly vatId: string;
+  readonly status: "valid" | "invalid" | "unavailable";
+  readonly checkedAt: string;
+  readonly consultationNumber: string | null;
+}
+
 export interface AdminEinvoiceDocumentSummary extends EinvoiceDocumentSummary {
   /** Issued although it states less VAT than Medusa charged — `null` otherwise. Admin only: it tells the
    * merchant what to refund, which is not the buyer's view of their invoice. */
   readonly notice: EinvoiceStatusSummary | null;
+  /** T-192: the rule the document followed; empty for a document issued before it was kept. */
+  readonly taxDecisions: readonly AdminTaxDecisionSummary[];
+  /** T-192: on a document of category K, the VIES answer its exemption rests on — `null` otherwise. */
+  readonly vatIdEvidence: AdminVatIdEvidenceSummary | null;
 }
 
 export interface AdminEinvoiceRefusalSummary extends EinvoiceStatusSummary {
@@ -116,6 +136,8 @@ export async function listAdminEinvoiceStatus(
   return {
     documents: documents.map((document) => {
       const notice = document.notice as unknown as InvoiceNotice | null;
+      const record = document as unknown as EinvoiceDocumentRecord;
+      const evidence = record.vat_id_evidence ?? null;
       return {
         id: document.id,
         type: document.type,
@@ -130,6 +152,20 @@ export async function listAdminEinvoiceStatus(
                 message: describeChargedReconciliation(notice),
                 details: { ...notice },
                 docsUrl: errorDocsUrl(notice.code),
+              },
+        taxDecisions: (record.tax_decisions ?? []).map((decision) => ({
+          ruleId: decision.ruleId,
+          categoryCode: decision.categoryCode,
+          reasoning: decision.reasoning,
+        })),
+        vatIdEvidence:
+          evidence === null
+            ? null
+            : {
+                vatId: evidence.vatId,
+                status: evidence.status,
+                checkedAt: evidence.checkedAt,
+                consultationNumber: evidence.consultationNumber ?? null,
               },
       };
     }),

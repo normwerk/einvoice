@@ -17,6 +17,9 @@
  *
  * T-077: each code links to its explanation on the error reference; a buyer country the release does not
  * support also links to a support request, filled in beforehand — opened by the merchant, never sent.
+ *
+ * T-192: each document shows the VAT category and the rule it followed (the reasoning on hover), and a
+ * document of category K the VIES answer its exemption rests on — the evidence for an audit.
  */
 import { defineWidgetConfig } from "@medusajs/admin-sdk";
 import { Badge, Button, Container, Heading, IconButton, Text } from "@medusajs/ui";
@@ -34,6 +37,17 @@ interface EinvoiceDocumentSummary {
     readonly code: string;
     readonly message: string;
     readonly docsUrl: string;
+  } | null;
+  readonly taxDecisions: readonly {
+    readonly ruleId: string;
+    readonly categoryCode: string;
+    readonly reasoning: string;
+  }[];
+  readonly vatIdEvidence: {
+    readonly vatId: string;
+    readonly status: "valid" | "invalid" | "unavailable";
+    readonly checkedAt: string;
+    readonly consultationNumber: string | null;
   } | null;
 }
 
@@ -71,6 +85,16 @@ const CodeLink = ({ code, docsUrl }: { readonly code: string; readonly docsUrl: 
 
 function documentLabel(document: EinvoiceDocumentSummary): string {
   return `${document.type === "invoice" ? "Invoice" : "Credit note"} ${document.documentNumber}`;
+}
+
+/** The VIES answer a K document rests on, in one line. */
+function evidenceLine(evidence: NonNullable<EinvoiceDocumentSummary["vatIdEvidence"]>): string {
+  const consultation =
+    evidence.consultationNumber === null ? "" : ` · consultation ${evidence.consultationNumber}`;
+  return evidence.status === "valid"
+    ? `VIES: ${evidence.vatId} valid on ${evidence.checkedAt}${consultation}`
+    : `VIES: ${evidence.vatId} ${evidence.status} on ${evidence.checkedAt} — issued on the confirmation ` +
+        `declared on the order`;
 }
 
 const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminOrder>) => {
@@ -212,6 +236,21 @@ const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminO
                     )}
                   </div>
                 </div>
+                {document.taxDecisions.map((decision) => (
+                  <Text
+                    key={decision.ruleId}
+                    size="xsmall"
+                    className="text-ui-fg-subtle"
+                    title={decision.reasoning}
+                  >
+                    VAT category {decision.categoryCode} · {decision.ruleId}
+                  </Text>
+                ))}
+                {document.vatIdEvidence !== null && (
+                  <Text size="xsmall" className="text-ui-fg-subtle">
+                    {evidenceLine(document.vatIdEvidence)}
+                  </Text>
+                )}
                 {document.notice !== null && (
                   <div className="flex flex-col gap-1">
                     <Badge size="2xsmall" color="orange" className="self-start">

@@ -162,11 +162,16 @@ vatIdVerifier: {
       vatId,
       status: "valid", // "valid" | "invalid" | "unavailable"
       checkedAt: now.toISOString().slice(0, 10),
-      consultationNumber: "…", // VIES's own reference for the check, keep it as evidence
+      consultationNumber: "…", // VIES's own reference for the check
     };
   },
 },
 ```
+
+The exemption rests on the buyer's VAT-ID being valid on the day of supply, and you must be able to show
+that. The plugin keeps the answer your verifier returned — VAT-ID, status, date, consultation number — with
+every document of category K, and shows it under the document in the order's "E-Invoices" block; what else
+it stores is listed in [the feature page](features/einvoice-medusa.md#what-the-plugin-stores).
 
 If VIES is unavailable, the order can still be invoiced as K when you confirmed the number another way:
 set `order.metadata.regime_override` to `{ "kind": "intra-eu-confirmed", "evidenceNote": "…" }`. The same

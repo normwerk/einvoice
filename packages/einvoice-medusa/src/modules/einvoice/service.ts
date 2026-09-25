@@ -29,6 +29,8 @@
 import type {
   CommerceParty,
   EInvoiceProfileName,
+  TaxDecision,
+  VatIdEvidence,
   VatIdVerifier,
 } from "@normwerk/einvoice-commerce" with {
   "resolution-mode": "import",
@@ -253,6 +255,10 @@ export interface EinvoiceDocumentRecord {
   readonly includes_shipping: boolean;
   /** P-67: on a credit note, the invoice it corrects — `null` otherwise. */
   readonly corrected_document_id: string | null;
+  /** T-192: on a document of category K, the VIES answer the exemption rests on — `null` otherwise. */
+  readonly vat_id_evidence: VatIdEvidence | null;
+  /** T-192: the rule the document followed. `null` on a document issued before this was kept. */
+  readonly tax_decisions: readonly TaxDecision[] | null;
 }
 
 /**
@@ -288,6 +294,8 @@ export interface RecordDocumentInput {
   readonly lineValues?: readonly InvoicedLine[] | null;
   readonly includesShipping?: boolean;
   readonly correctedDocumentId?: string | null;
+  readonly vatIdEvidence?: VatIdEvidence | null;
+  readonly taxDecisions?: readonly TaxDecision[] | null;
 }
 
 /** P-63: a document the plugin did not issue (`einvoice-refusal.ts`). */
@@ -430,6 +438,8 @@ export default class EinvoiceModuleService extends MedusaService({
         line_values: (input.lineValues ?? null) as unknown as Record<string, unknown> | null,
         includes_shipping: input.includesShipping ?? false,
         corrected_document_id: input.correctedDocumentId ?? null,
+        vat_id_evidence: (input.vatIdEvidence ?? null) as unknown as Record<string, unknown> | null,
+        tax_decisions: (input.taxDecisions ?? null) as unknown as Record<string, unknown> | null,
       })) as unknown as EinvoiceDocumentRecord;
       return { document: created, created: true };
     } catch (error) {

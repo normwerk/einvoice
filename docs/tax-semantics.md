@@ -56,7 +56,9 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   verified directly against the vendored Schematron. The real gap is different and still real: the validator
   checks that BT-48 is _present_, never that it was _valid in VIES at the time of supply_, which is what the
   Art. 138 exemption actually depends on. So `einvoice-commerce` must still verify the ID itself; a green
-  validator proves the field is filled in, nothing more.
+  validator proves the field is filled in, nothing more. The seller has to be able to show that check later:
+  the Medusa plugin keeps the VIES answer with every document of category K
+  ([What the plugin stores](features/einvoice-medusa.md#what-the-plugin-stores)).
 - **A cross-border B2B service (row 12) could not be invoiced at all before the
   `reverse-charge-cross-border` override existed.** The default rule refuses while the category is not
   decided (no artifact example), and row 5's domestic `reverse-charge` override explicitly rejects any non-DE

@@ -94,6 +94,13 @@ describe("S14: VIES unavailable -> not issued, confirmed by hand, retried", () =
     const xml = xmlBytes.toString("utf-8");
     expect(bt.vatCategoryCode(xml)).toBe("K");
     expect(bt.buyerVatId(xml)).toBe(UNAVAILABLE_VAT_ID);
+    // T-192: the invoice keeps VIES's "unavailable" — the record of why the number was confirmed by phone —
+    // and the decision names that confirmation.
+    expect(invoice.vatIdEvidence).toMatchObject({
+      vatId: UNAVAILABLE_VAT_ID,
+      status: "unavailable",
+    });
+    expect(invoice.taxDecisions?.[0]?.reasoning).toContain("confirmed with the French tax office");
     const report = await validateBytes(xmlBytes, "s14-invoice.xml");
     expect(report.valid, JSON.stringify(report.messages)).toBe(true);
     expect(report.accepted, JSON.stringify(report.messages)).toBe(true);

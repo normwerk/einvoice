@@ -19,12 +19,35 @@ edge case (`recordDocumentIfAbsent`'s own doc comment) now also orphans a just-u
 whichever delivery loses the database `UNIQUE` insert — `deleteEinvoiceFiles` cleans those up, best-effort,
 when `recordDocumentIfAbsent` reports `created: false`.
 
+## What the plugin stores
+
+Everything stays in the shop's own database and File Module; nothing is sent anywhere else by the plugin.
+
+| Where                               | What                                                                                                                                                                     | Personal data                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| File Module, private                | The XML and, if one was produced, the PDF of every document                                                                                                              | The buyer's name, address, VAT-ID and email, as on any invoice |
+| `einvoice_document`                 | Per document: its type, order, number, file ids, the notice of a difference with what Medusa charged, what each line was invoiced at, the invoice a credit note corrects | None                                                           |
+| `einvoice_document.tax_decisions`   | The rule of [`docs/tax-semantics.md`](../tax-semantics.md) the document followed, its VAT category and the reasoning                                                     | The reasoning of an intra-EU supply names the buyer's VAT-ID   |
+| `einvoice_document.vat_id_evidence` | Only on a document of category K: the answer of your `vatIdVerifier` the exemption rests on — VAT-ID, status, date, VIES's consultation number                           | The buyer's VAT-ID, already on the invoice itself              |
+| `einvoice_refusal`                  | A document that was not issued: its code and the amounts or the message explaining it                                                                                    | The message may name the buyer's VAT-ID or country             |
+| `einvoice_counter`                  | The last number of each series                                                                                                                                           | None                                                           |
+
+An intra-EU supply is exempt only if the buyer's VAT-ID was valid on the day of supply (§6a Abs. 1 Nr. 4
+UStG), which the seller must be able to show; that is why the VIES answer is kept with the document that
+rests on it, and on no other. The plugin deletes none of these records; keep them as long as the tax
+records they belong to. It logs no invoice content and no buyer details, and its events carry ids, the
+number and codes only.
+If you record your processing of personal data, the table above is what the plugin adds to it; the VIES check
+itself is a request your own `vatIdVerifier` makes.
+
 ## Admin: "E-Invoices" widget on the order page
 
 `src/admin/widgets/order-einvoice.tsx` — a widget in the `order.details.side.after` zone (the same side
 column `@webbers/invoices-medusa`'s own real invoice widget uses one zone over, `order.details.side.before`,
 confirmed by reading their published admin bundle directly). Lists every e-invoice document for the
-order with a download icon for XML and, when one exists, PDF.
+order with a download icon for XML and, when one exists, PDF. Under each document: its VAT category and the
+rule it followed (the reasoning on hover), and on a document of category K the VIES answer its exemption
+rests on — VAT-ID, status, date and consultation number.
 
 Verified live against a real running dashboard (`create-medusa-app@2.19.0`, this task's own e2e harness):
 logged in as a real admin user, opened order `#1`, scrolled to the side column, and found:
@@ -157,8 +180,9 @@ const { data } = await query.graph({
 ```
 
 A document's public fields are `EinvoiceDocumentDTO`: `id`, `type`, `order_id`, `document_number`,
-`xml_file_id`, `pdf_file_id` (File Module ids — read the files through the File Module) and `notice`. Other
-columns are the plugin's own and may change.
+`xml_file_id`, `pdf_file_id` (File Module ids — read the files through the File Module), `notice`,
+`tax_decisions` and `vat_id_evidence` (see [What the plugin stores](#what-the-plugin-stores)). Other columns
+are the plugin's own and may change.
 
 The end-to-end suite has a subscriber of its own receive the events (S19).
 

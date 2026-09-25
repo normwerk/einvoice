@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   buildInvoice: vi.fn((input: unknown) => ({
     invoice: { ...(input as object), totals: { totalAmountWithVat: "214.20" } },
     warnings: [],
+    decisions: [],
   })),
   decideVatCategory: vi.fn(() => ({ categoryCode: "S", ruleId: "tax-semantics#1" })),
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),

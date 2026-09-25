@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   buildInvoice: vi.fn((input: unknown) => ({
     invoice: { ...(input as object), totals: { totalAmountWithVat: "20.00" } },
     warnings: [],
+    decisions: [],
   })),
   decideVatCategory: vi.fn(() => ({ categoryCode: "S", ruleId: "tax-semantics#1" })),
   nextNumber: vi.fn(async () => "GS-2026-0001"),

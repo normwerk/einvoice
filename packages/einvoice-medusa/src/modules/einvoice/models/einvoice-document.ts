@@ -39,6 +39,11 @@
  * line's share of its discount (`allowance`), so the order's next invoice takes what is left of it.
  * `corrected_document_id` — on a credit note, the invoice it corrects, now that an order can have several.
  *
+ * T-192: `vat_id_evidence` — on a document of category K, the VIES answer the exemption rests on
+ * (`{ vatId, status, checkedAt, consultationNumber? }`, what the merchant's `vatIdVerifier` returned), `null`
+ * otherwise; `tax_decisions` — the rule each document followed (`[{ ruleId, categoryCode, reasoning, … }]`,
+ * `TaxDecision` of `@normwerk/einvoice-commerce`). See `mapping/tax-evidence.ts`.
+ *
  * No migration path preserves the old `xml`/`pdf` columns' existing content — the same "pre-release, no
  * real deployment history to preserve" reasoning T-072 already used for its own migration replacement
  * (`docs/domain-glossary.md`), not a new precedent.
@@ -59,6 +64,8 @@ const EinvoiceDocument = model
     line_values: model.json().nullable(),
     includes_shipping: model.boolean().default(false),
     corrected_document_id: model.text().nullable(),
+    vat_id_evidence: model.json().nullable(),
+    tax_decisions: model.json().nullable(),
   })
   .indexes([{ on: ["type", "idempotency_key"], unique: true }]);
 

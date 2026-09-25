@@ -43,6 +43,7 @@ import {
   type MedusaReturnForCredit,
   type PartialCreditNoteLine,
 } from "../mapping/credit-note.js";
+import { taxEvidenceToKeep } from "../mapping/tax-evidence.js";
 import type { CoveredReturn, InvoicedLine } from "../modules/einvoice/service.js";
 
 /** The original invoice a credit note corrects, with what has already been credited against it. */
@@ -362,6 +363,8 @@ export async function issueCreditNote({
     pdfFileId: stored.pdfFileId,
     coveredReturns: coveredReturns.length > 0 ? coveredReturns : null,
     correctedDocumentId: basis.invoice.id,
+    // T-192: the VIES answer a K credit note rests on, and the rule it followed.
+    ...taxEvidenceToKeep(buildResult),
   });
 
   if (!result.created) {

@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
       lines: [],
     },
     warnings: [],
+    decisions: [],
   })),
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   embedInvoiceInPdfA3: vi.fn(async () => ({ pdfBytes: new Uint8Array([1, 2, 3]) })),
@@ -198,6 +199,47 @@ describe("invoiceOnFulfillmentCreated", () => {
     expect(mocks.eventBus.emit).not.toHaveBeenCalled();
   });
 
+  it("keeps the VIES answer an intra-EU invoice rests on, and the rule it followed, with the document (T-192)", async () => {
+    const evidence = {
+      vatId: "FR98765432109",
+      status: "valid" as const,
+      checkedAt: "2026-01-15",
+      consultationNumber: "WAPIAAAAW1",
+    };
+    const decision = { ruleId: "tax-semantics#3", categoryCode: "K", reasoning: "VIES", scope: {} };
+    const verify = vi.fn(async () => evidence);
+    // buildInvoice hands back the evidence it was given, as the real one does — for the check build and the
+    // real one.
+    const build = ((input: unknown, options: { vatIdEvidence?: unknown }) => ({
+      invoice: {
+        ...(input as object),
+        totals: { totalAmountWithVat: "238.00", totalVatAmount: "38.00" },
+        lines: [],
+      },
+      warnings: [],
+      decisions: [decision],
+      vatIdEvidence: options.vatIdEvidence,
+    })) as never;
+    mocks.buildInvoice.mockImplementationOnce(build).mockImplementationOnce(build);
+    const einvoiceService = makeEinvoiceService({ options: { vatIdVerifier: { verify } } });
+    const order = {
+      ...ORDER,
+      customer: { ...ORDER.customer, metadata: { vat_id: "FR98765432109" } },
+    };
+    const { container } = makeContainer(einvoiceService, [order]);
+
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+
+    expect(verify).toHaveBeenCalledWith("FR98765432109", expect.any(Date));
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
+      expect.objectContaining({ vatIdEvidence: evidence, taxDecisions: [decision] }),
+    );
+    // The event carries none of it (P-71: ids, number and codes only).
+    expect(JSON.stringify(mocks.eventBus.emit.mock.calls)).not.toContain("FR98765432109");
+  });
+
   it("announces the issued invoice to the shop's own subscribers, ids and number only (P-71)", async () => {
     const einvoiceService = makeEinvoiceService();
     const { container } = makeContainer(einvoiceService);
@@ -338,6 +380,7 @@ describe("invoiceOnFulfillmentCreated", () => {
     const built = {
       invoice: { totals: { totalAmountWithVat: "238.00", totalVatAmount: "38.00" }, lines: [] },
       warnings: [{ code: "payment-terms-not-mapped", message: "terms dropped" }],
+      decisions: [],
     } as never;
     mocks.buildInvoice.mockReturnValueOnce(built).mockReturnValueOnce(built);
     const einvoiceService = makeEinvoiceService();
@@ -437,6 +480,7 @@ describe("invoiceOnFulfillmentCreated", () => {
     const built = {
       invoice: { totals: { totalAmountWithVat: "200.00", totalVatAmount: "0.00" }, lines: [] },
       warnings: [],
+      decisions: [],
     } as never;
     mocks.buildInvoice.mockReturnValueOnce(built).mockReturnValueOnce(built);
     const einvoiceService = makeEinvoiceService();
