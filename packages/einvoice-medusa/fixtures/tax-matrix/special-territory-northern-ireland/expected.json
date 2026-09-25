@@ -1,0 +1,10 @@
+{
+  "specRequiresRefusal": true,
+  "build": {
+    "kind": "error",
+    "errorClass": "TaxRuleError",
+    "errorCode": "SPECIAL_VAT_TERRITORY",
+    "messageIncludes": "This release does not model such territories"
+  },
+  "profile": { "kind": "ok", "profile": "EN16931" }
+}

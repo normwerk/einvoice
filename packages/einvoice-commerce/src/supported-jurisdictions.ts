@@ -77,6 +77,96 @@ export const NON_EEA_ACCEPTED_COUNTRIES: ReadonlySet<CountryCode> = new Set(["CH
  */
 export const CLEARANCE_MODEL_COUNTRIES: ReadonlySet<CountryCode> = new Set(["IT", "PL"]);
 
+/** A territory whose VAT treatment is not its country code's. */
+export interface SpecialVatTerritory {
+  readonly name: string;
+  /** Why its VAT treatment differs, in one clause. */
+  readonly status: string;
+  /** Northern Ireland: inside the EU VAT area for goods only — for services it is the UK. */
+  readonly goodsOnly: boolean;
+}
+
+interface SpecialVatTerritoryRule {
+  readonly country: CountryCode;
+  /** Tested against the postcode without spaces, in upper case, and — for numeric postcodes — without a
+   * leading country prefix such as `AX-` or `E-`. Absent: the whole country code is the territory. */
+  readonly postcode?: RegExp;
+  readonly numeric: boolean;
+  readonly territory: SpecialVatTerritory;
+}
+
+const OUTSIDE_EU_VAT_AREA = "outside the EU VAT area although part of an EU member state";
+
+function outside(name: string): SpecialVatTerritory {
+  return { name, status: OUTSIDE_EU_VAT_AREA, goodsOnly: false };
+}
+
+const NORTHERN_IRELAND: SpecialVatTerritory = {
+  name: "Northern Ireland",
+  status: "inside the EU VAT area for goods under the Windsor Framework although part of the UK",
+  goodsOnly: true,
+};
+
+/**
+ * T-195: territories an order names by an ordinary country code whose VAT treatment differs from that code's —
+ * the VAT Directive's Art. 6 exclusions (§1 Abs. 2 UStG for Heligoland and Büsingen) and Northern Ireland.
+ * Which territories: the European Commission's territorial-scope table
+ * (https://taxation-customs.ec.europa.eu/territorial-scope_en, "VAT rules apply": no; Northern Ireland "VAT
+ * (for goods only)"), fetched 2026-09-25. Recognised by postcode, since a shop sends the Canary Islands as ES
+ * and Northern Ireland as GB. Postcodes, fetched 2026-09-25: Spanish provinces 35/38 (Las Palmas, Santa Cruz
+ * de Tenerife), 51 (Ceuta), 52 (Melilla) — en.wikipedia.org "Postal codes in Spain"; the BT area covers all of
+ * Northern Ireland — en.wikipedia.org "BT postcode area"; Heligoland 27498, Büsingen 78266 — de.wikipedia.org;
+ * Livigno 23041, Campione d'Italia 22061 — it.wikipedia.org; Åland 22xxx under the Finnish system — upu.int
+ * addressing sheet for the Åland Islands (AX-22100 Mariehamn); Mount Athos 63086 Karyes, 63087 Dafni; French
+ * overseas departments and collectivities 97xxx, overseas territories 98xxx except Monaco's 980xx (Monaco is
+ * French territory for VAT) — fr.wikipedia.org "Code postal en France". Not recognisable by postcode: the
+ * Italian waters of Lake Lugano. A territory with its own ISO code (AX, GP, RE, …) is already outside the EU
+ * set and treated as a third country.
+ */
+const SPECIAL_VAT_TERRITORY_RULES: readonly SpecialVatTerritoryRule[] = [
+  { country: "DE", postcode: /^27498$/, numeric: true, territory: outside("Heligoland") },
+  {
+    country: "DE",
+    postcode: /^78266$/,
+    numeric: true,
+    territory: outside("Büsingen am Hochrhein"),
+  },
+  {
+    country: "ES",
+    postcode: /^3[58]\d{3}$/,
+    numeric: true,
+    territory: outside("the Canary Islands"),
+  },
+  { country: "ES", postcode: /^51\d{3}$/, numeric: true, territory: outside("Ceuta") },
+  { country: "ES", postcode: /^52\d{3}$/, numeric: true, territory: outside("Melilla") },
+  { country: "FI", postcode: /^22\d{3}$/, numeric: true, territory: outside("the Åland Islands") },
+  {
+    country: "FR",
+    postcode: /^(97\d|98[1-9])\d{2}$/,
+    numeric: true,
+    territory: outside("a French overseas department or territory"),
+  },
+  { country: "GR", postcode: /^6308[67]$/, numeric: true, territory: outside("Mount Athos") },
+  { country: "IT", postcode: /^23041$/, numeric: true, territory: outside("Livigno") },
+  { country: "IT", postcode: /^22061$/, numeric: true, territory: outside("Campione d'Italia") },
+  { country: "GB", postcode: /^BT\d/, numeric: false, territory: NORTHERN_IRELAND },
+  { country: "XI", numeric: false, territory: NORTHERN_IRELAND },
+];
+
+/** The special VAT territory an address is in, if any — see `SPECIAL_VAT_TERRITORY_RULES`. */
+export function specialVatTerritory(
+  country: CountryCode,
+  postCode: string | undefined,
+): SpecialVatTerritory | undefined {
+  const compact = (postCode ?? "").replace(/\s+/g, "").toUpperCase();
+  const digits = compact.replace(/^[A-Z]{1,3}-?(?=\d)/, "");
+  return SPECIAL_VAT_TERRITORY_RULES.find(
+    (rule) =>
+      rule.country === country &&
+      (rule.postcode === undefined || rule.postcode.test(rule.numeric ? digits : compact)),
+  )?.territory;
+}
+
 /** How a buyer's country is served: an EN 16931 document, or not at all — a clearance platform of its own, or
  * not supported yet. A German public-sector buyer is an EN 16931 buyer too; what routes it to XRechnung is
  * the Leitweg-ID it declares, not its country. */

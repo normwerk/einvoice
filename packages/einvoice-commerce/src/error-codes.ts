@@ -29,6 +29,12 @@ export type TaxRuleCode =
   | "DELIVERY_NOT_INTRA_EU"
   /** An export needs the goods to leave the EU; they are delivered inside it. */
   | "EXPORT_DELIVERED_IN_EU"
+  /** The goods go to, or the service's buyer is in, a territory whose VAT treatment differs from its country
+   * code's: Heligoland or Büsingen (DE), the Canary Islands, Ceuta or Melilla (ES), the Åland Islands (FI),
+   * a French overseas department or territory, Mount Athos (GR), Livigno or Campione d'Italia (IT) — outside
+   * the EU VAT area — or Northern Ireland, inside it for goods. Recognised by postcode. This release does not
+   * model them; issue this invoice outside the plugin. */
+  | "SPECIAL_VAT_TERRITORY"
   /** A service to a business outside the EU. Whether it is AE, O or G is not settled, and this release
    * refuses rather than guesses. Issue this invoice outside the plugin. */
   | "NON_EU_SERVICE_UNSUPPORTED"

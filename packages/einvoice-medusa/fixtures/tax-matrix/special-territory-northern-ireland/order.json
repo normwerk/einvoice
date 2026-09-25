@@ -1,0 +1,28 @@
+{
+  "id": "order_tax_matrix_special_ni",
+  "display_id": 1023,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Example Trading Ltd",
+    "email": "buyer@example.test"
+  },
+  "billing_address": {
+    "country_code": "gb",
+    "city": "Belfast",
+    "postal_code": "BT1 1AA",
+    "address_1": "1 Example Street",
+    "company": "Example Trading Ltd"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Widget",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 0 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

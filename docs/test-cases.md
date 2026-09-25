@@ -18,7 +18,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/errors.test.ts` — `EinvoiceError`: a stable code and the link to its explanation, anchored in lower
   case with hyphens.
 
-### `einvoice-commerce` (144 tests)
+### `einvoice-commerce` (152 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -32,8 +32,9 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   address lines (a seller without a street refused, a buyer without one warned about above EUR 250), both
   parties' electronic address (refused without one: KoSIT rejects it), prices
   including VAT (each rate group's VAT taken out of its gross total, so the invoice totals the gross amounts;
-  both a net and a VAT-inclusive amount, or neither, refused), and defensive behavior against a malformed
-  non-TypeScript caller (ADR-003).
+  both a net and a VAT-inclusive amount, or neither, refused), special VAT territories refused before any
+  category is decided (goods placed where they go, a service where its buyer is, Northern Ireland for goods
+  only), and defensive behavior against a malformed non-TypeScript caller (ADR-003).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany, OSS for services,
@@ -41,7 +42,9 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   than the one it was charged at; each refusal names its own code, linked to its explanation.
 - `src/supported-jurisdictions.test.ts` — what the release supports: a seller in Germany; buyers in
   Germany, the EU/EEA, Switzerland and the UK served with EN 16931; Italy and Poland refused as clearance
-  countries; the one-line statement of it, with nothing planned in it.
+  countries; the one-line statement of it, with nothing planned in it; special VAT territories recognised
+  by their member state's code and postcode, and the rest of each member state — Monaco's French postcode
+  included — left alone.
 - `src/decimal.test.ts` — exact decimal arithmetic and BR-CO-\* rounding (ties towards +Infinity, ADR-004),
   and the arithmetic for prices including VAT: the VAT contained in a gross amount, a group's net spread
   over its parts to the cent (largest remainder), a net unit price from a line amount, comparing rates
@@ -83,7 +86,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (256 tests)
+### `einvoice-medusa` (262 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -105,7 +108,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   names the amounts and which way Medusa's VAT differs; `chargedForShipment` — one fulfillment's units at
   Medusa's per-unit amounts and the shipping it carries, the same after a return, nothing when every unit
   came back.
-- `src/tax-matrix/tax-matrix.test.ts` (67 tests) — the tax-scenario fixture matrix: every
+- `src/tax-matrix/tax-matrix.test.ts` (73 tests) — the tax-scenario fixture matrix: every
   `packages/einvoice-medusa/fixtures/tax-matrix/*` cell driven through the real, unmocked
   `mapOrderToCommerceInvoiceInput` → `buildInvoice`/`selectProfile` (two independent axes, not the
   subscribers' own early-exit chaining — see `src/tax-matrix/types.ts`'s doc comment for why), asserted

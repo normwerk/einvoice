@@ -574,6 +574,112 @@ describe("buildInvoice — export (row 4) is decided by where the goods go, not 
   });
 });
 
+describe("buildInvoice — special VAT territories are refused, not invoiced by their country code (T-195)", () => {
+  const B2B_EU = {
+    sellerCountry: "DE",
+    sellerVatId: "DE123456789",
+    buyerIsBusiness: true,
+    ossRegistered: false,
+  } as const;
+  const refusal = expect.objectContaining({
+    name: "TaxRuleError",
+    code: "SPECIAL_VAT_TERRITORY",
+    ruleId: "tax-semantics#special-territories",
+  });
+
+  it("goods to the Canary Islands — an export, not an intra-EU supply — are refused before any category", () => {
+    const input = domesticInput({
+      buyer: {
+        name: "Ejemplo SL",
+        countryCode: "ES",
+        city: "Las Palmas de Gran Canaria",
+        postCode: "35001",
+        vatIdentifier: "ESB12345678",
+      },
+      delivery: {
+        actualDeliveryDate: "2026-09-10",
+        deliverToCountryCode: "ES",
+        deliverToPostCode: "35001",
+      },
+      taxContext: { ...B2B_EU, buyerCountry: "ES", buyerVatId: "ESB12345678", supplyType: "goods" },
+    });
+    const evidence = { vatId: "ESB12345678", status: "valid" as const, checkedAt: "2026-09-10" };
+    expect(() => buildInvoice(input, { vatIdEvidence: evidence })).toThrow(refusal);
+    expect(() => buildInvoice(input, { vatIdEvidence: evidence })).toThrow(/the Canary Islands/);
+  });
+
+  it("goods to Northern Ireland (GB, BT…) — an intra-EU supply for goods, not an export — are refused", () => {
+    const input = domesticInput({
+      buyer: { name: "Example Ltd", countryCode: "GB", city: "Belfast", postCode: "BT1 1AA" },
+      taxContext: { ...B2B_EU, buyerCountry: "GB", supplyType: "goods" },
+    });
+    expect(() => buildInvoice(input)).toThrow(refusal);
+  });
+
+  it("a service to a business in Northern Ireland is a UK service — the territory check lets it through to row 13", () => {
+    const input = domesticInput({
+      buyer: { name: "Example Ltd", countryCode: "GB", city: "Belfast", postCode: "BT1 1AA" },
+      taxContext: { ...B2B_EU, buyerCountry: "GB", supplyType: "services" },
+    });
+    expect(() => buildInvoice(input)).toThrow(
+      expect.objectContaining({ code: "NON_EU_SERVICE_UNSUPPORTED" }),
+    );
+  });
+
+  it("a German order delivered to Heligoland leaves the German VAT area (§1 Abs. 2 UStG) — refused, not 19 %", () => {
+    const input = domesticInput({
+      delivery: {
+        deliverToCountryCode: "DE",
+        deliverToCity: "Helgoland",
+        deliverToPostCode: "27498",
+      },
+    });
+    expect(() => buildInvoice(input)).toThrow(refusal);
+  });
+
+  it("goods are placed where they go: a buyer billed in the Canary Islands, goods delivered to Madrid", () => {
+    const input = domesticInput({
+      buyer: {
+        name: "Ejemplo SL",
+        countryCode: "ES",
+        city: "Santa Cruz de Tenerife",
+        postCode: "38001",
+        vatIdentifier: "ESB12345678",
+      },
+      delivery: {
+        actualDeliveryDate: "2026-09-10",
+        deliverToCountryCode: "ES",
+        deliverToPostCode: "28001",
+      },
+      taxContext: { ...B2B_EU, buyerCountry: "ES", buyerVatId: "ESB12345678", supplyType: "goods" },
+    });
+    const evidence = { vatId: "ESB12345678", status: "valid" as const, checkedAt: "2026-09-10" };
+    expect(
+      buildInvoice(input, { vatIdEvidence: evidence }).invoice.vatBreakdown[0]?.categoryCode,
+    ).toBe("K");
+  });
+
+  it("a service is placed where its buyer is: a business in the Canary Islands is refused", () => {
+    const input = domesticInput({
+      buyer: {
+        name: "Ejemplo SL",
+        countryCode: "ES",
+        city: "Las Palmas de Gran Canaria",
+        postCode: "35001",
+        vatIdentifier: "ESB12345678",
+      },
+      taxContext: {
+        ...B2B_EU,
+        buyerCountry: "ES",
+        buyerVatId: "ESB12345678",
+        supplyType: "services",
+        regimeOverride: { kind: "reverse-charge-cross-border" },
+      },
+    });
+    expect(() => buildInvoice(input)).toThrow(refusal);
+  });
+});
+
 describe("buildInvoice — cross-border B2B service under reverse charge (row 12), needs buyer.vatIdentifier (P-47)", () => {
   function crossBorderServiceInput(buyer: CommerceInvoiceInput["buyer"]): CommerceInvoiceInput {
     return domesticInput({

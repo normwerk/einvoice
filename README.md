@@ -67,6 +67,8 @@ Where a correct invoice cannot be derived, the plugin refuses and names the reas
 - a buyer in Italy or Poland (their national clearance platforms accept no EN 16931 document), or outside
   the EU/EEA, Switzerland and the UK;
 - goods to a business in another EU member state whose VAT-ID has not been verified;
+- an order for a territory whose VAT treatment is not its country's — the Canary Islands, Northern Ireland
+  for goods, Heligoland and the like, recognised by postcode;
 - business services to a buyer outside the EU, for which there is no settled basis yet;
 - a domestic line that Medusa charged at a rate other than 19% or 7%.
 

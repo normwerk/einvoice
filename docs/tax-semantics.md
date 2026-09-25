@@ -185,9 +185,20 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   buyer's VAT-ID is German (§6a Abs. 1 Nr. 4 UStG — it must be issued by another member state), when the VIES
   evidence is for a different VAT-ID, or when the document's BT-48 differs from the VAT-ID the decision was
   made on. It refuses category G when the goods are delivered inside the EU, even to a buyer established
-  outside it (§6 Abs. 1 UStG). Special VAT territories are not modelled yet: Northern Ireland (goods are
-  treated as intra-EU under the Windsor Framework) and the Canary Islands, Ceuta and Melilla (outside the EU
-  VAT area) are recognised by neither the country code nor this package — check such orders yourself.
+  outside it (§6 Abs. 1 UStG).
+- **A country code can misstate where the VAT area ends.** The Canary Islands arrive as `ES`, Northern Ireland
+  as `GB`, Heligoland as `DE` — and each would get a category every validator accepts and that is wrong: an
+  intra-EU supply that is an export, an export that is an intra-EU supply (Northern Ireland is inside the EU
+  VAT area for goods under the Windsor Framework), a domestic sale at 19 % that leaves the German VAT area
+  (§1 Abs. 2 UStG). `buildInvoice` recognises these territories by postcode and refuses the document
+  (`SPECIAL_VAT_TERRITORY`) instead of deciding a category: Heligoland (27498) and Büsingen (78266); the
+  Canary Islands (35xxx, 38xxx), Ceuta (51xxx) and Melilla (52xxx); the Åland Islands (22xxx); the French
+  overseas departments and territories (97xxx, 98xxx except Monaco's 980xx — Monaco is French territory for
+  VAT); Mount Athos (63086, 63087); Livigno (23041) and Campione d'Italia (22061); Northern Ireland (`BT`, or
+  the country code `XI`) for goods only — a service to Northern Ireland is a UK service. Goods are placed where
+  they go (the deliver-to address, or the buyer's without one), a service where its buyer is. The Italian
+  waters of Lake Lugano have no postcode and are not recognised. A territory with an ISO code of its own
+  (`AX`, `GP`, `RE`, …) is a third country here, as for VAT it is outside the EU.
 - **The exempt (row 6) and zero-rated (row 8) overrides are domestic.** Both are declared by the merchant,
   and both are refused for a buyer outside Germany — otherwise a declared E or Z would skip the VIES check of
   row 3 and the refusals of rows 12/13 entirely. §12 Abs. 3 UStG covers private operators of photovoltaic

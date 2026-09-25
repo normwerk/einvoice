@@ -14,6 +14,7 @@
 import {
   EinvoiceError,
   validateModel,
+  type CountryCode,
   type Invoice,
   type VatCategoryCode,
 } from "@normwerk/einvoice-model";
@@ -25,6 +26,7 @@ import {
   normalizeVatId,
   resolveLineRate,
 } from "./tax-rules.js";
+import { specialVatTerritory } from "./supported-jurisdictions.js";
 import {
   apportionAmount,
   compareAmounts,
@@ -358,6 +360,53 @@ function assertTaxFactsMatchDocument(decision: TaxDecision, input: CommerceInvoi
   }
 }
 
+/**
+ * T-195: refuses an order whose VAT turns on a territory the country code misstates — goods going to the
+ * Canary Islands (ES) are exported, goods going to Northern Ireland (GB) are an intra-EU supply, and goods
+ * going to Heligoland (DE) leave the German VAT area. `decideVatCategory` sees only country codes, so each of
+ * these would get a category that validates and is wrong. Goods are placed where they go (the deliver-to
+ * address, or the buyer's without one), a service where its buyer is; checked before the category is decided,
+ * so no other refusal hides this one.
+ */
+function assertNotSpecialVatTerritory(input: CommerceInvoiceInput): void {
+  interface Place {
+    readonly what: string;
+    readonly country: CountryCode;
+    readonly postCode: string | undefined;
+    readonly goods: boolean;
+  }
+  const supply = input.taxContext.supplyType;
+  const buyer = {
+    what: "buyer's address",
+    country: input.buyer.countryCode,
+    postCode: input.buyer.postCode,
+  };
+  const deliverTo = input.delivery?.deliverToCountryCode;
+  const goodsGoTo =
+    deliverTo === undefined
+      ? buyer
+      : {
+          what: "deliver-to address (BT-80)",
+          country: deliverTo,
+          postCode: input.delivery?.deliverToPostCode,
+        };
+  const places: Place[] = [];
+  if (supply !== "services") places.push({ ...goodsGoTo, goods: true });
+  if (supply !== "goods") places.push({ ...buyer, goods: false });
+  for (const place of places) {
+    const territory = specialVatTerritory(place.country, place.postCode);
+    if (territory !== undefined && (place.goods || !territory.goodsOnly)) {
+      throw new TaxRuleError(
+        "SPECIAL_VAT_TERRITORY",
+        `The ${place.what} (${place.country} ${place.postCode ?? ""}) is in ${territory.name}, ` +
+          `${territory.status}. This release does not model such territories; refusing rather than ` +
+          `invoicing it as ${place.country}.`,
+        "tax-semantics#special-territories",
+      );
+    }
+  }
+}
+
 /** `resolveLineRate` for one line, with a refusal naming the line it is about. */
 function lineRate(
   decision: TaxDecision,
@@ -458,6 +507,7 @@ export function buildInvoice(
     });
   }
 
+  assertNotSpecialVatTerritory(input);
   const regimeDecision: TaxDecision = decideVatCategory(input.taxContext, options.vatIdEvidence);
   const decisions: TaxDecision[] = [regimeDecision];
 

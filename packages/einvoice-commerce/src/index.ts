@@ -78,9 +78,11 @@ export { MapVatIdVerifier, StaticVatIdVerifier } from "./vat-id-verifier.js";
 export {
   buyerCountrySupport,
   describeSupport,
+  specialVatTerritory,
   SUPPORTED_SELLER_COUNTRIES,
   SUPPORTED_SINCE,
   type BuyerCountrySupport,
+  type SpecialVatTerritory,
 } from "./supported-jurisdictions.js";
 
 export type { CommerceErrorCode, TaxRuleCode } from "./error-codes.js";

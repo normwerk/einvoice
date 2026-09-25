@@ -1,0 +1,34 @@
+{
+  "id": "order_tax_matrix_special_heligoland",
+  "display_id": 1025,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Inselhandel GmbH",
+    "email": "buyer@example.test"
+  },
+  "billing_address": {
+    "country_code": "de",
+    "city": "Hamburg",
+    "postal_code": "20095",
+    "address_1": "Beispielweg 2",
+    "company": "Inselhandel GmbH"
+  },
+  "shipping_address": {
+    "country_code": "de",
+    "city": "Helgoland",
+    "postal_code": "27498",
+    "address_1": "Lung Wai 1",
+    "company": "Inselhandel GmbH"
+  },
+  "items": [
+    {
+      "title": "Widget",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 19 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "order_tax_matrix_special_canary",
+  "display_id": 1024,
+  "email": "buyer@example.test",
+  "currency_code": "eur",
+  "customer": {
+    "company_name": "Ejemplo Canarias SL",
+    "email": "buyer@example.test",
+    "metadata": { "vat_id": "ESB12345678" }
+  },
+  "billing_address": {
+    "country_code": "es",
+    "city": "Las Palmas de Gran Canaria",
+    "postal_code": "35001",
+    "address_1": "Calle Ejemplo 1",
+    "company": "Ejemplo Canarias SL"
+  },
+  "shipping_address": null,
+  "items": [
+    {
+      "title": "Widget",
+      "variant_sku": "WID-1",
+      "unit_price": 100,
+      "is_tax_inclusive": false,
+      "tax_lines": [{ "rate": 0 }],
+      "detail": { "quantity": 1 }
+    }
+  ]
+}

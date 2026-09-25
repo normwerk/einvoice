@@ -86,6 +86,13 @@ reading the spec alone. See `AGENTS.md` §2 for how this file is used. Back to [
   lines are `ram:LineOne`/`ram:LineTwo`, between `ram:PostcodeCode` and `ram:CityName` in
   `TradeAddressType`'s sequence. No rule in the vendored Schematron names BT-35/36/50/51/75/76; their names
   were taken from `@e-invoice-eu/core`'s schema and confirmed on each element's docs.peppol.eu page.
+- **A country code does not say where the EU VAT area ends.** A shop sends the Canary Islands as `ES` (postcodes
+  35/38), Northern Ireland as `GB` (`BT…`) and Heligoland as `DE` (27498). The EN 16931 country code list does
+  have `XI` for Northern Ireland, but no shop uses it. The Commission's territorial-scope table
+  (taxation-customs.ec.europa.eu/territorial-scope_en) has a "VAT rules apply" column: "no" for Heligoland,
+  Büsingen, Ceuta, Melilla, Livigno, Mount Athos, the Canary Islands, Campione d'Italia, the Italian waters of
+  Lake Lugano, the Åland Islands and the French outermost regions; Northern Ireland is "partly — goods only".
+  Monaco is French territory for VAT. None of this is visible to a validator.
 
 ## Medusa v2 (`einvoice-medusa`)
 
