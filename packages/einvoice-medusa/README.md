@@ -1,7 +1,8 @@
 # `@normwerk/einvoice-medusa`
 
 A thin Medusa v2 plugin for German e-invoicing (XRechnung 3.0 / ZUGFeRD, EN 16931): subscribes to
-`order.fulfillment_created` and `payment.refunded`, maps the order to
+`order.fulfillment_created`, `order.fulfillment_canceled`, `payment.refunded` and `order.canceled` — an invoice
+per fulfillment, a credit note per refund or cancellation — maps the order to
 [`@normwerk/einvoice-commerce`](https://www.npmjs.com/package/@normwerk/einvoice-commerce)'s invoice model,
 and stores the result — idempotently, with no duplicate documents on event redelivery. No tax logic and no
 XML live in this package; that's `@normwerk/einvoice-commerce`/`@normwerk/einvoice-cii`'s job, kept
@@ -12,7 +13,10 @@ A PDF/A-3 hybrid from any PDF renderer you supply (including a bundled one,
 XML only. The plugin numbers and issues the invoices itself: next to another plugin that issues invoices, the
 buyer gets two invoices for one supply — turn invoicing off in the other plugin.
 Documents are stored in Medusa's own File Module (private), with an admin "E-Invoices" widget on the order
-page and a Store API endpoint for a customer to fetch their own e-invoice.
+page and a Store API endpoint for a customer to fetch their own e-invoice. Each issued or refused document is
+announced on Medusa's event bus (`einvoice.document_issued`, `einvoice.issuance_blocked`; payload types from
+`@normwerk/einvoice-medusa/events`), and an order's documents are readable with the order
+(`einvoice_documents`) — so a shop's own code can mail the invoice to the buyer or hand it to accounting.
 
 ## Compatibility
 

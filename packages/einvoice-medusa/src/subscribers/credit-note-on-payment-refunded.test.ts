@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MedusaContainer, SubscriberArgs } from "@medusajs/framework";
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 
@@ -11,6 +11,7 @@ import type EinvoiceModuleService from "../modules/einvoice/service.js";
 // engines it calls into (`@normwerk/einvoice-commerce`, `-cii`, `-pdfa`) already have their own exhaustive
 // suites elsewhere.
 const mocks = vi.hoisted(() => ({
+  eventBus: { emit: vi.fn(async () => undefined) },
   selectProfile: vi.fn(() => "EN16931" as const),
   // Shaped like a real BuildResult where the code reads it (`invoice.totals`).
   buildInvoice: vi.fn((input: unknown) => ({
@@ -181,7 +182,8 @@ function makeEinvoiceService(
     options: { seller: SELLER, payment: PAYMENT, ...overrides.options },
     listEinvoiceDocuments,
     recordDocumentIfAbsent: vi.fn(
-      overrides.recordDocumentIfAbsent ?? (async () => ({ document: {}, created: true })),
+      overrides.recordDocumentIfAbsent ??
+        (async () => ({ document: { id: "einvdoc_credit" }, created: true })),
     ),
     allocateNextNumber: vi.fn(async () => 1),
     clearRefusal: vi.fn(async () => undefined),
@@ -220,6 +222,7 @@ function makeContainer(options: {
     [EINVOICE_MODULE, options.einvoiceService],
     [ContainerRegistrationKeys.QUERY, { graph }],
     [ContainerRegistrationKeys.LOGGER, mocks.logger],
+    [Modules.EVENT_BUS, mocks.eventBus],
   ]);
   const container = { resolve: (key: unknown) => registry.get(key) } as unknown as MedusaContainer;
   return { container, graph };
@@ -449,6 +452,22 @@ describe("creditNoteOnPaymentRefunded", () => {
         correctedDocumentId: "doc_invoice_2",
       }),
     );
+  });
+
+  it("announces the credit note with the refund it credits (P-71)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer({ einvoiceService });
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+    expect(mocks.eventBus.emit).toHaveBeenCalledWith({
+      name: "einvoice.document_issued",
+      data: expect.objectContaining({
+        schema_version: 1,
+        id: "einvdoc_credit",
+        order_id: "order_01",
+        type: "credit_note",
+        refund_id: "refund_01",
+      }),
+    });
   });
 
   it("never credits more than is outstanding: a refund after the invoice is fully credited is logged, not credited", async () => {

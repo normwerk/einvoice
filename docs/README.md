@@ -81,6 +81,7 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
 - [`docs/adr/`](adr/README.md) — architecture decision records (ADR-001…005).
 - `docs/features/<feature>.md` — per-feature docs, added as features ship.
   - [`docs/features/einvoice-medusa.md`](features/einvoice-medusa.md) — File Module storage, the admin
-    "E-Invoices" widget, and the Store API download endpoint.
+    "E-Invoices" widget, the Store API download endpoint, an invoice per fulfillment, and the events and
+    order link a shop's own code builds on.
 - [`docs/quickstart-medusa.md`](quickstart-medusa.md) — install and configure `einvoice-medusa` in a real
   Medusa v2 project, verified end to end.

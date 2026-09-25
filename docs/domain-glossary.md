@@ -473,12 +473,14 @@ access?: "public" | "private" }`, defaulting to `"private"` when `access` is omi
   Webbers' own widget does it — confirmed by actually clicking a download link in a real logged-in admin
   session and observing a real `200 OK` on `GET /admin/orders/:id/einvoice/:documentId/xml` in the browser's
   own network log, not assumed from the two approaches being "probably equivalent".
-- **No `defineLink` was added between `order` and `EinvoiceDocument`**, despite `@webbers/invoices-medusa`'s
-  own real `invoice_order` link being the obvious analogy — a deliberate scope decision, not an
-  oversight: `EinvoiceDocument.order_id` (a plain field since the subscribers were first built) already
-  answers every query this
-  plugin needs, and Webbers needs a link only because their own `Invoice` model carries no order-identifying
-  field at all (confirmed by reading it directly — no redundant mechanism to choose between, unlike here).
+- **The order link is read-only**: `defineLink({ linkable: order, field: "id" }, { ...einvoiceDocument.id,
+primaryKey: "order_id" }, { readOnly: true, isList: true })` joins on the document's own `order_id` — no
+  link table, no migration, nothing to keep in step (`@medusajs/utils` `defineReadOnlyLink`, the same code in
+  2.12.6 and 2.19). Medusa loads a plugin's links from `<plugin>/links` next to its compiled modules
+  (`@medusajs/medusa` `loaders/index.js`). `isList` goes in the options: the read-only link takes it from
+  there or from the left side, not from the right.
+- **Medusa's local event bus is per process**: an event emitted in a `medusa exec` script reaches only that
+  process's subscribers. A test of what a subscriber in the app receives has to trigger it inside the app.
 - **The store's settings page takes widgets too**: zone `store.details.after` (`@medusajs/admin-shared`
   2.19's zone list) — where the "E-Invoicing" support statement sits, visible before an order hits a limit.
 - **The plugin cannot extend the core packages' error class.** It compiles to CommonJS and loads the

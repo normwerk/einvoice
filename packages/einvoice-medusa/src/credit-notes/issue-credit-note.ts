@@ -22,6 +22,7 @@ import type { EinvoiceDocumentRecord } from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
 import { deleteEinvoiceFiles, fetchFileBytes, storeEinvoiceFiles } from "../storage.js";
 import { recordRefusalOfError, type CreditNoteTrigger } from "../refusals.js";
+import { emitDocumentIssued } from "../events.js";
 import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
 import {
   issueDateInSellerTimeZone,
@@ -372,6 +373,14 @@ export async function issueCreditNote({
     return { kind: "exists" };
   }
   await einvoiceService.clearRefusal("credit_note", idempotencyKey);
+  // P-71: after the document is written. A refund's credit note is keyed by the refund's id.
+  await emitDocumentIssued(container, {
+    id: result.document.id,
+    order_id: order.id,
+    type: "credit_note",
+    document_number: documentNumber,
+    ...(reason === "refund" ? { refund_id: idempotencyKey } : {}),
+  });
   return { kind: "issued", documentNumber };
 }
 

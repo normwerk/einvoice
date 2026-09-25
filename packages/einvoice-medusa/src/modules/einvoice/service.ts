@@ -229,7 +229,8 @@ function assertValidOptions(options: EinvoiceModuleOptions): void {
   }
 }
 
-export type EinvoiceDocumentType = "invoice" | "credit_note";
+export type { EinvoiceDocumentType } from "../../events.js";
+import type { EinvoiceDocumentType } from "../../events.js";
 
 export interface EinvoiceDocumentRecord {
   readonly id: string;

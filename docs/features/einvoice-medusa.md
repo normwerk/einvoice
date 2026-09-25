@@ -123,13 +123,48 @@ URL) was also tried against the _admin_ route and correctly returned `404` — `
 `(id, order_id)` together, not `id` alone, so a document can't be pulled by pairing its real id with a
 different, otherwise-authorized order.
 
+## Events and the order link — for a shop's own code
+
+The plugin announces what it did on Medusa's event bus (`src/events.ts`), so a shop can act on it — send the
+invoice to the buyer, pass it to accounting, alert someone when one is not issued:
+
+| Event                       | When                                                                                     | Payload                                                                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `einvoice.document_issued`  | an invoice or credit note was issued, by its Medusa event or by a retry from the admin   | `{ schema_version: 1, id, order_id, type: "invoice" \| "credit_note", document_number, fulfillment_id?, refund_id?, notice_code? }` |
+| `einvoice.issuance_blocked` | a document was not issued — blocked by the check against what Medusa charged, or refused | `{ schema_version: 1, refusal_id, order_id, type, code }`                                                                           |
+
+- Ids, the number and codes only — never the document's content or the buyer's details. `code` is one of
+  the [error reference](https://normwerk.dev/einvoice/docs/errors)'s codes.
+- At least once, like every Medusa event: make a subscriber idempotent by `id` (`refusal_id`). No event when
+  a redelivered Medusa event finds its document already issued. An event goes out right after its document
+  or refusal is written; if the process stops in between, the event is lost — the document is not, and it
+  shows in the order's "E-Invoices" block.
+- A new field can appear without a new `schema_version`. A change that would break a subscriber comes under
+  a new event name (`einvoice.document_issued.v2`), sent alongside the old one until the next major version
+  of the package.
+- The types — `DocumentIssuedEvent`, `IssuanceBlockedEvent`, `EinvoiceDocumentDTO`, `EINVOICE_EVENTS` — are
+  published with the package: `import type { DocumentIssuedEvent } from "@normwerk/einvoice-medusa/events"`.
+
+An order's documents are read with the order through a read-only link on the document's own `order_id`
+(`src/links/order-einvoice-documents.ts` — no link table, no migration):
+
+```ts
+const { data } = await query.graph({
+  entity: "order",
+  filters: { id: orderId },
+  fields: ["id", "einvoice_documents.*"],
+});
+```
+
+A document's public fields are `EinvoiceDocumentDTO`: `id`, `type`, `order_id`, `document_number`,
+`xml_file_id`, `pdf_file_id` (File Module ids — read the files through the File Module) and `notice`. Other
+columns are the plugin's own and may change.
+
+The end-to-end suite has a subscriber of its own receive the events (S19).
+
 ## What this deliberately does not do
 
-- No `defineLink` between `order` and `EinvoiceDocument` — `EinvoiceDocument.order_id` (a plain field)
-  already answers every query this plugin itself needs; adding a module link on top would create a
-  second, parallel way to express the same relationship for no real gain, and risks the two disagreeing.
-  `@webbers/invoices-medusa`'s own `invoice_order` link is a different case: their `Invoice` model
-  has no order-identifying field at all, so a link is the _only_ mechanism available to them.
+- No outbox: an event lost between writing the document and sending the event is not sent later.
 - No migration path preserves the old `xml`/`pdf` columns' content — the same "pre-release, no real
   deployment history to preserve" reasoning an earlier migration replacement already used (see
   `docs/domain-glossary.md`).

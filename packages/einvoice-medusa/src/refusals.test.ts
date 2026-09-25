@@ -106,3 +106,33 @@ describe("recordRefusalOfError codes (T-077)", () => {
     expect(details).toMatchObject({ message: "connection reset", errorClass: "Error" });
   });
 });
+
+describe("recordRefusalOfError events (P-71)", () => {
+  it("announces the refusal with its id and code", async () => {
+    const emit = vi.fn(async () => undefined);
+    const container = {
+      resolve: (key: string) => (key === "event_bus" ? { emit } : { warn: vi.fn() }),
+    } as unknown as MedusaContainer;
+    await recordRefusalOfError(
+      container,
+      {
+        recordRefusal: vi.fn(async () => ({ id: "einvref_7", code: "VAT_ID_UNVERIFIED" })),
+      } as unknown as EinvoiceModuleService,
+      { type: "invoice", orderId: "order_01", idempotencyKey: "ful_01" },
+      Object.assign(new Error("needs a positive VIES check"), {
+        code: "VAT_ID_UNVERIFIED",
+        docsUrl: "https://normwerk.dev/einvoice/docs/errors#vat-id-unverified",
+      }),
+    );
+    expect(emit).toHaveBeenCalledWith({
+      name: "einvoice.issuance_blocked",
+      data: {
+        schema_version: 1,
+        refusal_id: "einvref_7",
+        order_id: "order_01",
+        type: "invoice",
+        code: "VAT_ID_UNVERIFIED",
+      },
+    });
+  });
+});

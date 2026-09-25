@@ -78,6 +78,7 @@ import {
 } from "../mapping/charged-reconciliation.js";
 import { shipmentLines, type LineInvoicedBefore } from "../mapping/shipment.js";
 import { PluginError } from "../errors.js";
+import { emitDocumentIssued, emitIssuanceBlocked } from "../events.js";
 
 /**
  * P-67: the order's invoices still standing — those whose fulfillment was not cancelled (a cancelled
@@ -261,6 +262,13 @@ export async function issueInvoiceForFulfillment(
       code: reconciliation.block.code,
       details: { ...reconciliation.block },
     });
+    // P-71: the shop's own code hears of it.
+    await emitIssuanceBlocked(container, {
+      refusal_id: refusal.id,
+      order_id: order.id,
+      type: "invoice",
+      code: refusal.code,
+    });
     return { kind: "blocked", refusal, message };
   }
   const notice = reconciliation.outcome === "notice" ? reconciliation.notice : null;
@@ -334,5 +342,14 @@ export async function issueInvoiceForFulfillment(
     return { kind: "exists" };
   }
   await einvoiceService.clearRefusal("invoice", fulfillmentId);
+  // P-71: after the document is written — a redelivery that found it already issued returned above.
+  await emitDocumentIssued(container, {
+    id: result.document.id,
+    order_id: order.id,
+    type: "invoice",
+    document_number: documentNumber,
+    fulfillment_id: fulfillmentId,
+    ...(notice === null ? {} : { notice_code: notice.code }),
+  });
   return { kind: "issued", documentNumber, notice };
 }

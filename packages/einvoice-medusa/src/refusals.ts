@@ -20,6 +20,7 @@ import type { MedusaContainer } from "@medusajs/framework";
 import type EinvoiceModuleService from "./modules/einvoice/service.js";
 import type { EinvoiceDocumentType, EinvoiceRefusalRecord } from "./modules/einvoice/service.js";
 import { errorCodeOf } from "./errors.js";
+import { emitIssuanceBlocked } from "./events.js";
 import {
   describeChargedReconciliation,
   type InvoiceBlock,
@@ -100,5 +101,12 @@ export async function recordRefusalOfError(
   container
     .resolve(ContainerRegistrationKeys.LOGGER)
     .warn(`einvoice: order ${target.orderId}: ${documentLabel(target)} — ${message} [${code}]`);
+  // P-71: the shop's own code hears of it.
+  await emitIssuanceBlocked(container, {
+    refusal_id: refusal.id,
+    order_id: target.orderId,
+    type: target.type,
+    code,
+  });
   return { refusal, message };
 }

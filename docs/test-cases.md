@@ -83,7 +83,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (250 tests)
+### `einvoice-medusa` (256 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -147,6 +147,10 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/subscribers/credit-note-on-fulfillment-canceled.test.ts` — a cancelled fulfillment's invoice restated
   with its own lines, a fulfillment never invoiced leaving nothing to credit and its refusal dropped, and the
   credit note issued once however often the event comes.
+- `src/events.test.ts` — the event payloads (schema version 1, ids, number and codes) and an event the bus
+  could not take logged without failing the document already written; the subscriber, refusal and
+  credit-note tests check that an issued document and a refusal are announced, and that a redelivery that
+  finds its document announces nothing.
 - `src/mapping/shipment.test.ts` — `shipmentLines`: a fulfillment's units with their share of the line
   discount, the shipment that completes a line taking what is left to the cent, a tax-inclusive discount,
   Medusa's discount scaled back to the ordered quantity after a return, a line listed twice added up, and a
@@ -232,7 +236,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 21 files / 32 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 22 files / 34 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -252,7 +256,11 @@ shipped in two parts, paid in full: two invoices, each for its own line and date
 first with the shipping, both stating the payment and nothing due, together the order's total; a return
 from the second parcel credited on the second invoice; a cancelled fulfillment's invoice credited in full
 and the replacement shipment invoiced without shipping; money back with no goods while a unit is unshipped
-refused with `REFUND_NEEDS_MANUAL_CREDIT`), idempotency (an event
+refused with `REFUND_NEEDS_MANUAL_CREDIT`), S19 (the plugin's events as a shop's own subscriber in the stand
+app receives them: `einvoice.document_issued` for an invoice — ids, number and fulfillment only — and for a
+refund's credit note, `einvoice.issuance_blocked` for a blocked invoice with its refusal's id and code; the
+document read with the order through the read-only link; a redelivery inside the app announcing nothing a
+second time), idempotency (an event
 delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option; a seller
 outside Germany),

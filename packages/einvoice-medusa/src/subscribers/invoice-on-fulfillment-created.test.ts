@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MedusaContainer, SubscriberArgs } from "@medusajs/framework";
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 
@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
   })),
   deleteEinvoiceFiles: vi.fn(async () => undefined),
   logger: { warn: vi.fn(), info: vi.fn() },
+  eventBus: { emit: vi.fn(async () => undefined) },
   nextNumber: vi.fn(async () => "RE-2026-0001"),
 }));
 
@@ -127,7 +128,8 @@ function makeEinvoiceService(
     options: { seller: SELLER, payment: PAYMENT, ...overrides.options },
     listEinvoiceDocuments: vi.fn(overrides.listEinvoiceDocuments ?? (async () => [])),
     recordDocumentIfAbsent: vi.fn(
-      overrides.recordDocumentIfAbsent ?? (async () => ({ document: {}, created: true })),
+      overrides.recordDocumentIfAbsent ??
+        (async () => ({ document: { id: "einvdoc_01" }, created: true })),
     ),
     allocateNextNumber: vi.fn(async () => 1),
     recordRefusal: vi.fn(async (input: { code: string }) => ({
@@ -147,6 +149,7 @@ function makeContainer(
     [EINVOICE_MODULE, einvoiceService],
     [ContainerRegistrationKeys.QUERY, { graph }],
     [ContainerRegistrationKeys.LOGGER, mocks.logger],
+    [Modules.EVENT_BUS, mocks.eventBus],
   ]);
   const container = { resolve: (key: unknown) => registry.get(key) } as unknown as MedusaContainer;
   return { container, graph };
@@ -191,6 +194,27 @@ describe("invoiceOnFulfillmentCreated", () => {
     expect(graph).not.toHaveBeenCalled();
     expect(mocks.buildInvoice).not.toHaveBeenCalled();
     expect(einvoiceService.recordDocumentIfAbsent).not.toHaveBeenCalled();
+    // P-71: a redelivered event finds its document issued and announces nothing.
+    expect(mocks.eventBus.emit).not.toHaveBeenCalled();
+  });
+
+  it("announces the issued invoice to the shop's own subscribers, ids and number only (P-71)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer(einvoiceService);
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+    expect(mocks.eventBus.emit).toHaveBeenCalledWith({
+      name: "einvoice.document_issued",
+      data: {
+        schema_version: 1,
+        id: "einvdoc_01",
+        order_id: "order_01",
+        type: "invoice",
+        document_number: "RE-2026-0001",
+        fulfillment_id: "ful_01",
+      },
+    });
   });
 
   it("returns early when the order no longer exists by the time the subscriber runs", async () => {
@@ -360,6 +384,17 @@ describe("invoiceOnFulfillmentCreated", () => {
     const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
     expect(logged).toContain("INVOICE_VAT_ABOVE_CHARGED");
     expect(logged).not.toContain("buyer@example.test");
+    // P-71: the block is announced with its refusal's id and code.
+    expect(mocks.eventBus.emit).toHaveBeenCalledWith({
+      name: "einvoice.issuance_blocked",
+      data: {
+        schema_version: 1,
+        refusal_id: "einvref_1",
+        order_id: "order_01",
+        type: "invoice",
+        code: "INVOICE_VAT_ABOVE_CHARGED",
+      },
+    });
   });
 
   it("states the invoice as paid when the order was paid in full before it shipped (P-67)", async () => {

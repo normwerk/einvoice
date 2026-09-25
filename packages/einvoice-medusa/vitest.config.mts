@@ -23,6 +23,9 @@ export default defineConfig({
         //    doesn't cover — per-order ownership) is real logic and stays in scope, tested in
         //    `einvoice-http.test.ts`.
         "src/api/middlewares.ts",
+        //  - The order link (P-71): one `defineLink` call Medusa reads at boot — declarative, exercised by
+        //    the end-to-end suite's S19, which reads an order's documents through it.
+        "src/links/**",
         //  - MikroORM schema migrations: generated/declarative, not logic to unit-test.
         "src/modules/einvoice/migrations/**",
         //  - Type/interface-only file (T-117's tax-matrix harness) — no runtime statements to hit; v8

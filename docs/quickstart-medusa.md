@@ -270,6 +270,59 @@ note; for goodwill on an invoice, issue the credit note yourself.
 - **Storefront**: `GET /store/orders/:id/einvoice` — requires a logged-in customer who owns the order (a
   guest order has no way to authenticate as its own "customer" today, a known v0.1 limitation).
 
+## Sending the invoice to the buyer
+
+The plugin issues and stores documents; it sends nothing. It announces each document on Medusa's event bus
+instead — `einvoice.document_issued`, and `einvoice.issuance_blocked` for one it did not issue — so your own
+subscriber can mail it, pass it to accounting, or alert someone
+([the events and what they carry](features/einvoice-medusa.md#events-and-the-order-link--for-a-shops-own-code)).
+An example with Medusa's Notification Module — not part of the plugin; the template, and how your provider
+wants an attachment's content, are yours:
+
+```ts
+// src/subscribers/send-einvoice.ts
+import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
+import type { DocumentIssuedEvent, EinvoiceDocumentDTO } from "@normwerk/einvoice-medusa/events";
+
+export default async function sendEinvoice({
+  event: { data },
+  container,
+}: SubscriberArgs<DocumentIssuedEvent>): Promise<void> {
+  const query = container.resolve(ContainerRegistrationKeys.QUERY);
+  const { data: orders } = await query.graph({
+    entity: "order",
+    filters: { id: data.order_id },
+    fields: ["email", "einvoice_documents.*"],
+  });
+  const order = orders[0] as { email: string; einvoice_documents: EinvoiceDocumentDTO[] };
+  const document = order.einvoice_documents.find((d) => d.id === data.id);
+  if (document === undefined) return;
+
+  const fileId = document.pdf_file_id ?? document.xml_file_id;
+  const file = await container.resolve(Modules.FILE).retrieveFile(fileId);
+  const bytes = Buffer.from(await (await fetch(file.url)).arrayBuffer());
+
+  await container.resolve(Modules.NOTIFICATION).createNotifications({
+    to: order.email,
+    channel: "email",
+    template: "einvoice-issued",
+    data: { document_number: data.document_number, type: data.type },
+    attachments: [
+      {
+        filename: `${data.document_number}.${document.pdf_file_id ? "pdf" : "xml"}`,
+        content: bytes.toString("base64"),
+        content_type: document.pdf_file_id ? "application/pdf" : "application/xml",
+      },
+    ],
+    // An event can come more than once: one mail per document.
+    idempotency_key: `einvoice-issued:${data.id}`,
+  });
+}
+
+export const config: SubscriberConfig = { event: "einvoice.document_issued" };
+```
+
 ## Where to go next
 
 - [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) — exactly which Medusa field feeds
