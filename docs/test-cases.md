@@ -75,7 +75,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (211 tests)
+### `einvoice-medusa` (214 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -86,10 +86,12 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   methods as one document-level charge and promotions as line allowances) and `issueDateInSellerTimeZone`
   (the invoice date in Berlin, not UTC).
 - `src/mapping/charged-reconciliation.test.ts` — `reconcileWithCharged`, the invoice against what Medusa
-  charged: agreement within rounding issues; less VAT that explains the whole difference issues with a
-  notice — refund due with net prices, nothing to refund with gross prices, shipping split across rates
-  named as the cause; credit lines added back to `order.total`; more VAT than charged, other total
-  differences, mixed net and gross prices and missing totals block; the explanation names the amounts.
+  charged: agreement within rounding issues; with net prices, less VAT that explains the whole difference
+  issues with a refund-due notice; with gross prices and equal totals, a VAT difference either way issues
+  with a notice and nothing to refund (Medusa's VAT below the invoice's included); shipping split across
+  rates named as the cause, in either direction; credit lines added back to `order.total`; more VAT than
+  charged, other total differences, mixed net and gross prices and missing totals block; the explanation
+  names the amounts and which way Medusa's VAT differs.
 - `src/tax-matrix/tax-matrix.test.ts` (67 tests) — the tax-scenario fixture matrix: every
   `packages/einvoice-medusa/fixtures/tax-matrix/*` cell driven through the real, unmocked
   `mapOrderToCommerceInvoiceInput` → `buildInvoice`/`selectProfile` (two independent axes, not the
@@ -199,7 +201,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 18 files / 27 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 19 files / 28 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -211,7 +213,9 @@ admin API, the order corrected, the retry issues it; a refund made meanwhile ref
 retry), S14 (VIES unavailable: the invoice refused and recorded, retried after the VAT-ID was confirmed by
 hand), S15 (a 7 % / 19 % basket: shipping split into a charge per rate with the notice naming it as the
 cause; a received return credited at its own rate, a goodwill refund and the rest of a cancelled order
-credited per rate, every document KoSIT-green), idempotency (an event delivered to the
+credited per rate, every document KoSIT-green), S16 (prices including VAT, shipping without VAT in Medusa:
+the invoice takes 19% out of what was paid and is issued with a notice that Medusa counts less VAT),
+idempotency (an event delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option, a seller
 outside Germany),
 and tarball contents across all six published packages. Every invoice scenario also checks that the

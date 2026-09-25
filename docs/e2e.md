@@ -65,8 +65,9 @@ issued, so the stand charges real VAT: its German tax region carries the 19% sta
 one 21% — Medusa's built-in tax provider knows nothing of the intra-EU reverse charge, so a Spanish
 business buyer is charged VAT the invoice does not state (S12). The other countries carry no rate, so a
 French business buyer is charged no VAT, which is what category K and AE invoices show. S13 adds a 0% rate
-for the shipping option in Germany for its own run, and S15 a 7% rate for the sweatpants (standing in for a
-book), and each removes it again. The stand's clock is fixed (`EINVOICE_E2E_NOW`, 2026-01-15 by
+for the shipping option in Germany for its own run, S15 a 7% rate for the sweatpants (standing in for a
+book), and S16 the same 0% shipping rate with the region's prices switched to include VAT, and each removes
+it again. The stand's clock is fixed (`EINVOICE_E2E_NOW`, 2026-01-15 by
 default), so every document carries the same date on every run.
 
 Every container is torn down both before a run starts and after it finishes — pass, fail, or even a

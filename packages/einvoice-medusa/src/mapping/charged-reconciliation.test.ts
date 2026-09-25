@@ -107,6 +107,54 @@ describe("reconcileWithCharged (P-63)", () => {
     expect(result.priceBasis).toBe("gross");
   });
 
+  // P-70 (M-044): with gross prices the VAT is owed out of what the buyer paid (§10 Abs. 1 UStG), whichever
+  // figure Medusa computed — the invoice demands no money that was not taken.
+  it("gross prices: Medusa charged less VAT than the invoice states, totals equal — issued with a notice, not blocked", () => {
+    const grossOrder = order({
+      items: [{ title: "Widget", unit_price: 13.8, is_tax_inclusive: true }],
+      shipping_methods: [{ name: "Standard", is_tax_inclusive: true, tax_total: 0 }],
+      total: 23.8,
+      tax_total: 2.2,
+    });
+    const result = notice(reconcileWithCharged(grossOrder, invoice("23.80", "3.80")));
+    expect(result).toMatchObject({
+      code: "VAT_DIFFERS_FROM_MEDUSA",
+      charged: "23.80",
+      chargedVat: "2.20",
+      invoicedVat: "3.80",
+      refundDue: "0.00",
+      cause: null,
+    });
+  });
+
+  it("gross prices: names shipping split across rates when Medusa taxed shipping at the lower rate", () => {
+    // 107.00 at 7 % and 119.00 at 19 %, shipping 10.00 gross that Medusa taxed at 7 % (0.65); the invoice
+    // splits it by the lines' net amounts, 5.00 gross per rate: 0.33 + 0.80 VAT.
+    const grossOrder = order({
+      items: [
+        { title: "Book", unit_price: 107, is_tax_inclusive: true },
+        { title: "Lamp", unit_price: 119, is_tax_inclusive: true },
+      ],
+      shipping_methods: [{ name: "Standard", is_tax_inclusive: true, tax_total: 0.65 }],
+      total: 236,
+      tax_total: 26.65,
+    });
+    const result = notice(
+      reconcileWithCharged(
+        grossOrder,
+        invoice("236.00", "27.13", [
+          { amount: "4.67", vatRate: "7" },
+          { amount: "4.20", vatRate: "19" },
+        ]),
+      ),
+    );
+    expect(result).toMatchObject({
+      code: "VAT_DIFFERS_FROM_MEDUSA",
+      refundDue: "0.00",
+      cause: "shipping-split-across-rates",
+    });
+  });
+
   it("adds credit lines back: Medusa subtracts store credit, gift cards and refunds from order.total", () => {
     const result = reconcileWithCharged(
       order({ total: 99, tax_total: 19, credit_line_total: 20 }),
@@ -187,6 +235,24 @@ describe("describeChargedReconciliation (P-63)", () => {
       cause: null,
     });
     expect(text).toContain("overpaid 20.90");
+    expect(text).not.toMatch(/\b[TPMD]-\d{2,3}\b/);
+  });
+
+  it("says which way Medusa's VAT differs: less than the e-invoice's is owed anyway, out of what was paid", () => {
+    const text = describeChargedReconciliation({
+      code: "VAT_DIFFERS_FROM_MEDUSA",
+      charged: "23.80",
+      chargedVat: "2.20",
+      invoiced: "23.80",
+      invoicedVat: "3.80",
+      priceBasis: "gross",
+      refundDue: "0.00",
+      cause: null,
+    });
+    expect(text).toContain(
+      "Medusa counts only 2.20 of it as VAT, less than the 3.80 the e-invoice states",
+    );
+    expect(text).toContain("shipping option");
     expect(text).not.toMatch(/\b[TPMD]-\d{2,3}\b/);
   });
 });

@@ -6,12 +6,16 @@
  * states is owed, whatever was charged.
  *
  * - They agree → the invoice is issued.
- * - The invoice states less VAT than Medusa charged, and that alone explains the whole difference → the
- *   invoice is issued with a notice. Net prices: the buyer paid the VAT on top and overpaid by the
- *   difference, which the merchant refunds. Gross prices: the buyer paid the invoice total, and only
- *   Medusa's VAT figure differs.
- * - Anything else — the invoice states more VAT than was charged, or the totals differ for another reason
- *   (a mapping gap, prices that mix net and gross) → the invoice is not issued.
+ * - Net prices: the invoice states less VAT than Medusa charged, and that alone explains the whole
+ *   difference → the invoice is issued with a notice. The buyer paid the VAT on top and overpaid by the
+ *   difference, which the merchant refunds.
+ * - Gross prices: the totals agree and only the VAT differs, in either direction → the invoice is issued
+ *   with a notice (P-70, M-044). The buyer paid the invoice total; the consideration is what was received
+ *   less the VAT (§10 Abs. 1 UStG), so the VAT the invoice takes out of it is owed whatever Medusa computed.
+ *   §14c Abs. 1 bites on VAT above what the law requires, not above Medusa's figure. Nothing to refund —
+ *   only Medusa's VAT figure is wrong, and its reports with it.
+ * - Anything else — with net prices the invoice states more VAT than was charged, or the totals differ for
+ *   another reason (a mapping gap, prices that mix net and gross) → the invoice is not issued.
  *
  * What the buyer paid is `order.total` plus `order.credit_line_total`: Medusa subtracts credit lines from
  * the total, and they are payments, not price reductions — store credit and gift cards applied at checkout
@@ -175,25 +179,31 @@ export function reconcileWithCharged(
   if (within(vatDifference) && within(totalDifference)) {
     return { outcome: "match" };
   }
-  if (vatDifference > tolerance) {
-    const cause = shippingSplitCause(order, invoice, vatDifference, tolerance);
-    if (priceBasis === "net" && within(totalDifference - vatDifference)) {
-      return {
-        outcome: "notice",
-        notice: {
-          ...comparison,
-          code: "VAT_OVERCHARGED",
-          refundDue: amount(totalDifference),
-          cause,
-        },
-      };
-    }
-    if (priceBasis === "gross" && within(totalDifference)) {
-      return {
-        outcome: "notice",
-        notice: { ...comparison, code: "VAT_DIFFERS_FROM_MEDUSA", refundDue: "0.00", cause },
-      };
-    }
+  if (priceBasis === "gross" && within(totalDifference)) {
+    return {
+      outcome: "notice",
+      notice: {
+        ...comparison,
+        code: "VAT_DIFFERS_FROM_MEDUSA",
+        refundDue: "0.00",
+        cause: shippingSplitCause(order, invoice, vatDifference, tolerance),
+      },
+    };
+  }
+  if (
+    priceBasis === "net" &&
+    vatDifference > tolerance &&
+    within(totalDifference - vatDifference)
+  ) {
+    return {
+      outcome: "notice",
+      notice: {
+        ...comparison,
+        code: "VAT_OVERCHARGED",
+        refundDue: amount(totalDifference),
+        cause: shippingSplitCause(order, invoice, vatDifference, tolerance),
+      },
+    };
   }
   return {
     outcome: "block",
@@ -220,12 +230,16 @@ export function describeChargedReconciliation(result: InvoiceNotice | InvoiceBlo
         "them the difference. A refund of up to that amount issues no credit note: the e-invoice is correct."
       );
     case "VAT_DIFFERS_FROM_MEDUSA":
-      return (
-        because +
-        `The buyer paid ${charged}, the e-invoice total. Medusa counts ${chargedVat} of it as VAT, the ` +
-        `e-invoice ${invoicedVat}: nothing to refund, but take VAT from the e-invoices, not from Medusa's ` +
-        "order totals, and check Medusa's tax settings for this region."
-      );
+      return Number(chargedVat) < Number(invoicedVat)
+        ? because +
+            `The buyer paid ${charged}, the e-invoice total. Medusa counts only ${chargedVat} of it as VAT, ` +
+            `less than the ${invoicedVat} the e-invoice states: that VAT is owed out of what the buyer paid ` +
+            "either way. Nothing to refund — take VAT from the e-invoices, not from Medusa's order totals, and " +
+            "check the tax rates of this order's shipping option and region in Medusa."
+        : because +
+            `The buyer paid ${charged}, the e-invoice total. Medusa counts ${chargedVat} of it as VAT, the ` +
+            `e-invoice ${invoicedVat}: nothing to refund, but take VAT from the e-invoices, not from Medusa's ` +
+            "order totals, and check Medusa's tax settings for this region.";
     case "INVOICE_VAT_ABOVE_CHARGED":
       return (
         `Not issued: the e-invoice would state ${invoicedVat} VAT (total ${invoiced}), more than the ` +

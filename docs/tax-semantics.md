@@ -235,15 +235,21 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   subtracts credit lines from the total, and they are payments (store credit, gift cards, and every refund
   Medusa records), not price reductions — before it takes a document number:
   - they agree within rounding (a cent for each independently rounded amount) → issued;
-  - the invoice states less VAT, and that explains the whole difference → issued with a notice. With net
-    prices the buyer paid that VAT on top and overpaid; the notice says how much to refund. Returning the
+  - net prices, and the invoice states less VAT, which explains the whole difference → issued with a
+    notice. The buyer paid that VAT on top and overpaid; the notice says how much to refund. Returning the
     overpayment brings the payment down to a correct invoice, so no credit note is needed (§17 UStG): a
-    refund first returns the overpayment and credits only what goes beyond it. With gross prices the
-    buyer paid the invoice total, nothing is to be refunded, and only Medusa's VAT figure is wrong — take
-    VAT from the invoices, not from Medusa's order totals. When the invoice splits shipping across the
-    order's VAT rates and Medusa taxed it at one, the notice names that as the cause;
-  - anything else — the invoice would state more VAT than was charged, or the totals differ for another
-    reason, or the order mixes prices with and without VAT → not issued. The reason, with the amounts, is
+    refund first returns the overpayment and credits only what goes beyond it;
+  - gross prices, the totals agree and only the VAT differs, in either direction → issued with a notice.
+    The buyer paid the invoice total; the consideration is what was received less the VAT (§10 Abs. 1
+    UStG), so the VAT the invoice takes out of it is owed whatever Medusa computed, and §14c Abs. 1 applies
+    to VAT above what the law requires, not above Medusa's figure. Nothing is to be refunded; only
+    Medusa's VAT figure is wrong — take VAT from the invoices, not from Medusa's order totals. Where Medusa
+    counts less VAT than the invoice, its reports understate the VAT owed; the usual cause is a shipping
+    option or region without the right tax rate;
+  - when the invoice splits shipping across the order's VAT rates and Medusa taxed it at one, the notice
+    names that as the cause;
+  - anything else — the invoice would state more VAT than was charged and a higher total than was paid, or
+    the totals differ for another reason, or the order mixes prices with and without VAT → not issued. The reason, with the amounts, is
     shown on the order, and the invoice can be issued again once the order is corrected.
 
   Credit notes are not compared: they are built from what was refunded, not from the order's total.

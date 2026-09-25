@@ -200,12 +200,14 @@ credit, gift cards and refunds are payments), and the outcome shows in the order
   notice names with an ordinary refund in Medusa. That refund issues no credit note — a refund beyond it
   credits only the part beyond it.
 - **Issued, "VAT differs from Medusa"** (`VAT_DIFFERS_FROM_MEDUSA`) — prices including VAT; the buyer paid
-  exactly the invoice total, so there is nothing to refund, but Medusa's order counts VAT that is not on
-  the invoice. Take VAT for your returns from the invoices, not from Medusa's order totals. A business
-  buyer then pays your gross price without the VAT deducted; if you sell to businesses in other EU
-  countries, a separate price list with net prices for them avoids it.
-- **"Invoice not issued"** — the invoice would state more VAT than Medusa charged
-  (`INVOICE_VAT_ABOVE_CHARGED`: VAT on an invoice is owed, §14c UStG, whatever was charged), or the totals
+  exactly the invoice total, so there is nothing to refund, but Medusa counts a different VAT than the
+  invoice. Take VAT for your returns from the invoices, not from Medusa's order totals. When Medusa counts
+  more VAT (an intra-EU business buyer at 0%), a business buyer pays your gross price without the VAT
+  deducted; if you sell to businesses in other EU countries, a separate price list with net prices for
+  them avoids it. When Medusa counts less, the invoice's VAT is still owed out of what the buyer paid —
+  check the tax rate of the shipping option and the region in Medusa, whose reports understate the VAT.
+- **"Invoice not issued"** — the invoice would state more VAT than Medusa charged, and so a higher total
+  than the buyer paid (`INVOICE_VAT_ABOVE_CHARGED`: VAT on an invoice is owed, §14c UStG, whatever was charged), or the totals
   differ for another reason (`INVOICE_TOTAL_MISMATCH`), or Medusa returned no totals
   (`CHARGED_TOTALS_MISSING`). No document number is taken. The block shows the reason with the amounts.
   Correct the cause — usually a tax region, product or shipping option charging the wrong rate — and then
