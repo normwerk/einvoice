@@ -68,8 +68,7 @@ Where a correct invoice cannot be derived, the plugin refuses and names the reas
   the EU/EEA, Switzerland and the UK;
 - goods to a business in another EU member state whose VAT-ID has not been verified;
 - business services to a buyer outside the EU, for which there is no settled basis yet;
-- a domestic line that Medusa charged at a rate other than 19% or 7%;
-- a partial refund of an order with more than one VAT rate — credit it by hand.
+- a domestic line that Medusa charged at a rate other than 19% or 7%.
 
 The full list, each with its reason, is in [`docs/tax-semantics.md`](docs/tax-semantics.md). Corrected
 invoices (document type 384) are not produced; corrections are credit notes.
