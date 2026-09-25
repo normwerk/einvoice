@@ -20,8 +20,8 @@ pnpm install
 pnpm e2e
 ```
 
-One command. It publishes this repo's own packages to a disposable local registry (Verdaccio, torn down
-with everything else afterward), builds and boots a real Medusa v2 app that installs them from there,
+One command. It builds this repo's own packages and publishes them to a disposable local registry (Verdaccio,
+torn down with everything else afterward), builds and boots a real Medusa v2 app that installs them from there,
 drives it through the real Admin/Store HTTP APIs — a cart, an order, a fulfillment, a refund — and checks
 the e-invoice XML/PDF it produces against the real KoSIT Validator and veraPDF, the same tools
 [`docs/README.md`](README.md#conformance-validators) uses for the fixture suite.

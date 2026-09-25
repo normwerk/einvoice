@@ -35,15 +35,17 @@ async function npmView(spec: string, field: string): Promise<string> {
   }
 }
 
-/** The plugin's own list of supported releases (`packages/einvoice-medusa/src/medusa-version.ts`), from its
- * build — the suite only ever runs a built plugin, since it publishes the build. */
-const { isSupportedMedusaVersion } = createRequire(import.meta.url)(
-  "../../../packages/einvoice-medusa/.medusa/server/src/medusa-version.js",
-) as { readonly isSupportedMedusaVersion: (version: string) => boolean };
-
 /** Outside the plugin's supported releases its peer ranges do not match, so npm installs it only with
- * `--legacy-peer-deps` — and the plugin itself refuses to start there (UnsupportedMedusaVersionError). */
+ * `--legacy-peer-deps` — and the plugin itself refuses to start there (UnsupportedMedusaVersionError).
+ *
+ * The list is the plugin's own (`packages/einvoice-medusa/src/medusa-version.ts`), read from its build — the
+ * suite only ever runs a built plugin, since it publishes the build. Loaded on call, not on import: the build
+ * does not exist before `global-setup.ts` runs it (a clean checkout, CI), and one left over from an earlier
+ * run may carry an older list. */
 function outsidePeerRange(version: string): boolean {
+  const { isSupportedMedusaVersion } = createRequire(import.meta.url)(
+    "../../../packages/einvoice-medusa/.medusa/server/src/medusa-version.js",
+  ) as { readonly isSupportedMedusaVersion: (version: string) => boolean };
   return !isSupportedMedusaVersion(version);
 }
 

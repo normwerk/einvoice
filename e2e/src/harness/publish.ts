@@ -62,10 +62,10 @@ async function stripProvenance(tarballPath: string, workDir: string): Promise<st
  * first — which still does the real `workspace:*` → resolved-version rewrite a release depends on — then
  * has only its own `publishConfig.provenance` stripped from that disposable, already-built copy before
  * publishing it from the patched tarball. The committed `package.json` this repo ships is never touched.
+ *
+ * Packs whatever is built: `global-setup.ts` runs the build first (`buildPackages`).
  */
 export async function publishToVerdaccio(): Promise<void> {
-  await execFileAsync("pnpm", ["-r", "build"], { cwd: REPO_ROOT, maxBuffer: 64 * 1024 * 1024 });
-
   const workDir = await mkdtemp(path.join(tmpdir(), "einvoice-e2e-publish-"));
   const npmrcPath = path.join(workDir, ".npmrc");
   const verdaccioHost = new URL(VERDACCIO_URL).host;

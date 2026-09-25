@@ -30,6 +30,12 @@ async function buildConformanceImages(): Promise<void> {
   );
 }
 
+/** Builds every workspace package — what `publishToVerdaccio` packs, and the plugin's list of supported
+ * releases `prepareMedusaVersion` reads — so both come from this checkout, not from an earlier build. */
+async function buildPackages(): Promise<void> {
+  await execFileAsync("pnpm", ["-r", "build"], { cwd: REPO_ROOT, maxBuffer: 64 * 1024 * 1024 });
+}
+
 /**
  * Vitest's `globalSetup` — runs exactly once before any scenario file, in the main process (not per
  * worker), which is why the stand's lifecycle lives here rather than in a per-file `beforeAll`
@@ -47,6 +53,7 @@ export default async function setup(): Promise<() => Promise<void>> {
   // guarantees every run starts against nothing, never whatever docker still happens to have lying
   // around. Cleanup at the end (below) is politeness; cleanup at the start is the actual guarantee.
   await down();
+  await buildPackages();
 
   const medusaVersion = process.env["EINVOICE_E2E_MEDUSA_VERSION"];
   if (medusaVersion !== undefined && medusaVersion !== "") {

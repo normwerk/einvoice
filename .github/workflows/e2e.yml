@@ -31,16 +31,19 @@ jobs:
 
       # `fast` profile only (plan-e2e.md §9's own descope rung 1) — the `fresh` profile
       # (`create-medusa-app@latest`) and a Medusa-version matrix are deferred, tracked separately, not run
-      # here yet. `pnpm e2e` itself builds the two conformance validator images (kosit, verapdf) it needs.
+      # here yet. `pnpm e2e` itself builds the packages and the two conformance validator images (kosit, verapdf)
+      # it needs.
       - run: pnpm e2e
 
       # One run, one findable output (plan-e2e.md §5 rule 6) — written by the harness's own globalTeardown
-      # whether the run passed or failed.
+      # whether the run passed or failed. `include-hidden-files`: the action skips any path whose own name
+      # starts with a dot, the search root `.artifacts` included, so without it nothing is ever uploaded.
       - name: Upload stand logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-logs
           path: e2e/.artifacts/
+          include-hidden-files: true
           retention-days: 7
           if-no-files-found: ignore
