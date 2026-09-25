@@ -27,6 +27,7 @@ import {
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
   type MedusaOrderForInvoice,
+  type ShipmentScope,
   UNALLOCATED_DOCUMENT_NUMBER,
 } from "../mapping/order-to-commerce-invoice-input.js";
 import {
@@ -35,6 +36,7 @@ import {
   extractIssueDateFromCii,
   rateKey,
   returnsToCredit,
+  decideCreditScope,
   toPartialCreditNoteInput,
   type CreditScope,
   type MedusaReturnForCredit,
@@ -58,28 +60,34 @@ export interface CreditBasis {
   readonly invoicedLines: readonly InvoicedLine[];
 }
 
-/** Reads the order's invoice and credit notes back from the File Module. `undefined` when the order has
- * no invoice from this plugin. */
+/** P-67: the order's invoices — one per fulfillment. */
+export async function listOrderInvoices(
+  einvoiceService: EinvoiceModuleService,
+  orderId: string,
+): Promise<readonly EinvoiceDocumentRecord[]> {
+  return (await einvoiceService.listEinvoiceDocuments(
+    { type: "invoice", order_id: orderId },
+    { order: { created_at: "ASC" } },
+  )) as unknown as EinvoiceDocumentRecord[];
+}
+
+/** Reads one invoice and the credit notes that correct it back from the File Module (P-67: an order can
+ * have several invoices; a credit note names the one it corrects). */
 export async function loadCreditBasis(
   container: MedusaContainer,
   einvoiceService: EinvoiceModuleService,
-  orderId: string,
-): Promise<CreditBasis | undefined> {
-  const invoices = await einvoiceService.listEinvoiceDocuments({
-    type: "invoice",
-    order_id: orderId,
-  });
-  const invoice = invoices[0] as EinvoiceDocumentRecord | undefined;
-  if (invoice === undefined) {
-    return undefined;
-  }
+  invoice: EinvoiceDocumentRecord,
+): Promise<CreditBasis> {
   const invoiceXml = Buffer.from(await fetchFileBytes(container, invoice.xml_file_id)).toString(
     "utf-8",
   );
-  const creditNotes = (await einvoiceService.listEinvoiceDocuments({
+  const orderCreditNotes = (await einvoiceService.listEinvoiceDocuments({
     type: "credit_note",
-    order_id: orderId,
-  })) as EinvoiceDocumentRecord[];
+    order_id: invoice.order_id,
+  })) as unknown as EinvoiceDocumentRecord[];
+  const creditNotes = orderCreditNotes.filter(
+    (creditNote) => creditNote.corrected_document_id === invoice.id,
+  );
   const creditedTotals: Amount[] = [];
   const uncreditedCents = new Map<string, number>(
     extractGrossByRateFromCii(invoiceXml).map((entry) => [
@@ -109,8 +117,28 @@ export async function loadCreditBasis(
       rate,
       gross: (Math.max(0, cents) / 100).toFixed(2),
     })),
-    coveredReturns: creditNotes.flatMap((creditNote) => creditNote.covered_returns ?? []),
+    // A received return is paid for once across the order, whichever invoice it was credited on.
+    coveredReturns: orderCreditNotes.flatMap((creditNote) => creditNote.covered_returns ?? []),
     invoicedLines: invoice.line_values ?? [],
+  };
+}
+
+/** P-67: what an invoice covered, for a credit note that restates it — its lines, units and discount
+ * shares, and the shipping if it carried it. An invoice without stored lines restates the whole order. */
+function invoiceShipment(
+  invoice: EinvoiceDocumentRecord,
+  deliveryDate: IsoDate,
+): ShipmentScope | undefined {
+  const lines = invoice.line_values ?? [];
+  if (lines.length === 0) return undefined;
+  return {
+    lines: lines.map((line) => ({
+      itemId: line.itemId,
+      quantity: line.quantity,
+      allowance: line.allowance ?? "0.00",
+    })),
+    includesShipping: invoice.includes_shipping,
+    deliveryDate,
   };
 }
 
@@ -135,7 +163,7 @@ export interface IssueCreditNoteInput {
 /** P-65: the order's returns — what a partial credit pays for first. Queried as returns, not through the
  * order: `order.returns.items` comes back without `received_quantity` (checked on Medusa 2.21), which the
  * return entity itself does return. */
-async function loadReturnsForCredit(
+export async function loadReturnsForCredit(
   container: MedusaContainer,
   orderId: string,
 ): Promise<readonly MedusaReturnForCredit[]> {
@@ -197,6 +225,7 @@ export async function issueCreditNote({
       issueDate,
       payment: einvoiceService.options.payment,
       ossRegistered: einvoiceService.options.ossRegistered,
+      shipment: invoiceShipment(basis.invoice, issueDate),
       correctedInvoice: {
         number: basis.invoice.document_number,
         issueDate: basis.invoiceIssueDate,
@@ -331,6 +360,7 @@ export async function issueCreditNote({
     xmlFileId: stored.xmlFileId,
     pdfFileId: stored.pdfFileId,
     coveredReturns: coveredReturns.length > 0 ? coveredReturns : null,
+    correctedDocumentId: basis.invoice.id,
   });
 
   if (!result.created) {
@@ -343,4 +373,51 @@ export async function issueCreditNote({
   }
   await einvoiceService.clearRefusal("credit_note", idempotencyKey);
   return { kind: "issued", documentNumber };
+}
+
+export interface CreditRemainderRequest {
+  /** Per cancelled fulfillment, or per invoice of a cancelled order — the `(credit_note, key)` pair is unique. */
+  readonly idempotencyKey: string;
+  readonly trigger: CreditNoteTrigger;
+}
+
+/**
+ * P-67: credits what is left of one invoice — a cancelled fulfillment's, or each invoice of a cancelled order:
+ * the whole invoice restated when nothing was credited before, otherwise one line per rate over the rest
+ * (`decideCreditScope`). `undefined` when there is nothing left, or the key already has its credit note.
+ */
+export async function creditInvoiceRemainder(
+  container: MedusaContainer,
+  einvoiceService: EinvoiceModuleService,
+  order: MedusaOrderForInvoice,
+  invoice: EinvoiceDocumentRecord,
+  { idempotencyKey, trigger }: CreditRemainderRequest,
+): Promise<IssueCreditNoteOutcome | undefined> {
+  const existing = await einvoiceService.listEinvoiceDocuments({
+    type: "credit_note",
+    idempotency_key: idempotencyKey,
+  });
+  if (existing.length > 0) {
+    return undefined;
+  }
+  const basis = await loadCreditBasis(container, einvoiceService, invoice);
+  const scope = decideCreditScope({
+    requested: basis.invoiceTotal,
+    invoiceTotal: basis.invoiceTotal,
+    creditedTotals: basis.creditedTotals,
+    tolerance: creditTolerance(order),
+  });
+  if (scope.kind === "none") {
+    return undefined;
+  }
+  return issueCreditNote({
+    container,
+    einvoiceService,
+    order,
+    basis,
+    scope,
+    idempotencyKey,
+    reason: "cancellation",
+    trigger,
+  });
 }

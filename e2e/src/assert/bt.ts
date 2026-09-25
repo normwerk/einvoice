@@ -176,3 +176,26 @@ export function lineNames(xml: string): readonly string[] {
     ),
   ].map((match) => match[1] as string);
 }
+
+/** P-67: BT-113, what the buyer already paid — `ram:TotalPrepaidAmount`; `undefined` when not stated. */
+export function paidAmount(xml: string): number | undefined {
+  const match = /<ram:TotalPrepaidAmount>([^<]+)<\/ram:TotalPrepaidAmount>/.exec(xml);
+  return match === null ? undefined : Number(match[1]);
+}
+
+/** P-67: BT-115, the amount due — `ram:DuePayableAmount`. */
+export function duePayableAmount(xml: string): number {
+  return Number(
+    requireMatch(xml, /<ram:DuePayableAmount>([^<]+)<\/ram:DuePayableAmount>/, "BT-115"),
+  );
+}
+
+/** P-67: BT-72, the actual delivery date — `ram:ActualDeliverySupplyChainEvent`, as `YYYY-MM-DD`. */
+export function deliveryDate(xml: string): string {
+  const digits = requireMatch(
+    xml,
+    /<ram:ActualDeliverySupplyChainEvent>\s*<ram:OccurrenceDateTime>\s*<udt:DateTimeString[^>]*>(\d{8})<\/udt:DateTimeString>/,
+    "BT-72 (delivery date)",
+  );
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}

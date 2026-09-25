@@ -5,7 +5,9 @@ import type { CommerceInvoiceInput } from "@normwerk/einvoice-commerce" with {
 import {
   creditableRefund,
   extractGrossByRateFromCii,
+  chooseRefundInvoice,
   invoicedLineValues,
+  returnedItemIdsToCredit,
   returnsToCredit,
   decideCreditScope,
   extractGrandTotalFromCii,
@@ -241,18 +243,64 @@ describe("reading a document's amounts per rate back, and the returns still to c
     ]);
   });
 
-  it("records each order line as the invoice stated it: its item, rate, quantity and gross amount", () => {
+  it("records each order line as the invoice stated it: its item, rate, quantity, gross amount and discount share", () => {
     expect(
       invoicedLineValues(
-        [{ id: "item_widget" }, { id: "item_book" }],
+        [{ itemId: "item_widget", allowance: "4.00" }, { itemId: "item_book" }],
         [
           { quantity: "2", netAmount: "200.00", vat: { rate: "19" } },
           { quantity: "1", netAmount: "10.00", vat: { rate: "7.00" } },
         ],
       ),
     ).toEqual([
-      { itemId: "item_widget", rate: "19", quantity: "2", gross: "238.00" },
+      { itemId: "item_widget", rate: "19", quantity: "2", gross: "238.00", allowance: "4.00" },
       { itemId: "item_book", rate: "7", quantity: "1", gross: "10.70" },
     ]);
+  });
+});
+
+describe("chooseRefundInvoice (P-67)", () => {
+  const shirt = { itemId: "item_shirt", rate: "19", quantity: "1", gross: "23.80" };
+  const book = { itemId: "item_book", rate: "7", quantity: "1", gross: "10.70" };
+  const first = { invoiceId: "inv_1", invoicedLines: [shirt], uncredited: "23.80" };
+  const second = { invoiceId: "inv_2", invoicedLines: [book], uncredited: "10.70" };
+
+  it("credits the one invoice with something left, once every unit shipped", () => {
+    expect(chooseRefundInvoice([first, { ...second, uncredited: "0.00" }], false, [])).toBe(first);
+  });
+
+  it("credits the invoice that holds every received return's goods", () => {
+    expect(chooseRefundInvoice([first, second], false, ["item_book"])).toBe(second);
+    expect(chooseRefundInvoice([first], true, ["item_shirt"])).toBe(first);
+  });
+
+  it("does not guess between invoices, or while part of the order is unshipped", () => {
+    expect(chooseRefundInvoice([first, second], false, [])).toBeUndefined();
+    expect(chooseRefundInvoice([first], true, [])).toBeUndefined();
+    expect(
+      chooseRefundInvoice([first, second], false, ["item_shirt", "item_book"]),
+    ).toBeUndefined();
+  });
+});
+
+describe("returnedItemIdsToCredit (P-67)", () => {
+  const invoiced = [{ itemId: "item_shirt", rate: "19", quantity: "2", gross: "47.60" }];
+  const received = {
+    id: "ret_1",
+    status: "received",
+    received_at: "2026-09-20T10:00:00Z",
+    items: [{ item_id: "item_shirt", received_quantity: 1 }],
+  };
+
+  it("names the goods of received returns no credit note paid for yet", () => {
+    expect(returnedItemIdsToCredit([received], invoiced, [])).toEqual(["item_shirt"]);
+    expect(
+      returnedItemIdsToCredit([received], invoiced, [
+        { returnId: "ret_1", rate: "19", gross: "23.80" },
+      ]),
+    ).toEqual([]);
+    expect(returnedItemIdsToCredit([{ ...received, status: "requested" }], invoiced, [])).toEqual(
+      [],
+    );
   });
 });

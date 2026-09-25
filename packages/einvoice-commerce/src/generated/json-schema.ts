@@ -81,6 +81,15 @@ export const commerceInvoiceInputJsonSchema = {
         "$ref": "#/definitions/CommerceCharge"
       }
     },
+    "chargeSplitLines": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/CommerceLine"
+      }
+    },
+    "paidAmount": {
+      "$ref": "#/definitions/Amount"
+    },
     "payment": {
       "type": "object",
       "properties": {

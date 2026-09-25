@@ -110,4 +110,6 @@ export type CommerceErrorCode =
    * please report it. */
   | "INVALID_ASSEMBLED_INVOICE"
   /** A credit exceeds what is still uncredited on the invoice it corrects. */
-  | "CREDIT_EXCEEDS_INVOICE";
+  | "CREDIT_EXCEEDS_INVOICE"
+  /** The amount stated as already paid is negative or more than the invoice total. */
+  | "INVALID_PAID_AMOUNT";

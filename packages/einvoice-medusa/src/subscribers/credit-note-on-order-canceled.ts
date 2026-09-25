@@ -1,5 +1,5 @@
 /**
- * P-41: `order.canceled` → a credit note for whatever is still outstanding on the order's invoice.
+ * P-41: `order.canceled` → a credit note for whatever is still outstanding on the order's invoices.
  *
  * Medusa only cancels an order once all its fulfillments are cancelled — so an order this plugin invoiced
  * (on `order.fulfillment_created`) and that is then cancelled still carries that invoice, and it must be
@@ -8,9 +8,12 @@
  * `payment.refunded` — so before this subscriber a cancelled, invoiced order got no credit note at all. The
  * event carries `{ id }`, the order's id (`OrderWorkflowEvents.CANCELED`, same source).
  *
- * Credits everything outstanding: the whole order when nothing was credited before, otherwise one line over
- * the rest (`decideCreditScope`) — never more than the invoice, even if a `payment.refunded` for the same
- * money is handled too.
+ * P-67: each fulfillment has its own invoice, and cancelling a fulfillment credits its invoice
+ * (`credit-note-on-fulfillment-canceled.ts`) — so by the time the order is cancelled, its invoices are
+ * normally credited already. This subscriber credits what is left of any invoice whose fulfillment is still
+ * standing, one credit note per invoice; an invoice of a cancelled fulfillment is that subscriber's, so the
+ * two never credit the same invoice at once. Never more than an invoice, even if a `payment.refunded` for
+ * the same money is handled too (`decideCreditScope`).
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { SubscriberArgs, SubscriberConfig } from "@medusajs/framework";
@@ -20,12 +23,8 @@ import {
   ORDER_QUERY_FIELDS,
   type MedusaOrderForInvoice,
 } from "../mapping/order-to-commerce-invoice-input.js";
-import { decideCreditScope } from "../mapping/credit-note.js";
-import {
-  creditTolerance,
-  issueCreditNote,
-  loadCreditBasis,
-} from "../credit-notes/issue-credit-note.js";
+import { creditInvoiceRemainder, listOrderInvoices } from "../credit-notes/issue-credit-note.js";
+import { standingInvoices } from "../invoices/issue-invoice.js";
 
 interface OrderCanceledEventData {
   readonly id: string;
@@ -40,17 +39,8 @@ export default async function creditNoteOnOrderCanceled({
   // P-66: a cancelled order needs no invoice — a refused one is no longer to be retried.
   await einvoiceService.clearRefusalsOfOrder("invoice", data.id);
 
-  const idempotencyKey = `order.canceled:${data.id}`;
-  const existing = await einvoiceService.listEinvoiceDocuments({
-    type: "credit_note",
-    idempotency_key: idempotencyKey,
-  });
-  if (existing.length > 0) {
-    return;
-  }
-
-  const basis = await loadCreditBasis(container, einvoiceService, data.id);
-  if (basis === undefined) {
+  const invoices = await listOrderInvoices(einvoiceService, data.id);
+  if (invoices.length === 0) {
     // Cancelled before it was ever invoiced — nothing to correct.
     return;
   }
@@ -66,25 +56,12 @@ export default async function creditNoteOnOrderCanceled({
     return;
   }
 
-  const scope = decideCreditScope({
-    requested: basis.invoiceTotal,
-    invoiceTotal: basis.invoiceTotal,
-    creditedTotals: basis.creditedTotals,
-    tolerance: creditTolerance(order),
-  });
-  if (scope.kind === "none") {
-    return;
+  for (const invoice of standingInvoices(order, invoices)) {
+    await creditInvoiceRemainder(container, einvoiceService, order, invoice, {
+      idempotencyKey: `order.canceled:${invoice.id}`,
+      trigger: { event: "order.canceled" },
+    });
   }
-  await issueCreditNote({
-    container,
-    einvoiceService,
-    order,
-    basis,
-    scope,
-    idempotencyKey,
-    reason: "cancellation",
-    trigger: { event: "order.canceled" },
-  });
 }
 
 export const config: SubscriberConfig = {

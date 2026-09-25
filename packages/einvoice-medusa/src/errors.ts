@@ -31,6 +31,15 @@ export type PluginErrorCode =
   /** A refund or cancellation for an order whose invoice the plugin did not issue — not yet, or before the
    * plugin was installed. Issue the invoice first, then retry the credit note. */
   | "MISSING_ORIGINAL_INVOICE"
+  /** A fulfillment ships an order line the order no longer states a price for — every unit of it came back
+   * before the invoice was issued. Issue this invoice outside the plugin. */
+  | "SHIPMENT_LINE_UNKNOWN"
+  /** A refund the plugin cannot tie to one invoice: the order was invoiced per shipment, or part of it is
+   * paid but not shipped yet, and the refund names no goods that came back. A refund for goods never
+   * shipped needs no credit note; for anything else, issue the credit note outside the plugin. */
+  | "REFUND_NEEDS_MANUAL_CREDIT"
+  /** A fulfillment the plugin was asked to invoice is not on the order any more. */
+  | "FULFILLMENT_MISSING"
   /** An unexpected error — a defect, or a failure of Medusa or a service it calls. The message says what
    * happened; retry, and report it if it persists. */
   | "INTERNAL_ERROR"

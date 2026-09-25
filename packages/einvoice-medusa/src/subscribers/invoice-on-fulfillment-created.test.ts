@@ -93,12 +93,23 @@ const ORDER = {
   shipping_address: null,
   items: [
     {
+      id: "item_01",
       title: "Widget",
       variant_sku: "WID-1",
       unit_price: 100,
       is_tax_inclusive: false,
       tax_lines: [{ rate: 19 }],
       detail: { quantity: 2 },
+      total: 238,
+      tax_total: 38,
+    },
+  ],
+  // P-67: the fulfillment the invoice is for, shipping the whole order.
+  fulfillments: [
+    {
+      id: "ful_01",
+      created_at: "2026-01-15T09:00:00Z",
+      items: [{ line_item_id: "item_01", quantity: 2 }],
     },
   ],
   total: 238,
@@ -320,8 +331,12 @@ describe("invoiceOnFulfillmentCreated", () => {
 
   it("does not issue an invoice stating more VAT than Medusa charged: records why, takes no number, stores nothing (P-63)", async () => {
     const einvoiceService = makeEinvoiceService();
-    // Medusa charged 200.00 without VAT; the invoice would say 238.00 with 38.00 VAT.
-    const { container } = makeContainer(einvoiceService, [{ ...ORDER, total: 200, tax_total: 0 }]);
+    // Medusa charged 200.00 without VAT; the invoice would say 238.00 with 38.00 VAT. P-69: compared with
+    // what Medusa charged for the fulfillment's lines.
+    const charged = { ...ORDER.items[0], total: 200, tax_total: 0 };
+    const { container } = makeContainer(einvoiceService, [
+      { ...ORDER, items: [charged], total: 200, tax_total: 0 },
+    ]);
 
     await invoiceOnFulfillmentCreated(
       makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
@@ -345,6 +360,42 @@ describe("invoiceOnFulfillmentCreated", () => {
     const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
     expect(logged).toContain("INVOICE_VAT_ABOVE_CHARGED");
     expect(logged).not.toContain("buyer@example.test");
+  });
+
+  it("states the invoice as paid when the order was paid in full before it shipped (P-67)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer(einvoiceService, [
+      { ...ORDER, payment_collections: [{ captured_amount: 238, refunded_amount: 0 }] },
+    ]);
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+    // The check build states no payment; the real one states the whole total as paid (BT-113).
+    const calls = mocks.buildInvoice.mock.calls as unknown as [{ paidAmount?: string }][];
+    expect(calls.map(([input]) => input.paidAmount)).toEqual([undefined, "238.00"]);
+  });
+
+  it("invoices nothing for a fulfillment cancelled before its invoice was issued (P-67)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const canceled = { ...ORDER.fulfillments[0], canceled_at: "2026-01-16T09:00:00Z" };
+    const { container } = makeContainer(einvoiceService, [{ ...ORDER, fulfillments: [canceled] }]);
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
+    expect(einvoiceService.clearRefusal).toHaveBeenCalledWith("invoice", "ful_01");
+  });
+
+  it("records a fulfillment the order does not have as a refusal (P-67)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const { container } = makeContainer(einvoiceService);
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_99" }),
+    );
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: "ful_99", code: "FULFILLMENT_MISSING" }),
+    );
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
   });
 
   it("issues an invoice stating less VAT than Medusa charged, with a notice of what the buyer overpaid (P-63)", async () => {

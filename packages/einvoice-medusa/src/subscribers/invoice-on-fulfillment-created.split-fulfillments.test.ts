@@ -1,22 +1,15 @@
 /**
- * T-133 (gap 4b, `ecom docs/plan-v0.1-pending.md` P-30): the workaround an error message might one day
- * recommend for a cross-border mixed-category order — "split into two shipments/documents" — had never
- * been run against the real subscriber. This file drives `invoiceOnFulfillmentCreated` twice, for two
- * different `fulfillment_id`s on the *same* order, through the real, unmocked `mapOrderToCommerceInvoiceInput`
- * → `buildInvoice` path — only `../storage.js` (file I/O) and `@normwerk/einvoice-cii`/`@normwerk/einvoice-pdfa`
- * (serialization/PDF embedding, irrelevant to this finding) are mocked; `@normwerk/einvoice-commerce` runs
- * for real, the same "real, unmocked adapter" principle `../tax-matrix/tax-matrix.test.ts` uses.
+ * P-67 (M-045): two fulfillments of one order are two supplies, each invoiced for what it shipped. This file
+ * drives `invoiceOnFulfillmentCreated` twice, for two different `fulfillment_id`s on the *same* order,
+ * through the real, unmocked `mapOrderToCommerceInvoiceInput` → `buildInvoice` path — only `../storage.js`
+ * (file I/O) and `@normwerk/einvoice-cii`/`@normwerk/einvoice-pdfa` (serialization/PDF embedding) are mocked;
+ * `@normwerk/einvoice-commerce` runs for real, the same "real, unmocked adapter" principle
+ * `../tax-matrix/tax-matrix.test.ts` uses.
  *
- * Finding: numbering and idempotency genuinely don't collide (two distinct `fulfillment_id`s are two
- * distinct idempotency keys, so `SequentialNumberer` is asked for — and gives — two distinct numbers, and
- * neither `recordDocumentIfAbsent` call overwrites the other). But `invoiceOnFulfillmentCreated` never reads
- * `fulfillment_id` for anything beyond the idempotency key — it (re)maps the *entire* order via
- * `ORDER_QUERY_FIELDS`/`mapOrderToCommerceInvoiceInput` every time, regardless of which items the triggering
- * fulfillment actually shipped. Two fulfillments of one order therefore do not produce "two documents, each
- * scoped to its own shipment, each with its own category" — they produce two *duplicate*, full-order
- * invoices, same lines and same category both times. An error message that recommends "split into two
- * shipments" as an escape hatch for a mixed-category order would be recommending something this plugin
- * cannot actually do today — see P-30.
+ * Until P-67 each fulfillment re-invoiced the entire order (T-133 gap 4b, P-30): two duplicate full-order
+ * invoices, the VAT owed twice. Now the first fulfillment's invoice carries its own line and the order's
+ * shipping, the second its own line alone, each dated the day it shipped, and each is checked against what
+ * Medusa charged for that shipment.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MedusaContainer, SubscriberArgs } from "@medusajs/framework";
@@ -66,10 +59,8 @@ const SELLER = {
 };
 const PAYMENT = { means: "58" as const, iban: "DE89370400440532013000" };
 
-// One goods line, one service line — the shape a merchant splitting a mixed-category cross-border order
-// into "two shipments" would be hoping for; kept domestic here so category resolution itself isn't in
-// question (this file is about whether fulfillment scopes *which lines* get invoiced, not about which
-// category they resolve to — that's `mixed-basket-domestic`/`mixed-basket-cross-border`'s concern).
+// One goods line and one service line, shipped in two fulfillments; kept domestic so category resolution
+// itself isn't in question.
 const ORDER = {
   id: "order_split_01",
   display_id: 1,
@@ -86,33 +77,85 @@ const ORDER = {
   shipping_address: null,
   items: [
     {
+      id: "item_goods",
       title: "Goods line",
       variant_sku: "GOODS-1",
       unit_price: 100,
       is_tax_inclusive: false,
       tax_lines: [{ rate: 19 }],
       detail: { quantity: 1 },
+      // What Medusa charged per line — each invoice is checked against its own shipment (P-69).
+      total: 119,
+      tax_total: 19,
     },
     {
+      id: "item_service",
       title: "Service line",
       variant_sku: "SVC-1",
       unit_price: 50,
       is_tax_inclusive: false,
       tax_lines: [{ rate: 19 }],
       detail: { quantity: 1 },
+      total: 59.5,
+      tax_total: 9.5,
     },
   ],
-  // What Medusa charged — the invoice is checked against it before a number is taken (P-63).
-  total: 178.5,
-  tax_total: 28.5,
+  shipping_methods: [
+    {
+      name: "Standard",
+      is_tax_inclusive: false,
+      subtotal: 10,
+      discount_subtotal: 0,
+      total: 11.9,
+      tax_total: 1.9,
+    },
+  ],
+  fulfillments: [
+    {
+      id: "ful_1",
+      created_at: "2026-09-10T08:00:00Z",
+      items: [{ line_item_id: "item_goods", quantity: 1 }],
+    },
+    {
+      id: "ful_2",
+      created_at: "2026-09-12T08:00:00Z",
+      items: [{ line_item_id: "item_service", quantity: 1 }],
+    },
+  ],
+  total: 190.4,
+  tax_total: 30.4,
 };
 
 function makeEinvoiceService(): EinvoiceModuleService {
   let nextNumber = 0;
+  // The documents recorded so far — the second fulfillment's invoice reads what the first one took.
+  const documents: Record<string, unknown>[] = [];
   return {
     options: { seller: SELLER, payment: PAYMENT },
-    listEinvoiceDocuments: vi.fn(async () => []),
-    recordDocumentIfAbsent: vi.fn(async () => ({ document: {}, created: true })),
+    listEinvoiceDocuments: vi.fn(async (filter: Record<string, unknown>) =>
+      documents.filter((document) =>
+        Object.entries(filter).every(([key, value]) => document[key] === value),
+      ),
+    ),
+    recordDocumentIfAbsent: vi.fn(
+      async (input: {
+        type: string;
+        orderId: string;
+        idempotencyKey: string;
+        lineValues: unknown;
+        includesShipping: boolean;
+      }) => {
+        const document = {
+          type: input.type,
+          order_id: input.orderId,
+          idempotency_key: input.idempotencyKey,
+          line_values: input.lineValues,
+          includes_shipping: input.includesShipping,
+        };
+        documents.push(document);
+        return { document, created: true };
+      },
+    ),
     clearRefusal: vi.fn(async () => undefined),
     allocateNextNumber: vi.fn(async () => {
       nextNumber += 1;
@@ -141,7 +184,7 @@ function makeArgs(
   } as unknown as SubscriberArgs<{ order_id: string; fulfillment_id: string }>;
 }
 
-describe("invoiceOnFulfillmentCreated: two fulfillments on one order (T-133 gap 4b, P-30)", () => {
+describe("invoiceOnFulfillmentCreated: two fulfillments on one order — an invoice per shipment (P-67)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -164,7 +207,7 @@ describe("invoiceOnFulfillmentCreated: two fulfillments on one order (T-133 gap 
     );
   });
 
-  it("maps the whole order on both calls — the two documents are duplicates, not a per-shipment split (real finding, not asserted away)", async () => {
+  it("invoices each fulfillment's own lines, the order's shipping on the first, each dated the day it shipped", async () => {
     const einvoiceService = makeEinvoiceService();
     const container = makeContainer(einvoiceService);
 
@@ -172,23 +215,32 @@ describe("invoiceOnFulfillmentCreated: two fulfillments on one order (T-133 gap 
     await invoiceOnFulfillmentCreated(makeArgs(container, "ful_2"));
 
     expect(mocks.serializeCii).toHaveBeenCalledTimes(2);
-    const [firstCall, secondCall] = mocks.serializeCii.mock.calls as unknown as [
-      [{ lines: readonly { itemName: string }[] }],
-      [{ lines: readonly { itemName: string }[] }],
+    const [[first], [second]] = mocks.serializeCii.mock.calls as unknown as [
+      [InvoiceShape],
+      [InvoiceShape],
     ];
-    const [firstInvoice] = firstCall;
-    const [secondInvoice] = secondCall;
-
-    // Both documents carry the *same two lines* (goods + service) — proving `fulfillment_id` never scopes
-    // which items get invoiced. If this plugin ever adds real per-fulfillment line splitting, this
-    // assertion is exactly what should start failing (change it deliberately then, don't delete it).
-    expect(firstInvoice.lines.map((l) => l.itemName).sort()).toEqual([
-      "Goods line",
-      "Service line",
-    ]);
-    expect(secondInvoice.lines.map((l) => l.itemName).sort()).toEqual([
-      "Goods line",
-      "Service line",
-    ]);
+    expect(first.lines.map((l) => l.itemName)).toEqual(["Goods line"]);
+    expect(first.documentLevelCharges?.map((c) => c.amount)).toEqual(["10.00"]);
+    expect(first.delivery?.actualDeliveryDate).toBe("2026-09-10");
+    expect(first.totals.totalAmountWithVat).toBe("130.90");
+    expect(second.lines.map((l) => l.itemName)).toEqual(["Service line"]);
+    expect(second.documentLevelCharges).toBeUndefined();
+    expect(second.delivery?.actualDeliveryDate).toBe("2026-09-12");
+    expect(second.totals.totalAmountWithVat).toBe("59.50");
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ includesShipping: true }),
+    );
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ includesShipping: false }),
+    );
   });
 });
+
+interface InvoiceShape {
+  readonly lines: readonly { readonly itemName: string }[];
+  readonly documentLevelCharges?: readonly { readonly amount: string }[];
+  readonly delivery?: { readonly actualDeliveryDate?: string };
+  readonly totals: { readonly totalAmountWithVat: string };
+}

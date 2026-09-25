@@ -94,8 +94,13 @@ changes to any core Medusa table).
 Start the dev server (`npx medusa develop`), then fulfill any real order (admin dashboard, or
 `POST /admin/orders/:id/fulfillments`). Within about a second, open that order's page: a new "E-Invoices"
 side-panel section lists the invoice, with XML (and PDF, once you've done step 5) download links.
-Refund a captured payment and a credit note appears the same way, for the refunded amount; cancel an
-invoiced order and a credit note reverses what is still outstanding.
+Refund a captured payment and a credit note appears the same way, for the refunded amount; cancel a
+fulfillment, or the whole order, and a credit note reverses what is still outstanding on its invoice.
+
+Each fulfillment gets an invoice of its own, for the lines and units it shipped and dated the day it
+shipped: ship an order at once and it has one invoice, ship it in parts and it has one per part. The
+order's shipping is on the first of them. If the order was paid in full before it shipped — the payment
+captured in Medusa — each invoice states its total as paid, with nothing due.
 
 The invoice is issued when an order is fulfilled — an order of services too. A product with no shipping
 profile whose variants manage no inventory needs no shipping: its cart completes without a shipping method,
@@ -252,7 +257,11 @@ A refund is credited for its own amount, a cancellation for whatever is still un
 lines at different rates, the credit note states each rate: a refund first pays for goods the buyer sent
 back and you received in Medusa (a received return), at their lines' rates, in the order you received
 them; the rest is split across the rates in proportion to what is still uncredited at each. Receive the
-return in Medusa before you refund it, so the refund is credited at the returned goods' rate.
+return in Medusa before you refund it, so the refund is credited at the returned goods' rate — and, for an
+order shipped in parts, on the invoice that holds those goods. A refund with no goods received back, while
+the order has more than one invoice open or a part not shipped yet, is not credited by the plugin: it shows
+as "Credit note not issued" (`REFUND_NEEDS_MANUAL_CREDIT`). A refund for goods never shipped needs no credit
+note; for goodwill on an invoice, issue the credit note yourself.
 
 ## Downloading a document yourself
 

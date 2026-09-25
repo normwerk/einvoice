@@ -196,15 +196,18 @@ export interface InvoicedLineValue {
   readonly rate: string;
   readonly quantity: string;
   readonly gross: string;
+  /** P-67: the line discount for these units, in the line's price basis. */
+  readonly allowance?: string;
 }
 
 /**
- * P-65: each order line as the invoice states it — the Medusa line item (the invoice's lines are the order's
- * items, in order), its rate, quantity, and net amount (BT-131) with its rate's VAT on top. Stored with the
- * invoice so a returned unit is credited at what was invoiced for it.
+ * P-65: each order line as the invoice states it — the Medusa line item (the invoice's lines are the
+ * shipment's, in order: P-67), its rate, quantity, and net amount (BT-131) with its rate's VAT on top, and the
+ * share of the line's discount it took. Stored with the invoice so a returned unit is credited at what was
+ * invoiced for it, and the order's next invoice takes what is left of the discount.
  */
 export function invoicedLineValues(
-  items: readonly { readonly id?: string | null }[],
+  items: readonly { readonly itemId: string; readonly allowance?: string }[],
   lines: readonly {
     readonly quantity: string;
     readonly netAmount: string;
@@ -213,10 +216,18 @@ export function invoicedLineValues(
 ): readonly InvoicedLineValue[] {
   return items.flatMap((item, index) => {
     const line = lines[index];
-    if (typeof item.id !== "string" || line === undefined) return [];
+    if (line === undefined) return [];
     const rate = rateKey(line.vat.rate ?? "0");
     const gross = Math.round((toCents(line.netAmount) * (100 + Number(rate))) / 100);
-    return [{ itemId: item.id, rate, quantity: line.quantity, gross: fromCents(gross) }];
+    return [
+      {
+        itemId: item.itemId,
+        rate,
+        quantity: line.quantity,
+        gross: fromCents(gross),
+        ...(item.allowance === undefined ? {} : { allowance: item.allowance }),
+      },
+    ];
   });
 }
 
@@ -278,4 +289,67 @@ export function extractGrandTotalFromCii(xml: string): Amount {
     throw new Error("extractGrandTotalFromCii: no ram:GrandTotalAmount found.");
   }
   return match[1] as string;
+}
+
+/** P-67: an invoice a refund could credit, with what it still has uncredited. */
+export interface RefundCandidate {
+  readonly invoiceId: string;
+  readonly invoicedLines: readonly InvoicedLineValue[];
+  /** Gross, less its credit notes. */
+  readonly uncredited: Amount;
+}
+
+/**
+ * P-67 (M-045): which invoice a refund credits, now that an order is invoiced per shipment. A refund carries
+ * no goods (`refundPaymentWorkflow` records none), so:
+ *
+ * - one invoice with something left to credit, and every unit of the order shipped — that invoice;
+ * - received returns not yet credited, all of whose goods one invoice holds — that invoice: the refund pays
+ *   for those returns first (P-65);
+ * - anything else — `undefined`: with several invoices, or a part paid for but not shipped, the refund may
+ *   be goodwill on one invoice or money back for goods never shipped, which needs no credit note at all.
+ *   The plugin does not guess; the refusal says so.
+ */
+export function chooseRefundInvoice(
+  candidates: readonly RefundCandidate[],
+  unshippedPart: boolean,
+  returnedItemIds: readonly string[],
+): RefundCandidate | undefined {
+  const open = candidates.filter((candidate) => toCents(candidate.uncredited) > 0);
+  if (open.length === 1 && !unshippedPart) return open[0];
+  if (returnedItemIds.length === 0) return undefined;
+  const holds = (candidate: RefundCandidate, itemId: string): boolean =>
+    candidate.invoicedLines.some((line) => line.itemId === itemId);
+  const holders = open.filter((candidate) => returnedItemIds.some((id) => holds(candidate, id)));
+  const [only] = holders;
+  return holders.length === 1 &&
+    only !== undefined &&
+    returnedItemIds.every((id) => holds(only, id))
+    ? only
+    : undefined;
+}
+
+/** P-67: the goods of received returns that no credit note has paid for yet. */
+export function returnedItemIdsToCredit(
+  returns: readonly MedusaReturnForCredit[],
+  invoiced: readonly InvoicedLineValue[],
+  covered: readonly { readonly returnId: string; readonly rate: string; readonly gross: Amount }[],
+): readonly string[] {
+  const open = new Set(
+    returnsToCredit(returns, invoiced, covered)
+      .filter((ret) => ret.byRate.some((entry) => toCents(entry.gross) > 0))
+      .map((ret) => ret.id),
+  );
+  return [
+    ...new Set(
+      returns
+        .filter((ret) => open.has(ret.id))
+        .flatMap((ret) =>
+          (ret.items ?? [])
+            .filter((item) => Number(item.received_quantity ?? 0) > 0)
+            .map((item) => item.item_id)
+            .filter((id): id is string => typeof id === "string"),
+        ),
+    ),
+  ];
 }

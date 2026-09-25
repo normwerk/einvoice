@@ -25,10 +25,16 @@ import {
   type InvoiceBlock,
 } from "./mapping/charged-reconciliation.js";
 
-/** What a credit note's retry redelivers: the refund's payment, or the cancellation. */
+/** What a credit note's retry redelivers: the refund's payment, the cancellation, or (P-67) the cancelled
+ * fulfillment. */
 export type CreditNoteTrigger =
   | { readonly event: "payment.refunded"; readonly paymentId: string }
-  | { readonly event: "order.canceled" };
+  | { readonly event: "order.canceled" }
+  | {
+      readonly event: "order.fulfillment_canceled";
+      readonly orderId: string;
+      readonly fulfillmentId: string;
+    };
 
 export interface RefusalTarget {
   readonly type: EinvoiceDocumentType;

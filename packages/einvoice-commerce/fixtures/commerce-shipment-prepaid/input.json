@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "document": {
+    "kind": "invoice",
+    "number": "RE-2026-1007",
+    "issueDate": "2026-09-14",
+    "currency": "EUR"
+  },
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
+    "city": "Berlin",
+    "postCode": "10115",
+    "vatIdentifier": "DE123456789",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
+  },
+  "buyer": {
+    "name": "Beispielkunde GmbH",
+    "countryCode": "DE",
+    "addressLine1": "Beispielweg 2",
+    "city": "Hamburg",
+    "postCode": "20095",
+    "electronicAddress": "ap@commerce-shipment-prepaid.example",
+    "electronicAddressScheme": "EM"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netPrice": "40.00",
+      "itemName": "Book (reduced rate)",
+      "taxRateKind": "reduced"
+    }
+  ],
+  "shipping": {
+    "amount": "10.00",
+    "reason": "Versand / Shipping"
+  },
+  "chargeSplitLines": [
+    {
+      "identifier": "1",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netPrice": "40.00",
+      "itemName": "Book (reduced rate)",
+      "taxRateKind": "reduced"
+    },
+    {
+      "identifier": "2",
+      "quantity": "2",
+      "unitCode": "C62",
+      "netPrice": "50.00",
+      "itemName": "Widget (standard rate)",
+      "taxRateKind": "standard"
+    }
+  ],
+  "paidAmount": "54.36",
+  "delivery": {
+    "actualDeliveryDate": "2026-09-12",
+    "deliverToCountryCode": "DE",
+    "deliverToAddressLine1": "Beispielweg 2",
+    "deliverToCity": "Hamburg",
+    "deliverToPostCode": "20095"
+  },
+  "payment": {
+    "means": "58",
+    "iban": "DE89370400440532013000"
+  },
+  "references": {
+    "buyerReference": "Buchhaltung-2026-09"
+  },
+  "taxContext": {
+    "sellerCountry": "DE",
+    "sellerVatId": "DE123456789",
+    "buyerCountry": "DE",
+    "buyerIsBusiness": true,
+    "ossRegistered": false,
+    "supplyType": "goods"
+  }
+}

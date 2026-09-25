@@ -242,6 +242,20 @@ export class InvalidAssembledInvoiceError extends EinvoiceError<CommerceErrorCod
   }
 }
 
+export class InvalidPaidAmountError extends EinvoiceError<CommerceErrorCode> {
+  constructor(
+    readonly paidAmount: string,
+    readonly total: string,
+  ) {
+    super(
+      "INVALID_PAID_AMOUNT",
+      `paidAmount ${paidAmount} (BT-113) is negative or more than the invoice total ${total} — the amount ` +
+        "due (BT-115) would not be what is left to pay.",
+    );
+    this.name = "InvalidPaidAmountError";
+  }
+}
+
 export class InvalidCommerceInvoiceInputError extends EinvoiceError<CommerceErrorCode> {
   constructor(readonly errors: readonly string[]) {
     super(
@@ -470,7 +484,7 @@ export function buildInvoice(
   assertTaxFactsMatchDocument(regimeDecision, input);
 
   // P-61: every price and amount is either net or VAT-inclusive (exactly one of the two fields).
-  const lineComputations = input.lines.map((line, index) => {
+  const computeLine = (line: CommerceLine, index: number) => {
     const identifier = line.identifier ?? String(index + 1);
     const price = amountAndBasis(line.netPrice, line.priceInclVat, `line ${identifier}`);
     const amountBeforeAllowances = multiplyToAmount(line.quantity, price.amount);
@@ -490,7 +504,14 @@ export function buildInvoice(
       rate: lineRate(regimeDecision, input, identifier, line),
       line,
     };
-  });
+  };
+  const lineComputations = input.lines.map(computeLine);
+  // P-67: the lines whose rates and amounts split the charges — the whole supply's, when the document
+  // invoices part of it.
+  const splitComputations =
+    input.chargeSplitLines === undefined
+      ? lineComputations
+      : input.chargeSplitLines.map(computeLine);
   const shipping =
     input.shipping !== undefined
       ? {
@@ -512,9 +533,9 @@ export function buildInvoice(
   // amounts at each rate, after their own allowances (P-65, M-039; UStAE 10.1 Abs. 11 by analogy): one
   // BG-21/BG-20 per rate, the cents left over by largest remainder (`apportionAmount`). A VAT-inclusive
   // amount is split gross; each rate's VAT is taken out of its share with the rest of that rate's group.
-  const lineRates = [...new Set(lineComputations.map((l) => l.rate))];
+  const lineRates = [...new Set(splitComputations.map((l) => l.rate))];
   const lineNetOfRate = (rate: string): string => {
-    const ofRate = lineComputations.filter((l) => l.rate === rate);
+    const ofRate = splitComputations.filter((l) => l.rate === rate);
     const net = sumAmounts(ofRate.filter((l) => l.basis === "net").map((l) => l.amount));
     const inclusive = sumAmounts(
       ofRate.filter((l) => l.basis === "inclusive").map((l) => l.amount),
@@ -682,7 +703,16 @@ export function buildInvoice(
 
   const totalVatAmount = sumAmounts(vatBreakdown.map((g) => g.taxAmount));
   const totalAmountWithVat = sumAmounts([totalAmountWithoutVat, totalVatAmount]);
-  const amountDueForPayment = totalAmountWithVat;
+  // P-67: BT-115 is what is left after what the buyer already paid (BT-113).
+  const paidAmount = input.paidAmount;
+  if (
+    paidAmount !== undefined &&
+    (compareAmounts(paidAmount, "0.00") < 0 || compareAmounts(paidAmount, totalAmountWithVat) > 0)
+  ) {
+    throw new InvalidPaidAmountError(paidAmount, totalAmountWithVat);
+  }
+  const amountDueForPayment =
+    paidAmount === undefined ? totalAmountWithVat : subtractAmounts(totalAmountWithVat, paidAmount);
 
   // §14 Abs. 4 Satz 1 Nr. 1 UStG needs the buyer's full address too, except on a small-amount invoice
   // (§33 UStDV: up to EUR 250 including VAT). The street cannot be made up here, so it is a warning.
@@ -748,6 +778,7 @@ export function buildInvoice(
       totalAmountWithoutVat,
       totalVatAmount,
       totalAmountWithVat,
+      paidAmount,
       amountDueForPayment,
     },
     vatBreakdown,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chargedForShipment,
   describeChargedReconciliation,
   orderPriceBasis,
   reconcileWithCharged,
@@ -254,5 +255,68 @@ describe("describeChargedReconciliation (P-63)", () => {
     );
     expect(text).toContain("shipping option");
     expect(text).not.toMatch(/\b[TPMD]-\d{2,3}\b/);
+  });
+});
+
+describe("chargedForShipment (P-69)", () => {
+  // Two shirts at 20.00 net, 19 %: Medusa charged 47.60 for the line, 7.60 of it VAT; shipping 5.95.
+  const order = (detail: Record<string, number>, total: number, taxTotal: number) =>
+    ({
+      id: "order_01",
+      display_id: 1,
+      currency_code: "eur",
+      items: [
+        {
+          id: "item_shirt",
+          title: "Shirt",
+          unit_price: 20,
+          is_tax_inclusive: false,
+          detail: { quantity: 2, ...detail },
+          total,
+          tax_total: taxTotal,
+        },
+      ],
+      shipping_methods: [
+        { name: "Standard", is_tax_inclusive: false, total: 5.95, tax_total: 0.95 },
+      ],
+      total: 53.55,
+      tax_total: 8.55,
+    }) as MedusaOrderForInvoice;
+  const oneShirt = [{ itemId: "item_shirt", quantity: "1", allowance: "0.00" }];
+
+  it("takes the fulfillment's units at Medusa's per-unit amounts, and the shipping it carries", () => {
+    const charged = chargedForShipment(order({}, 47.6, 7.6), {
+      lines: oneShirt,
+      includesShipping: true,
+      deliveryDate: "2026-09-12",
+    });
+    expect(charged).toMatchObject({ total: 2975, vat: 475, priceBasis: "net", tolerance: 3 });
+    const withoutShipping = chargedForShipment(order({}, 47.6, 7.6), {
+      lines: oneShirt,
+      includesShipping: false,
+      deliveryDate: "2026-09-13",
+    });
+    expect(withoutShipping).toMatchObject({ total: 2380, vat: 380, tolerance: 2 });
+    expect(
+      reconcileWithCharged(order({}, 47.6, 7.6), invoice("23.80", "3.80"), withoutShipping),
+    ).toEqual({ outcome: "match" });
+  });
+
+  it("values a unit the same after the other unit came back — Medusa then states the line for one", () => {
+    const charged = chargedForShipment(order({ return_received_quantity: 1 }, 23.8, 3.8), {
+      lines: oneShirt,
+      includesShipping: false,
+      deliveryDate: "2026-09-13",
+    });
+    expect(charged).toMatchObject({ total: 2380, vat: 380 });
+  });
+
+  it("says nothing when every unit came back or Medusa gave no totals — the check then blocks", () => {
+    const scope = { lines: oneShirt, includesShipping: false, deliveryDate: "2026-09-13" };
+    const allBack = chargedForShipment(order({ return_received_quantity: 2 }, 0, 0), scope);
+    expect(allBack.total).toBeNull();
+    expect(
+      block(reconcileWithCharged(order({}, 47.6, 7.6), invoice("23.80", "3.80"), allBack)).code,
+    ).toBe("CHARGED_TOTALS_MISSING");
   });
 });

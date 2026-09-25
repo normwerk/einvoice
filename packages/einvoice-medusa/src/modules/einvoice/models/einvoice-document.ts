@@ -34,6 +34,11 @@
  * invoice, what each order line was invoiced at (`[{ itemId, rate, quantity, gross }]`): a returned unit is
  * credited at that value.
  *
+ * P-67: an invoice is for one fulfillment (`idempotency_key`) and carries the lines it shipped;
+ * `includes_shipping` marks the one that carries the order's shipping, and `line_values` also hold each
+ * line's share of its discount (`allowance`), so the order's next invoice takes what is left of it.
+ * `corrected_document_id` — on a credit note, the invoice it corrects, now that an order can have several.
+ *
  * No migration path preserves the old `xml`/`pdf` columns' existing content — the same "pre-release, no
  * real deployment history to preserve" reasoning T-072 already used for its own migration replacement
  * (`docs/domain-glossary.md`), not a new precedent.
@@ -52,6 +57,8 @@ const EinvoiceDocument = model
     notice: model.json().nullable(),
     covered_returns: model.json().nullable(),
     line_values: model.json().nullable(),
+    includes_shipping: model.boolean().default(false),
+    corrected_document_id: model.text().nullable(),
   })
   .indexes([{ on: ["type", "idempotency_key"], unique: true }]);
 

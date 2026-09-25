@@ -18,13 +18,15 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/errors.test.ts` — `EinvoiceError`: a stable code and the link to its explanation, anchored in lower
   case with hyphens.
 
-### `einvoice-commerce` (141 tests)
+### `einvoice-commerce` (144 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
   decided by where the goods go (row 4), domestic and cross-border reverse charge (rows 5 and 12, the latter
   needing BT-48), shipping/discount rates following the lines' rate — split across the rates of a mixed
-  basket in proportion to the lines, net or gross, and refused when the lines add up to zero — line-level
+  basket in proportion to the lines, net or gross, and refused when the lines add up to zero; split by the
+  whole order's lines when the document invoices one shipment of it; a paid amount (BT-113) leaving the rest
+  due (BT-115), refused above the total — line-level
   discounts (BG-27), credit
   notes (row 10), a declared Leitweg-ID validated and an ordinary buyer reference never read as one, input validation, BT-158/BT-159 customs fields, the parties'
   address lines (a seller without a street refused, a buyer without one warned about above EUR 250), both
@@ -81,7 +83,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (223 tests)
+### `einvoice-medusa` (250 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -89,7 +91,10 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   a guest buyer named from the billing address, not the email —
   tax-inclusive prices, discounts and shipping passed on VAT-inclusive, the rate Medusa charged passed on
   as it is, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
-  methods as one document-level charge and promotions as line allowances) and `issueDateInSellerTimeZone`
+  methods as one document-level charge and promotions as line allowances; one fulfillment's lines, units and
+  discount shares, its date as BT-72, the shipping only on the invoice that carries it, split by the whole
+  order's rates), `orderPaidInFull` (captured less refunded against the order's total) and
+  `issueDateInSellerTimeZone`
   (the invoice date in Berlin, not UTC).
 - `src/mapping/charged-reconciliation.test.ts` — `reconcileWithCharged`, the invoice against what Medusa
   charged: agreement within rounding issues; with net prices, less VAT that explains the whole difference
@@ -97,7 +102,9 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   with a notice and nothing to refund (Medusa's VAT below the invoice's included); shipping split across
   rates named as the cause, in either direction; credit lines added back to `order.total`; more VAT than
   charged, other total differences, mixed net and gross prices and missing totals block; the explanation
-  names the amounts and which way Medusa's VAT differs.
+  names the amounts and which way Medusa's VAT differs; `chargedForShipment` — one fulfillment's units at
+  Medusa's per-unit amounts and the shipping it carries, the same after a return, nothing when every unit
+  came back.
 - `src/tax-matrix/tax-matrix.test.ts` (67 tests) — the tax-scenario fixture matrix: every
   `packages/einvoice-medusa/fixtures/tax-matrix/*` cell driven through the real, unmocked
   `mapOrderToCommerceInvoiceInput` → `buildInvoice`/`selectProfile` (two independent axes, not the
@@ -124,7 +131,9 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   `toPartialCreditNoteInput` (VAT-inclusive lines over the credited sums), `extractGrandTotalFromCii`,
   `extractGrossByRateFromCii` (a document's gross per rate from its BG-23 breakdown), `returnsToCredit`
   (received returns valued at what the invoice stated for their lines, oldest first, less what earlier
-  credit notes paid), `invoicedLineValues` (each order line as the invoice stated it),
+  credit notes paid), `invoicedLineValues` (each order line as the invoice stated it, with its discount
+  share), `chooseRefundInvoice` (the one invoice a refund can be tied to: the only one open with everything
+  shipped, or the one holding every returned good; otherwise none), `returnedItemIdsToCredit`,
   and `creditableRefund` (after an overpayment notice, a refund returns the overpayment first and credits
   only what goes beyond it).
 - `src/subscribers/credit-note-on-payment-refunded.test.ts` — the refund subscriber: `extractIssueDateFromCii`
@@ -132,16 +141,26 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   restating the order, a partial refund producing a one-line credit note, never crediting beyond what is
   outstanding, a partial refund over mixed VAT rates credited with a line per rate in proportion to the
   invoice, a received return paid for first at its own rate and recorded as covered, a refund with no
-  invoice recorded as a refusal naming its payment, and a refund of an overpayment
-  the invoice's notice names crediting nothing while a later one credits its own amount.
+  invoice recorded as a refusal naming its payment, a refund of an overpayment
+  the invoice's notice names crediting nothing while a later one credits its own amount, and with two
+  invoices a refund credited on the one holding the returned goods, or refused when it names none.
+- `src/subscribers/credit-note-on-fulfillment-canceled.test.ts` — a cancelled fulfillment's invoice restated
+  with its own lines, a fulfillment never invoiced leaving nothing to credit and its refusal dropped, and the
+  credit note issued once however often the event comes.
+- `src/mapping/shipment.test.ts` — `shipmentLines`: a fulfillment's units with their share of the line
+  discount, the shipment that completes a line taking what is left to the cent, a tax-inclusive discount,
+  Medusa's discount scaled back to the ordered quantity after a return, a line listed twice added up, and a
+  line the order does not have refused.
 - `src/subscribers/credit-note-on-order-canceled.test.ts` — the cancellation subscriber: no credit note
-  without an invoice, the whole invoice or only its outstanding remainder credited, and the order's refused
-  invoices dropped.
+  without an invoice, the whole invoice or only its outstanding remainder credited, per invoice, an invoice
+  of a cancelled fulfillment left to that cancellation, and the order's refused invoices dropped.
 - `src/storage.test.ts` — `storeEinvoiceFiles` (XML-only vs. XML+PDF upload shape), `deleteEinvoiceFiles`
   (including that a failed delete is swallowed, not thrown), and `fetchFileBytes`.
 - `src/subscribers/invoice-on-fulfillment-created.test.ts` and `…split-fulfillments.test.ts` — the invoice
   subscriber's orchestration: idempotency, the order-not-found guard, numbering and the merchant's own PDF,
-  the concurrency-race cleanup, split fulfillments, `buildInvoice` warnings logged without the
+  the concurrency-race cleanup, two fulfillments invoiced for their own lines (the first with the shipping,
+  each dated the day it shipped, through the real core), an order paid in full stated as paid, a cancelled
+  fulfillment not invoiced, a missing one refused, `buildInvoice` warnings logged without the
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
   number, one stating less issued with its notice, and a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown.
 - `src/refusals.test.ts` — `describeRefusal` (a refusal explained by its error's message, a block by its
@@ -213,7 +232,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 20 files / 30 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 21 files / 32 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -228,7 +247,12 @@ cause; a received return credited at its own rate, a goodwill refund and the res
 credited per rate, every document KoSIT-green), S16 (prices including VAT, shipping without VAT in Medusa:
 the invoice takes 19% out of what was paid and is issued with a notice that Medusa counts less VAT),
 S17 (a buyer in Italy: the order ships, the invoice is refused with `UNSUPPORTED_BUYER_COUNTRY_CLEARANCE`,
-the link to its explanation and a support request; the store page's support statement), idempotency (an event
+the link to its explanation and a support request; the store page's support statement), S18 (an order
+shipped in two parts, paid in full: two invoices, each for its own line and dated the day it shipped, the
+first with the shipping, both stating the payment and nothing due, together the order's total; a return
+from the second parcel credited on the second invoice; a cancelled fulfillment's invoice credited in full
+and the replacement shipment invoiced without shipping; money back with no goods while a unit is unshipped
+refused with `REFUND_NEEDS_MANUAL_CREDIT`), idempotency (an event
 delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option; a seller
 outside Germany),

@@ -489,6 +489,27 @@ access?: "public" | "private" }`, defaulting to `"private"` when `access` is omi
   An error from either side is recognised by its shape (`code` and `docsUrl` both strings), not by
   `instanceof`.
 
+### An invoice per fulfillment
+
+- **A fulfillment's lines are readable from the order**: `query.graph({ entity: "order", fields:
+["fulfillments.id", "fulfillments.created_at", "fulfillments.canceled_at", "fulfillments.items.line_item_id",
+"fulfillments.items.quantity"] })` — the paths Medusa's own `cancelOrderFulfillmentWorkflow` reads
+  (`@medusajs/core-flows` 2.19), confirmed on the stand (S18). A fulfillment item names its order line by
+  `line_item_id`.
+- **Cancelling a fulfillment gives its units back**: `OrderItem.detail.fulfilled_quantity` drops, so a
+  line's fulfilled count against its `detail.quantity` tells whether part of the order is still unshipped
+  (confirmed on the stand). Medusa cancels only a fulfillment that has not shipped (`shipped_at`), and emits
+  `order.fulfillment_canceled` with `{ order_id, fulfillment_id, no_notification }`.
+- **A line's totals are for the units the buyer kept.** `getLineItemTotals` (`@medusajs/utils`, identical in
+  2.12.6 and 2.19) computes `subtotal`, `total`, `tax_total` and `discount_subtotal` on `quantity` less
+  `return_received_quantity` and `return_dismissed_quantity` (when the order detail carries them), so a
+  per-unit amount is the line's total divided by those units — the same before and after a return. The
+  lifecycle totals (`fulfilled_total`, `return_received_total`) are per unit of the full quantity, but only
+  appear on 2.19 and later.
+- **What was paid is on the payment collection**: `payment_collections.captured_amount` and
+  `refunded_amount`, readable through the order (confirmed on the stand, S18). `pp_system_default`
+  authorizes at checkout and captures only when asked.
+
 ### npm publish preparation
 
 - **`pnpm pack`/`pnpm publish` rewrite a `workspace:*` dependency to the real resolved version; a plain

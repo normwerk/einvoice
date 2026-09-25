@@ -128,12 +128,18 @@ const ORDER = {
       unit_price: 100,
       is_tax_inclusive: false,
       tax_lines: [{ rate: 19 }],
-      detail: { quantity: 2 },
+      detail: { quantity: 2, fulfilled_quantity: 2 },
     },
   ],
 };
 
-const ORIGINAL_INVOICE = { document_number: "RE-2026-0001", xml_file_id: "file_original_xml" };
+const ORIGINAL_INVOICE = {
+  id: "doc_invoice",
+  order_id: "order_01",
+  idempotency_key: "ful_01",
+  document_number: "RE-2026-0001",
+  xml_file_id: "file_original_xml",
+};
 // The original invoice: 2 × 100 net at 19% = 238.00 (BT-112), issued 2026-01-01 (BT-2).
 let CREDITED_TOTAL = "0.00";
 /** A CII document's BG-23 breakdown, as this plugin's serializer writes it — gross per rate. */
@@ -376,13 +382,88 @@ describe("creditNoteOnPaymentRefunded", () => {
     expect(input.shipping).toBeUndefined();
   });
 
+  it("refuses a refund it cannot tie to one of the order's invoices, and credits nothing (P-67)", async () => {
+    const second = { ...ORIGINAL_INVOICE, id: "doc_invoice_2", idempotency_key: "ful_02" };
+    const einvoiceService = makeEinvoiceService({
+      listEinvoiceDocuments: async (filter) =>
+        filter["type"] === "invoice" ? [ORIGINAL_INVOICE, second] : [],
+    });
+    const { container } = makeContainer({
+      einvoiceService,
+      payment: {
+        id: "pay_01",
+        payment_collection_id: "paycol_01",
+        refunds: [{ id: "refund_01", amount: 10 }],
+      },
+    });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "credit_note",
+        idempotencyKey: "refund_01",
+        code: "REFUND_NEEDS_MANUAL_CREDIT",
+      }),
+    );
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
+  });
+
+  it("credits a refund on the invoice that holds the goods that came back (P-67)", async () => {
+    const shirt = { itemId: "item_shirt", rate: "19", quantity: "1", gross: "119.00" };
+    const book = { itemId: "item_book", rate: "19", quantity: "1", gross: "119.00" };
+    const first = { ...ORIGINAL_INVOICE, line_values: [shirt] };
+    const second = {
+      ...ORIGINAL_INVOICE,
+      id: "doc_invoice_2",
+      idempotency_key: "ful_02",
+      document_number: "RE-2026-0002",
+      line_values: [book],
+    };
+    const einvoiceService = makeEinvoiceService({
+      listEinvoiceDocuments: async (filter) =>
+        filter["type"] === "invoice" ? [first, second] : [],
+    });
+    const { container } = makeContainer({
+      einvoiceService,
+      payment: {
+        id: "pay_01",
+        payment_collection_id: "paycol_01",
+        refunds: [{ id: "refund_01", amount: 119 }],
+      },
+      returns: [
+        {
+          id: "ret_1",
+          status: "received",
+          received_at: "2026-02-01T10:00:00Z",
+          items: [{ item_id: "item_book", received_quantity: 1 }],
+        },
+      ],
+    });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: "refund_01",
+        correctedDocumentId: "doc_invoice_2",
+      }),
+    );
+  });
+
   it("never credits more than is outstanding: a refund after the invoice is fully credited is logged, not credited", async () => {
     CREDITED_TOTAL = "238.00";
     const einvoiceService = makeEinvoiceService({
       listEinvoiceDocuments: async (filter) => {
         if (filter["type"] === "invoice") return [ORIGINAL_INVOICE];
         if (filter["order_id"] === "order_01") {
-          return [{ id: "doc_cancel", xml_file_id: "file_credit_xml" }];
+          return [
+            {
+              id: "doc_cancel",
+              xml_file_id: "file_credit_xml",
+              corrected_document_id: "doc_invoice",
+            },
+          ];
         }
         return [];
       },
@@ -421,7 +502,7 @@ describe("creditNoteOnPaymentRefunded", () => {
               unit_price: 10,
               is_tax_inclusive: false,
               tax_lines: [{ rate: 7 }],
-              detail: { quantity: 1 },
+              detail: { quantity: 1, fulfilled_quantity: 1 },
             },
           ],
         },
@@ -465,7 +546,7 @@ describe("creditNoteOnPaymentRefunded", () => {
       unit_price: 10,
       is_tax_inclusive: false,
       tax_lines: [{ rate: 7 }],
-      detail: { quantity: 1 },
+      detail: { quantity: 1, fulfilled_quantity: 1 },
     };
     const { container } = makeContainer({
       einvoiceService,

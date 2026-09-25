@@ -21,6 +21,7 @@ import { issueInvoiceForFulfillment } from "../../../../../../../../invoices/iss
 import { describeRefusal } from "../../../../../../../../refusals.js";
 import creditNoteOnPaymentRefunded from "../../../../../../../../subscribers/credit-note-on-payment-refunded.js";
 import creditNoteOnOrderCanceled from "../../../../../../../../subscribers/credit-note-on-order-canceled.js";
+import creditNoteOnFulfillmentCanceled from "../../../../../../../../subscribers/credit-note-on-fulfillment-canceled.js";
 
 /** Redelivers the event a credit note's refusal names; `false` when it names none. */
 async function redeliver(req: MedusaRequest, refusal: EinvoiceRefusalRecord): Promise<boolean> {
@@ -40,6 +41,18 @@ async function redeliver(req: MedusaRequest, refusal: EinvoiceRefusalRecord): Pr
       container: req.scope,
       pluginOptions: {},
     } as unknown as SubscriberArgs<{ id: string }>);
+    return true;
+  }
+  const fulfillmentId = refusal.details["fulfillmentId"];
+  if (event === "order.fulfillment_canceled" && typeof fulfillmentId === "string") {
+    await creditNoteOnFulfillmentCanceled({
+      event: {
+        name: event,
+        data: { order_id: refusal.order_id, fulfillment_id: fulfillmentId },
+      },
+      container: req.scope,
+      pluginOptions: {},
+    } as unknown as SubscriberArgs<{ order_id: string; fulfillment_id: string }>);
     return true;
   }
   return false;
@@ -120,6 +133,9 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
         return;
       case "order-missing":
         res.status(404).json({ message: `Order ${orderId} no longer exists.` });
+        return;
+      case "fulfillment-canceled":
+        res.status(200).json({ outcome: "none" });
         return;
     }
   } catch (error) {

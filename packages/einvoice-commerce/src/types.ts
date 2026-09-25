@@ -45,6 +45,20 @@ export interface CommerceInvoiceInput {
   readonly lines: readonly CommerceLine[];
   readonly shipping?: CommerceCharge | undefined;
   readonly discounts?: readonly CommerceCharge[] | undefined;
+  /**
+   * P-67: when the document invoices part of a supply — one shipment of an order — and carries charges that
+   * belong to all of it (the order's shipping), the lines of the whole supply. In a basket with more than one
+   * VAT rate, `shipping` and `discounts` are split across the rates in proportion to these lines' net
+   * amounts instead of the document's own: a first shipment of only the 7 % goods still carries the shipping
+   * share of the 19 % goods to come. Only their amounts and rates are read. Omitted, the document's own lines
+   * are the weights.
+   */
+  readonly chargeSplitLines?: readonly CommerceLine[] | undefined;
+  /**
+   * P-67: BT-113, what the buyer already paid of this document's total — the whole total for an order paid
+   * in full before it shipped. The amount due (BT-115) is what is left. At most the total.
+   */
+  readonly paidAmount?: Amount | undefined;
   readonly payment?:
     | {
         /** BT-81 — mandatory whenever `payment` is given: BR-49 requires it in every payment instruction. */

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   issueInvoiceForFulfillment: vi.fn(),
   creditNoteOnPaymentRefunded: vi.fn(async () => undefined),
   creditNoteOnOrderCanceled: vi.fn(async () => undefined),
+  creditNoteOnFulfillmentCanceled: vi.fn(async () => undefined),
 }));
 
 vi.mock("../../../../../../../../invoices/issue-invoice.js", () => ({
@@ -15,6 +16,9 @@ vi.mock("../../../../../../../../subscribers/credit-note-on-payment-refunded.js"
 }));
 vi.mock("../../../../../../../../subscribers/credit-note-on-order-canceled.js", () => ({
   default: mocks.creditNoteOnOrderCanceled,
+}));
+vi.mock("../../../../../../../../subscribers/credit-note-on-fulfillment-canceled.js", () => ({
+  default: mocks.creditNoteOnFulfillmentCanceled,
 }));
 
 import { POST } from "./route.js";
@@ -169,6 +173,29 @@ describe("POST /admin/orders/:id/einvoice/refusals/:refusalId/retry (P-63)", () 
     expect(cancellation.service.clearRefusal).toHaveBeenCalledWith(
       "credit_note",
       "order.canceled:order_01",
+    );
+  });
+
+  it("retries a cancelled fulfillment's credit note by redelivering that cancellation (P-67)", async () => {
+    const fulfillment = call([
+      {
+        ...CREDIT_REFUSAL,
+        idempotency_key: "fulfillment.canceled:ful_02",
+        details: {
+          event: "order.fulfillment_canceled",
+          orderId: "order_01",
+          fulfillmentId: "ful_02",
+        },
+      },
+    ]);
+    await POST(fulfillment.req, fulfillment.res);
+    expect(mocks.creditNoteOnFulfillmentCanceled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: {
+          name: "order.fulfillment_canceled",
+          data: { order_id: "order_01", fulfillment_id: "ful_02" },
+        },
+      }),
     );
   });
 });

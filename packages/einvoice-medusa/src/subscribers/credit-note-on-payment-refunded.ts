@@ -58,14 +58,29 @@ import {
   toAmount,
   type MedusaOrderForInvoice,
 } from "../mapping/order-to-commerce-invoice-input.js";
-import { creditableRefund, decideCreditScope } from "../mapping/credit-note.js";
+import {
+  chooseRefundInvoice,
+  creditableRefund,
+  decideCreditScope,
+  returnedItemIdsToCredit,
+} from "../mapping/credit-note.js";
+import { hasUnshippedPart } from "../mapping/shipment.js";
 import { recordRefusalOfError } from "../refusals.js";
 import { PluginError } from "../errors.js";
 import {
   creditTolerance,
   issueCreditNote,
+  listOrderInvoices,
   loadCreditBasis,
+  loadReturnsForCredit,
 } from "../credit-notes/issue-credit-note.js";
+
+/** Gross amounts added up, as an `Amount`. */
+function sumGross(entries: readonly { readonly gross: string }[]): string {
+  return (
+    entries.reduce((sum, entry) => sum + Math.round(Number(entry.gross) * 100), 0) / 100
+  ).toFixed(2);
+}
 
 export { extractIssueDateFromCii } from "../mapping/credit-note.js";
 
@@ -129,6 +144,18 @@ export class MissingOriginalInvoiceError extends PluginError {
         `invoice was not issued yet, issue it first, then retry this credit note.`,
     );
     this.name = "MissingOriginalInvoiceError";
+  }
+}
+
+export class RefundNeedsManualCreditError extends PluginError {
+  constructor(readonly orderId: string) {
+    super(
+      "REFUND_NEEDS_MANUAL_CREDIT",
+      `Order ${orderId} is invoiced per shipment, or part of it is paid but not shipped yet, and this refund ` +
+        "names no returned goods that one invoice holds — so it cannot be tied to one invoice. A refund for " +
+        "goods never shipped needs no credit note; for anything else, issue the credit note outside the plugin.",
+    );
+    this.name = "RefundNeedsManualCreditError";
   }
 }
 
@@ -199,10 +226,10 @@ export default async function creditNoteOnPaymentRefunded({
     if (existing.length > 0) {
       continue;
     }
-    // Re-read per refund: the previous iteration may have credited part of the invoice already.
-    const basis = await loadCreditBasis(container, einvoiceService, order.id);
+    // Re-read per refund: the previous iteration may have credited part of an invoice already.
+    const invoices = await listOrderInvoices(einvoiceService, order.id);
     const trigger = { event: "payment.refunded", paymentId: data.id } as const;
-    if (basis === undefined) {
+    if (invoices.length === 0) {
       // P-66: recorded, not thrown — once the invoice is issued (a blocked one retried), the credit note's
       // own retry redelivers this event.
       await recordRefusalOfError(
@@ -210,6 +237,41 @@ export default async function creditNoteOnPaymentRefunded({
         einvoiceService,
         { type: "credit_note", orderId: order.id, idempotencyKey: refund.id, trigger },
         new MissingOriginalInvoiceError(order.id),
+      );
+      continue;
+    }
+    // P-67: an order invoiced per shipment — the invoice this refund credits, when one can be named.
+    const bases = await Promise.all(
+      invoices.map((invoice) => loadCreditBasis(container, einvoiceService, invoice)),
+    );
+    const candidates = bases.map((candidate) => ({
+      invoiceId: candidate.invoice.id,
+      invoicedLines: candidate.invoicedLines,
+      uncredited: sumGross(candidate.uncreditedByRate),
+    }));
+    if (candidates.every((candidate) => Number(candidate.uncredited) <= 0)) {
+      logger.warn(
+        `einvoice: order ${order.id}: refund ${refund.id} is not credited — the order's invoices are ` +
+          "already fully credited.",
+      );
+      continue;
+    }
+    const chosen = chooseRefundInvoice(
+      candidates,
+      hasUnshippedPart(order.items),
+      returnedItemIdsToCredit(
+        await loadReturnsForCredit(container, order.id),
+        bases.flatMap((candidate) => candidate.invoicedLines),
+        bases[0]?.coveredReturns ?? [],
+      ),
+    );
+    const basis = bases.find((candidate) => candidate.invoice.id === chosen?.invoiceId);
+    if (basis === undefined) {
+      await recordRefusalOfError(
+        container,
+        einvoiceService,
+        { type: "credit_note", orderId: order.id, idempotencyKey: refund.id, trigger },
+        new RefundNeedsManualCreditError(order.id),
       );
       continue;
     }

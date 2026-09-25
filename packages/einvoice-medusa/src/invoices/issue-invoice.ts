@@ -9,6 +9,12 @@
  * mapping's, a failed VAT-ID check (`refusals.ts`): recorded, shown in the admin and retried from there,
  * instead of thrown into a log nobody reads.
  *
+ * P-67 (M-045): the invoice covers the fulfillment's own lines and units (`mapping/shipment.ts`), dated the
+ * day it shipped (BT-72); the order's shipping goes on the first invoice still standing, and a line's
+ * discount is shared out so the invoices of a line add up to it. P-69: the check against what Medusa
+ * charged compares with that fulfillment's share (`chargedForShipment`). An order paid in full before it
+ * shipped gets invoices that state it (BT-113 = total, nothing due).
+ *
  * T-071: `order.fulfillment_created` → e-invoice XML. Event name/payload shape verified for real against
  * `@medusajs/utils@2.19.0`'s own compiled `OrderWorkflowEvents.FULFILLMENT_CREATED` (T-070,
  * `docs/domain-glossary.md`) — `{ order_id, fulfillment_id, no_notification }`, matching plan-v0.1's own
@@ -50,7 +56,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
-import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
+import type { EinvoiceDocumentRecord, EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
 import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
 import { recordRefusalOfError } from "../refusals.js";
@@ -59,14 +65,37 @@ import {
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
   ORDER_QUERY_FIELDS,
+  orderPaidInFull,
   type MedusaOrderForInvoice,
+  type ShipmentScope,
   UNALLOCATED_DOCUMENT_NUMBER,
 } from "../mapping/order-to-commerce-invoice-input.js";
 import {
+  chargedForShipment,
   describeChargedReconciliation,
   reconcileWithCharged,
   type InvoiceNotice,
 } from "../mapping/charged-reconciliation.js";
+import { shipmentLines, type LineInvoicedBefore } from "../mapping/shipment.js";
+import { PluginError } from "../errors.js";
+
+/**
+ * P-67: the order's invoices still standing — those whose fulfillment was not cancelled (a cancelled
+ * fulfillment's invoice is credited in full, and its units ship again in another one).
+ */
+export function standingInvoices(
+  order: MedusaOrderForInvoice,
+  invoices: readonly EinvoiceDocumentRecord[],
+): readonly EinvoiceDocumentRecord[] {
+  const canceled = new Set(
+    (order.fulfillments ?? [])
+      .filter(
+        (fulfillment) => fulfillment.canceled_at !== null && fulfillment.canceled_at !== undefined,
+      )
+      .map((fulfillment) => fulfillment.id),
+  );
+  return invoices.filter((invoice) => !canceled.has(invoice.idempotency_key));
+}
 
 export interface IssueInvoiceRequest {
   readonly orderId: string;
@@ -78,6 +107,8 @@ export type IssueInvoiceOutcome =
   | { readonly kind: "exists" }
   /** The order is gone — nothing to invoice. */
   | { readonly kind: "order-missing" }
+  /** P-67: the fulfillment was cancelled before its invoice was issued — nothing to invoice. */
+  | { readonly kind: "fulfillment-canceled" }
   | {
       readonly kind: "issued";
       readonly documentNumber: string;
@@ -114,6 +145,12 @@ export async function issueInvoiceForFulfillment(
     return { kind: "order-missing" };
   }
 
+  const fulfillment = order.fulfillments?.find((candidate) => candidate.id === fulfillmentId);
+  if (fulfillment?.canceled_at !== null && fulfillment?.canceled_at !== undefined) {
+    await einvoiceService.clearRefusal("invoice", fulfillmentId);
+    return { kind: "fulfillment-canceled" };
+  }
+
   const commerce = await import("@normwerk/einvoice-commerce");
   const cii = await import("@normwerk/einvoice-cii");
 
@@ -131,12 +168,42 @@ export async function issueInvoiceForFulfillment(
 
   // P-66: everything up to the check build can refuse the invoice — recorded, not thrown.
   const prepare = async () => {
+    if (fulfillment === undefined) {
+      throw new PluginError(
+        "FULFILLMENT_MISSING",
+        `Order ${order.id} has no fulfillment ${fulfillmentId} to invoice.`,
+      );
+    }
+    // P-67: what the order's other invoices already took — units, discount, and the shipping.
+    const others = standingInvoices(
+      order,
+      (await einvoiceService.listEinvoiceDocuments({
+        type: "invoice",
+        order_id: order.id,
+      })) as unknown as EinvoiceDocumentRecord[],
+    );
+    const invoicedBefore: LineInvoicedBefore[] = others.flatMap((invoice) =>
+      (invoice.line_values ?? []).map((line) => ({
+        itemId: line.itemId,
+        quantity: line.quantity,
+        allowance: line.allowance ?? "0.00",
+      })),
+    );
+    const shipment: ShipmentScope = {
+      lines: shipmentLines(order.items, fulfillment, invoicedBefore),
+      includesShipping: !others.some((invoice) => invoice.includes_shipping),
+      deliveryDate: issueDateInSellerTimeZone(
+        einvoiceService.options.seller.countryCode,
+        fulfillment.created_at ? new Date(fulfillment.created_at) : now(),
+      ),
+    };
     const input = mapOrderToCommerceInvoiceInput(order, {
       seller: einvoiceService.options.seller,
       kind: "invoice",
       issueDate,
       payment: einvoiceService.options.payment,
       ossRegistered: einvoiceService.options.ossRegistered,
+      shipment,
     });
 
     // P-54: only a declared Leitweg-ID routes to XRechnung — never BT-10's free text, which is always filled.
@@ -163,7 +230,7 @@ export async function issueInvoiceForFulfillment(
       { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
       buildOptions,
     );
-    return { input, profile, buildOptions, check };
+    return { input, profile, buildOptions, check, shipment };
   };
   let prepared: Awaited<ReturnType<typeof prepare>>;
   try {
@@ -171,12 +238,16 @@ export async function issueInvoiceForFulfillment(
   } catch (error) {
     return refused(error);
   }
-  const { input, profile, buildOptions, check } = prepared;
+  const { input, profile, buildOptions, check, shipment } = prepared;
 
   // P-63: the check against what Medusa charged runs on the check build's totals — the number does not
   // change them — so a blocked invoice takes no number either.
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
-  const reconciliation = reconcileWithCharged(order, check.invoice);
+  const reconciliation = reconcileWithCharged(
+    order,
+    check.invoice,
+    chargedForShipment(order, shipment),
+  );
   if (reconciliation.outcome === "block") {
     const message = describeChargedReconciliation(reconciliation.block);
     logger.warn(
@@ -197,8 +268,10 @@ export async function issueInvoiceForFulfillment(
   const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
   const documentNumber = await numberer.next({ kind: "invoice", issueDate });
 
+  // P-67: an order paid in full before it shipped — the invoice states its total as paid.
+  const paidAmount = orderPaidInFull(order) ? check.invoice.totals.totalAmountWithVat : undefined;
   const buildResult = commerce.buildInvoice(
-    { ...input, document: { ...input.document, number: documentNumber } },
+    { ...input, paidAmount, document: { ...input.document, number: documentNumber } },
     buildOptions,
   );
 
@@ -245,8 +318,10 @@ export async function issueInvoiceForFulfillment(
     xmlFileId: stored.xmlFileId,
     pdfFileId: stored.pdfFileId,
     notice,
-    // P-65: what each order line was invoiced at — a later return is credited at that.
-    lineValues: invoicedLineValues(order.items, buildResult.invoice.lines),
+    // P-65: what each order line was invoiced at — a later return is credited at that; P-67: and its share
+    // of the line's discount.
+    lineValues: invoicedLineValues(shipment.lines, buildResult.invoice.lines),
+    includesShipping: shipment.includesShipping,
   });
 
   if (!result.created) {

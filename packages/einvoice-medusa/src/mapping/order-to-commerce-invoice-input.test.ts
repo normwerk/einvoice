@@ -3,6 +3,7 @@ import {
   MissingBuyerCountryError,
   issueDateInSellerTimeZone,
   mapOrderToCommerceInvoiceInput,
+  orderPaidInFull,
   type MapOrderOptions,
   type MedusaOrderForInvoice,
 } from "./order-to-commerce-invoice-input.js";
@@ -514,6 +515,101 @@ describe("mapOrderToCommerceInvoiceInput — shipping and discounts (P-39)", () 
       shipping_methods: [{ name: "Free Shipping", subtotal: 0, discount_subtotal: 0 }],
     });
     expect(mapOrderToCommerceInvoiceInput(order, baseOptions()).shipping).toBeUndefined();
+  });
+});
+
+describe("mapOrderToCommerceInvoiceInput — one fulfillment (P-67)", () => {
+  const order = baseOrder({
+    items: [
+      {
+        id: "item_shirt",
+        title: "Shirt",
+        unit_price: 20,
+        is_tax_inclusive: false,
+        tax_lines: [{ rate: 19 }],
+        detail: { quantity: 2 },
+        discount_subtotal: 4,
+        adjustments: [{ code: "TEN" }],
+      },
+      {
+        id: "item_book",
+        title: "Book",
+        unit_price: 10,
+        is_tax_inclusive: false,
+        tax_lines: [{ rate: 7 }],
+        detail: { quantity: 1 },
+        requires_shipping: false,
+      },
+    ],
+    shipping_methods: [{ name: "Standard", subtotal: 5, discount_subtotal: 0 }],
+  });
+
+  it("covers the fulfillment's lines and units only, with their share of the discount and its date", () => {
+    const input = mapOrderToCommerceInvoiceInput(
+      order,
+      baseOptions({
+        shipment: {
+          lines: [{ itemId: "item_shirt", quantity: "1", allowance: "2.00" }],
+          includesShipping: true,
+          deliveryDate: "2026-09-12",
+        },
+      }),
+    );
+    expect(input.lines).toEqual([
+      expect.objectContaining({
+        identifier: "1",
+        itemName: "Shirt",
+        quantity: "1",
+        allowances: [{ amount: "2.00", reason: "TEN" }],
+      }),
+    ]);
+    expect(input.shipping?.amount).toBe("5.00");
+    // The shipping is split by the rates of the whole order, not of this shipment.
+    expect(input.chargeSplitLines?.map((line) => line.itemName)).toEqual(["Shirt", "Book"]);
+    expect(input.delivery?.actualDeliveryDate).toBe("2026-09-12");
+    // Only goods are on this document, though the order holds a service too.
+    expect(input.taxContext.supplyType).toBe("goods");
+  });
+
+  it("leaves the order's shipping to the invoice that carries it", () => {
+    const input = mapOrderToCommerceInvoiceInput(
+      order,
+      baseOptions({
+        shipment: {
+          lines: [{ itemId: "item_book", quantity: "1", allowance: "0.00" }],
+          includesShipping: false,
+          deliveryDate: "2026-09-13",
+        },
+      }),
+    );
+    expect(input.shipping).toBeUndefined();
+    expect(input.chargeSplitLines).toBeUndefined();
+    expect(input.lines[0]?.allowances).toBeUndefined();
+    expect(input.taxContext.supplyType).toBe("services");
+  });
+
+  it("states what the buyer already paid", () => {
+    expect(
+      mapOrderToCommerceInvoiceInput(order, baseOptions({ paidAmount: "59.50" })).paidAmount,
+    ).toBe("59.50");
+  });
+});
+
+describe("orderPaidInFull (P-67)", () => {
+  it("holds when what Medusa captured, less refunds, covers the order's total", () => {
+    const paid = (captured: number, refunded = 0, total = 119) =>
+      orderPaidInFull(
+        baseOrder({
+          total,
+          payment_collections: [{ captured_amount: captured, refunded_amount: refunded }],
+        }),
+      );
+    expect(paid(119)).toBe(true);
+    expect(paid(0)).toBe(false);
+    expect(paid(118.99)).toBe(false);
+    // A refund of 19.00: Medusa takes it off the total as a credit line and records it as refunded.
+    expect(paid(119, 19, 100)).toBe(true);
+    expect(orderPaidInFull(baseOrder({ total: 0 }))).toBe(false);
   });
 });
 

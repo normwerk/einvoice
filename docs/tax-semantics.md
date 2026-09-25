@@ -200,7 +200,7 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
 - **What a credit note credits is not checked against what was refunded (row 10).** A credit note that
   restates the whole order for a refund of a tenth of it validates perfectly and reduces the VAT base by
   ten times too much (§17 UStG). The Medusa adapter credits a refund for its own amount: a refund that
-  covers the invoice, with nothing credited before, restates the whole order; any other refund is credited
+  covers the invoice, with nothing credited before, restates the invoice; any other refund is credited
   over the refunded gross amount, at the invoice's own category; nothing is ever credited beyond what is
   still outstanding on the invoice. A credit note states what it credits at each rate (§14 Abs. 4 Nr. 7–8
   UStG, §31 Abs. 5 UStDV), so a partial credit on an order with lines at different rates is split: the money
@@ -209,8 +209,19 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   order of receipt, not by matching amounts); what is left — a goodwill refund, shipping paid back —
   reduces each rate in proportion to what is still uncredited at it. One line per rate and kind ("Rückgabe
   / Return", "Teilerstattung / Partial refund (anteilig 7 %)"); which returns a credit note paid for is
-  stored with it, so a later refund does not pay for them again. An invoiced order that is then cancelled
-  gets a credit note for whatever is outstanding, at each rate.
+  stored with it, so a later refund does not pay for them again. A cancelled fulfillment's invoice gets a
+  credit note for whatever is outstanding on it, at each rate; so does an invoice still standing when the
+  order is cancelled.
+- **Two invoices for one supply validate, each on its own.** An invoice for goods already invoiced makes the
+  VAT on it owed a second time (UStAE 14c.1 Abs. 4, BFH XI R 54/93), and a validator sees one document at a
+  time. The Medusa adapter invoices each fulfillment for the lines and units it shipped, dated the day it
+  shipped (BT-72, §14 Abs. 4 Nr. 6 UStG): an order shipped at once gets one invoice, an order shipped in parts
+  one per part. The order's shipping goes on its first invoice — split by the whole order's rates when it has
+  two — and a line's discount is shared out by units, the invoice that ships its last units taking what is
+  left, so a line's invoices add up to it. A refund with goods that came back credits the invoice that holds
+  them. Money back with no goods, while the order has several invoices open or a part not shipped yet, is not
+  credited by the plugin: it may be for goods never shipped, which needs no credit note, and it cannot be
+  told from goodwill on one of the invoices — the refusal says so.
 - **A validator accepts an invoice without a street address.** §14 Abs. 4 Satz 1 Nr. 1 UStG requires the
   full name and the full address of both the seller and the buyer; EN 16931 makes the street (BT-35 for the
   seller, BT-50 for the buyer) optional, and KoSIT checks only city, post code and country. `buildInvoice`
@@ -254,8 +265,9 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
 
   Credit notes are not compared: they are built from what was refunded, not from the order's total.
   Credit lines are not shown as a paid amount (BT-113) on the invoice: it states the full consideration,
-  and the plugin states no payment on its invoices at all, card payments included — a paid amount of the
-  voucher part alone would make the amount due (BT-115) wrong.
+  and a paid amount of the voucher part alone would make the amount due (BT-115) wrong. The one payment an
+  invoice states is a full one: when what Medusa captured, less refunds, covers the order's total before it
+  ships, each of its invoices states its own total as paid and nothing due.
 
 This list is a starting point, not exhaustive — it grows as scenarios are added.
 

@@ -50,8 +50,9 @@ vi.mock("../storage.js", async (importOriginal) => {
   };
 });
 
-import creditNoteOnOrderCanceled from "./credit-note-on-order-canceled.js";
+import creditNoteOnFulfillmentCanceled from "./credit-note-on-fulfillment-canceled.js";
 
+// P-67: an order shipped in two fulfillments — a shirt, then a book — each with its own invoice.
 const ORDER = {
   id: "order_01",
   display_id: 1,
@@ -62,31 +63,36 @@ const ORDER = {
   shipping_address: null,
   items: [
     {
-      title: "Widget",
+      id: "item_shirt",
+      title: "Shirt",
       unit_price: 100,
       is_tax_inclusive: false,
       tax_lines: [{ rate: 19 }],
-      detail: { quantity: 2 },
+      detail: { quantity: 1 },
+    },
+    {
+      id: "item_book",
+      title: "Book",
+      unit_price: 100,
+      is_tax_inclusive: false,
+      tax_lines: [{ rate: 19 }],
+      detail: { quantity: 1 },
     },
   ],
 };
-const INVOICE = {
-  id: "doc_invoice",
+const SECOND_INVOICE = {
+  id: "doc_invoice_2",
   order_id: "order_01",
-  idempotency_key: "ful_01",
-  document_number: "RE-2026-0001",
+  idempotency_key: "ful_02",
+  document_number: "RE-2026-0002",
   xml_file_id: "file_invoice",
-};
-// P-67: a credit note names the invoice it corrects.
-const PARTIAL_CREDIT = {
-  id: "doc_credit",
-  document_number: "GS-2026-0001",
-  xml_file_id: "file_credit",
-  corrected_document_id: "doc_invoice",
+  includes_shipping: false,
+  line_values: [
+    { itemId: "item_book", rate: "19", quantity: "1", gross: "119.00", allowance: "0.00" },
+  ],
 };
 
 function cii(grandTotal: string): Uint8Array {
-  // BG-23 as this plugin's serializer writes it: everything at 19%, gross = the grand total.
   return new TextEncoder().encode(
     "<ram:IssueDateTime><udt:DateTimeString>20260101</udt:DateTimeString></ram:IssueDateTime>" +
       "<ram:ApplicableTradeTax><ram:CalculatedAmount>0.00</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>" +
@@ -96,10 +102,10 @@ function cii(grandTotal: string): Uint8Array {
   );
 }
 
-function setup(
-  documents: { invoices: readonly unknown[]; creditNotes: readonly unknown[] },
-  options: Record<string, unknown> = {},
-): { container: MedusaContainer; service: EinvoiceModuleService } {
+function setup(documents: { invoices: readonly unknown[]; creditNotes: readonly unknown[] }): {
+  container: MedusaContainer;
+  service: EinvoiceModuleService;
+} {
   const service = {
     options: {
       seller: {
@@ -110,10 +116,13 @@ function setup(
         postCode: "10115",
       },
       payment: { means: "58" },
-      ...options,
     },
     listEinvoiceDocuments: vi.fn(async (filter: Record<string, unknown>) => {
-      if (filter["type"] === "invoice") return documents.invoices;
+      if (filter["type"] === "invoice") {
+        return documents.invoices.filter(
+          (d) => (d as { idempotency_key?: string }).idempotency_key === filter["idempotency_key"],
+        );
+      }
       if (filter["idempotency_key"] !== undefined) {
         return documents.creditNotes.filter(
           (d) => (d as { idempotency_key?: string }).idempotency_key === filter["idempotency_key"],
@@ -123,7 +132,6 @@ function setup(
     }),
     recordDocumentIfAbsent: vi.fn(async () => ({ document: {}, created: true })),
     clearRefusal: vi.fn(async () => undefined),
-    clearRefusalsOfOrder: vi.fn(async () => undefined),
     recordRefusal: vi.fn(async (input: { code: string }) => ({
       id: "einvref_1",
       code: input.code,
@@ -138,73 +146,57 @@ function setup(
   return { container, service };
 }
 
-function args(container: MedusaContainer): SubscriberArgs<{ id: string }> {
-  return { event: { data: { id: "order_01" } }, container } as unknown as SubscriberArgs<{
-    id: string;
-  }>;
+function args(
+  container: MedusaContainer,
+  fulfillmentId = "ful_02",
+): SubscriberArgs<{ order_id: string; fulfillment_id: string }> {
+  return {
+    event: { data: { order_id: "order_01", fulfillment_id: fulfillmentId } },
+    container,
+  } as unknown as SubscriberArgs<{ order_id: string; fulfillment_id: string }>;
 }
 
-describe("creditNoteOnOrderCanceled (P-41)", () => {
+describe("creditNoteOnFulfillmentCanceled (P-67)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.fetchFileBytes.mockImplementation(async (_c: unknown, fileId: unknown) =>
-      cii(fileId === "file_credit" ? "23.80" : "238.00"),
-    );
+    mocks.fetchFileBytes.mockImplementation(async () => cii("119.00"));
   });
 
-  it("reverses the whole invoice when nothing was credited before", async () => {
-    const { container, service } = setup({ invoices: [INVOICE], creditNotes: [] });
-    await creditNoteOnOrderCanceled(args(container));
-    // The whole order restated — its own line, not a one-line "remaining amount" credit.
-    const [whole] = mocks.buildInvoice.mock.calls[0] as unknown as [
-      { lines: readonly { itemName: string }[] },
+  it("reverses the cancelled fulfillment's invoice — its own lines, not the whole order", async () => {
+    const { container, service } = setup({ invoices: [SECOND_INVOICE], creditNotes: [] });
+    await creditNoteOnFulfillmentCanceled(args(container));
+    const [restated] = mocks.buildInvoice.mock.calls[0] as unknown as [
+      {
+        document: { correctedInvoice: { number: string } };
+        lines: readonly { itemName: string }[];
+        shipping?: unknown;
+      },
     ];
-    expect(whole.lines.map((line) => line.itemName)).toEqual(["Widget"]);
+    expect(restated.lines.map((line) => line.itemName)).toEqual(["Book"]);
+    expect(restated.shipping).toBeUndefined();
+    expect(restated.document.correctedInvoice.number).toBe("RE-2026-0002");
     expect(service.recordDocumentIfAbsent).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "credit_note",
-        idempotencyKey: "order.canceled:doc_invoice",
-        correctedDocumentId: "doc_invoice",
+        idempotencyKey: "fulfillment.canceled:ful_02",
+        correctedDocumentId: "doc_invoice_2",
       }),
     );
   });
 
-  it("credits only what is still outstanding after an earlier partial refund", async () => {
-    const { container } = setup({ invoices: [INVOICE], creditNotes: [PARTIAL_CREDIT] });
-    await creditNoteOnOrderCanceled(args(container));
-    const [input] = mocks.buildInvoice.mock.calls[0] as unknown as [
-      { lines: readonly { itemName: string; priceInclVat: string }[] },
-    ];
-    expect(input.lines[0]?.priceInclVat).toBe("214.20");
-    expect(input.lines[0]?.itemName).toContain("Stornierung");
-  });
-
-  it("does nothing for an order that was never invoiced, or already credited for this cancellation", async () => {
-    const neverInvoiced = setup({ invoices: [], creditNotes: [] });
-    await creditNoteOnOrderCanceled(args(neverInvoiced.container));
-    const alreadyCredited = setup({
-      invoices: [INVOICE],
-      creditNotes: [{ ...PARTIAL_CREDIT, idempotency_key: "order.canceled:doc_invoice" }],
-    });
-    await creditNoteOnOrderCanceled(args(alreadyCredited.container));
-    expect(mocks.buildInvoice).not.toHaveBeenCalled();
-  });
-
-  it("leaves an invoice whose fulfillment was cancelled to that cancellation's own credit note (P-67)", async () => {
-    const { container } = setup({ invoices: [INVOICE], creditNotes: [] });
-    const graph = container.resolve(ContainerRegistrationKeys.QUERY) as unknown as {
-      graph: ReturnType<typeof vi.fn>;
-    };
-    graph.graph.mockResolvedValue({
-      data: [{ ...ORDER, fulfillments: [{ id: "ful_01", canceled_at: "2026-01-16T10:00:00Z" }] }],
-    });
-    await creditNoteOnOrderCanceled(args(container));
-    expect(mocks.buildInvoice).not.toHaveBeenCalled();
-  });
-
-  it("drops the order's refused invoices — a cancelled order is not to be invoiced any more (P-66)", async () => {
+  it("does nothing for a fulfillment never invoiced, and drops its refused invoice", async () => {
     const { container, service } = setup({ invoices: [], creditNotes: [] });
-    await creditNoteOnOrderCanceled(args(container));
-    expect(service.clearRefusalsOfOrder).toHaveBeenCalledWith("invoice", "order_01");
+    await creditNoteOnFulfillmentCanceled(args(container));
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
+    expect(service.clearRefusal).toHaveBeenCalledWith("invoice", "ful_02");
+  });
+
+  it("issues the credit note once, however often the event comes", async () => {
+    const { container } = setup({
+      invoices: [SECOND_INVOICE],
+      creditNotes: [{ id: "doc_credit", idempotency_key: "fulfillment.canceled:ful_02" }],
+    });
+    await creditNoteOnFulfillmentCanceled(args(container));
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
   });
 });

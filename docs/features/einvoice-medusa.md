@@ -46,6 +46,17 @@ a native screenshot, and the preview tool itself has no "save to path" capture).
 row labels, and request path above are transcribed verbatim from that live session, not reconstructed from
 the code alone.
 
+## One invoice per fulfillment
+
+Each fulfillment is invoiced on its own (`src/invoices/issue-invoice.ts`, `src/mapping/shipment.ts`): the
+lines and units it shipped, dated the day it shipped, the order's shipping on the first invoice still
+standing, and each line's discount shared out by units. Beside the XML, an invoice's row keeps what each
+line was invoiced at and its discount share (`line_values`) and whether it carries the shipping
+(`includes_shipping`) — what the order's next invoice reads to take the rest. A credit note's row names the
+invoice it corrects (`corrected_document_id`). Cancelling a fulfillment credits its invoice
+(`src/subscribers/credit-note-on-fulfillment-canceled.ts`); a refund credits the one invoice it can be tied
+to (`chooseRefundInvoice`, `src/mapping/credit-note.ts`) or is recorded as refused.
+
 ## Notices, and invoices not issued
 
 Before an invoice takes a number, it is compared with what Medusa charged (`reconcileWithCharged`,

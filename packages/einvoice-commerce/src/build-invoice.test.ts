@@ -205,6 +205,51 @@ describe("buildInvoice — domestic (docs/tax-semantics.md row 1)", () => {
     expect(validateModel(result.invoice).valid).toBe(true);
   });
 
+  it("splits shipping by the whole order's rates when the document invoices one shipment of it (P-67)", () => {
+    const book = {
+      quantity: "1",
+      unitCode: "C62",
+      netPrice: "100.00",
+      itemName: "Book",
+      taxRateKind: "reduced" as const,
+    };
+    const lamp = { ...book, itemName: "Lamp", taxRateKind: "standard" as const };
+    const result = buildInvoice(
+      domesticInput({
+        lines: [book],
+        chargeSplitLines: [book, lamp],
+        shipping: { amount: "10.00", reason: "Versand / Shipping" },
+      }),
+    );
+    expect(
+      result.invoice.documentLevelCharges?.map((c) => [c.vatRate, c.amount, c.reason]),
+    ).toEqual([
+      ["7", "5.00", "Versand / Shipping (anteilig 7 %)"],
+      ["19", "5.00", "Versand / Shipping (anteilig 19 %)"],
+    ]);
+    expect(result.invoice.vatBreakdown.map((g) => [g.rate, g.taxableAmount, g.taxAmount])).toEqual([
+      ["7", "105.00", "7.35"],
+      ["19", "5.00", "0.95"],
+    ]);
+    expect(result.invoice.lines).toHaveLength(1);
+    expect(validateModel(result.invoice).valid).toBe(true);
+  });
+
+  it("states what the buyer already paid (BT-113) and leaves the rest due (BT-115) (P-67)", () => {
+    const paid = buildInvoice(domesticInput({ paidAmount: "119.00" }));
+    expect(paid.invoice.totals).toMatchObject({
+      totalAmountWithVat: "119.00",
+      paidAmount: "119.00",
+      amountDueForPayment: "0.00",
+    });
+    expect(validateModel(paid.invoice).valid).toBe(true);
+    const part = buildInvoice(domesticInput({ paidAmount: "19.00" }));
+    expect(part.invoice.totals.amountDueForPayment).toBe("100.00");
+    expect(() => buildInvoice(domesticInput({ paidAmount: "119.01" }))).toThrow(
+      expect.objectContaining({ code: "INVALID_PAID_AMOUNT" }),
+    );
+  });
+
   it("refuses to split shipping across rates whose lines add up to zero — there is no proportion (P-65)", () => {
     expect(() =>
       buildInvoice(

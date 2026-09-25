@@ -23,8 +23,9 @@
  * credit line too, the sum stays what was charged after a refund. Medusa taxes credit lines at 0, so
  * `order.tax_total` needs no such correction. Checked against `@medusajs/utils@2.19.0` (`totals/cart`) and
  * `@medusajs/core-flows@2.19.0` (`refund-payment`). Credit lines are not stated on the invoice as a paid
- * amount (BT-113): the invoice states the full consideration and no payment at all, card payments
- * included, and a paid amount of the voucher part alone would make the amount due (BT-115) wrong.
+ * amount (BT-113): the invoice states the full consideration, and a paid amount of the voucher part alone
+ * would make the amount due (BT-115) wrong. P-67: the only payment stated is a full one
+ * (`orderPaidInFull`).
  *
  * One cause of a lower invoice VAT is named on the notice: shipping split across the order's VAT rates
  * (a charge per rate on the invoice, M-039/P-65), where Medusa taxes shipping at one rate. It is recognised
@@ -33,11 +34,22 @@
  * difference is the whole VAT difference.
  *
  * The tolerance is the invoice total check's: a cent for each independently rounded amount.
+ *
+ * P-69: an invoice for one fulfillment (P-67) is compared with what Medusa charged for that fulfillment —
+ * its lines' units at Medusa's own per-unit amounts, and the shipping when this invoice carries it — not
+ * with the order's total (`chargedForShipment`). Medusa prorates a line's totals to the units the buyer
+ * still has, so a unit's amount is the line's total divided by those units: the same after a return as
+ * before it, which the order's total is not.
  */
 import type { Amount } from "@normwerk/einvoice-model" with {
   "resolution-mode": "import",
 };
-import type { MedusaOrderForInvoice } from "./order-to-commerce-invoice-input.js";
+import type {
+  MedusaOrderForInvoice,
+  MedusaOrderLineItem,
+  MedusaOrderShippingMethod,
+  ShipmentScope,
+} from "./order-to-commerce-invoice-input.js";
 
 /** Whether the order's prices include VAT: every line and shipping method, none, or some. */
 export type PriceBasis = "net" | "gross" | "mixed";
@@ -121,20 +133,96 @@ function present(value: number | string | null | undefined): value is number | s
   return value !== null && value !== undefined && Number.isFinite(Number(value));
 }
 
-export function orderPriceBasis(order: MedusaOrderForInvoice): PriceBasis {
+function priceBasisOf(
+  items: readonly MedusaOrderLineItem[],
+  shippingMethods: readonly MedusaOrderShippingMethod[],
+): PriceBasis {
   const inclusive = [
-    ...order.items.map((item) => item.is_tax_inclusive === true),
-    ...(order.shipping_methods ?? []).map((method) => method.is_tax_inclusive === true),
+    ...items.map((item) => item.is_tax_inclusive === true),
+    ...shippingMethods.map((method) => method.is_tax_inclusive === true),
   ];
   if (inclusive.every(Boolean)) return "gross";
   if (inclusive.every((value) => !value)) return "net";
   return "mixed";
 }
 
+export function orderPriceBasis(order: MedusaOrderForInvoice): PriceBasis {
+  return priceBasisOf(order.items, order.shipping_methods ?? []);
+}
+
+/** What Medusa charged for what a document covers, in cents — compared with the document's totals. */
+export interface ChargedAmounts {
+  /** VAT included — `null` when Medusa's totals do not say. */
+  readonly total: number | null;
+  readonly vat: number | null;
+  readonly priceBasis: PriceBasis;
+  /** A cent for each independently rounded amount. */
+  readonly tolerance: number;
+  /** The shipping methods the document carries — to recognise a shipping split as the cause. */
+  readonly shippingMethods: readonly MedusaOrderShippingMethod[];
+}
+
+/** The whole order: `order.total` plus its credit lines, and `order.tax_total`. */
+export function chargedForOrder(order: MedusaOrderForInvoice): ChargedAmounts {
+  const shippingMethods = order.shipping_methods ?? [];
+  return {
+    total: present(order.total)
+      ? cents(order.total) + (present(order.credit_line_total) ? cents(order.credit_line_total) : 0)
+      : null,
+    vat: present(order.tax_total) ? cents(order.tax_total) : null,
+    priceBasis: priceBasisOf(order.items, shippingMethods),
+    tolerance: order.items.length + shippingMethods.length + 1,
+    shippingMethods,
+  };
+}
+
+/** P-69: one fulfillment — its units at Medusa's per-unit amounts, and the shipping if it carries it. */
+export function chargedForShipment(
+  order: MedusaOrderForInvoice,
+  shipment: ShipmentScope,
+): ChargedAmounts {
+  const shippingMethods = shipment.includesShipping ? (order.shipping_methods ?? []) : [];
+  const items: MedusaOrderLineItem[] = [];
+  let total: number | null = 0;
+  let vat: number | null = 0;
+  for (const line of shipment.lines) {
+    const item = order.items.find((candidate) => candidate.id === line.itemId);
+    const kept =
+      Number(item?.detail?.quantity ?? 0) -
+      Number(item?.detail?.return_received_quantity ?? 0) -
+      Number(item?.detail?.return_dismissed_quantity ?? 0);
+    if (item === undefined || kept <= 0 || !present(item.total) || !present(item.tax_total)) {
+      total = null;
+      vat = null;
+      break;
+    }
+    items.push(item);
+    total += Math.round((cents(item.total) * Number(line.quantity)) / kept);
+    vat += Math.round((cents(item.tax_total) * Number(line.quantity)) / kept);
+  }
+  for (const method of shippingMethods) {
+    if (total === null || vat === null) break;
+    if (!present(method.total) || !present(method.tax_total)) {
+      total = null;
+      vat = null;
+      break;
+    }
+    total += cents(method.total);
+    vat += cents(method.tax_total);
+  }
+  return {
+    total,
+    vat,
+    priceBasis: priceBasisOf(items, shippingMethods),
+    tolerance: shipment.lines.length + shippingMethods.length + 1,
+    shippingMethods,
+  };
+}
+
 /** The shipping-split cause, when the invoice charges shipping at more than one rate and the difference in
  * shipping VAT is the whole VAT difference. */
 function shippingSplitCause(
-  order: MedusaOrderForInvoice,
+  shippingMethods: readonly MedusaOrderShippingMethod[],
   invoice: InvoiceForReconciliation,
   vatDifference: number,
   tolerance: number,
@@ -147,7 +235,7 @@ function shippingSplitCause(
     (sum, charge) => sum + Math.round((cents(charge.amount) * Number(charge.vatRate ?? 0)) / 100),
     0,
   );
-  const medusaShippingVat = (order.shipping_methods ?? []).reduce(
+  const medusaShippingVat = shippingMethods.reduce(
     (sum, method) => sum + (present(method.tax_total) ? cents(method.tax_total) : 0),
     0,
   );
@@ -159,27 +247,27 @@ function shippingSplitCause(
 export function reconcileWithCharged(
   order: MedusaOrderForInvoice,
   invoice: InvoiceForReconciliation,
+  chargedAmounts: ChargedAmounts = chargedForOrder(order),
 ): ChargedReconciliation {
   const invoiceTotals = invoice.totals;
-  const priceBasis = orderPriceBasis(order);
+  const { priceBasis, tolerance, shippingMethods } = chargedAmounts;
   const invoiced = cents(invoiceTotals.totalAmountWithVat);
   const invoicedVat = cents(invoiceTotals.totalVatAmount ?? "0");
-  if (!present(order.total) || !present(order.tax_total)) {
+  if (chargedAmounts.total === null || chargedAmounts.vat === null) {
     return {
       outcome: "block",
       block: {
         code: "CHARGED_TOTALS_MISSING",
-        charged: present(order.total) ? amount(cents(order.total)) : null,
-        chargedVat: present(order.tax_total) ? amount(cents(order.tax_total)) : null,
+        charged: chargedAmounts.total === null ? null : amount(chargedAmounts.total),
+        chargedVat: chargedAmounts.vat === null ? null : amount(chargedAmounts.vat),
         invoiced: amount(invoiced),
         invoicedVat: amount(invoicedVat),
         priceBasis,
       },
     };
   }
-  const charged =
-    cents(order.total) + (present(order.credit_line_total) ? cents(order.credit_line_total) : 0);
-  const chargedVat = cents(order.tax_total);
+  const charged = chargedAmounts.total;
+  const chargedVat = chargedAmounts.vat;
   const comparison: ChargedComparison = {
     charged: amount(charged),
     chargedVat: amount(chargedVat),
@@ -188,7 +276,6 @@ export function reconcileWithCharged(
     priceBasis,
   };
 
-  const tolerance = order.items.length + (order.shipping_methods?.length ?? 0) + 1;
   const vatDifference = chargedVat - invoicedVat;
   const totalDifference = charged - invoiced;
   const within = (value: number): boolean => Math.abs(value) <= tolerance;
@@ -203,7 +290,7 @@ export function reconcileWithCharged(
         ...comparison,
         code: "VAT_DIFFERS_FROM_MEDUSA",
         refundDue: "0.00",
-        cause: shippingSplitCause(order, invoice, vatDifference, tolerance),
+        cause: shippingSplitCause(shippingMethods, invoice, vatDifference, tolerance),
       },
     };
   }
@@ -218,7 +305,7 @@ export function reconcileWithCharged(
         ...comparison,
         code: "VAT_OVERCHARGED",
         refundDue: amount(totalDifference),
-        cause: shippingSplitCause(order, invoice, vatDifference, tolerance),
+        cause: shippingSplitCause(shippingMethods, invoice, vatDifference, tolerance),
       },
     };
   }

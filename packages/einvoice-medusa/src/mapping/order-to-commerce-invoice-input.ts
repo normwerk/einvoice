@@ -30,6 +30,7 @@
  */
 import type {
   CommerceInvoiceInput,
+  CommerceLine,
   CommerceParty,
   RegimeOverride,
 } from "@normwerk/einvoice-commerce" with {
@@ -45,6 +46,7 @@ import type {
   "resolution-mode": "import",
 };
 import { PluginError } from "../errors.js";
+import type { MedusaFulfillment, ShipmentLine } from "./shipment.js";
 
 export const ORDER_QUERY_FIELDS = [
   "id",
@@ -81,6 +83,13 @@ export const ORDER_QUERY_FIELDS = [
   "items.is_tax_inclusive",
   "items.tax_lines.rate",
   "items.detail.quantity",
+  // P-67: Medusa prorates a line's totals to the units the buyer still has; these say how many came back,
+  // and how many were fulfilled.
+  "items.detail.fulfilled_quantity",
+  "items.detail.return_received_quantity",
+  "items.detail.return_dismissed_quantity",
+  "items.total",
+  "items.tax_total",
   "items.requires_shipping",
   // P-39: shipping and promotions. Requesting `total` is what makes `@medusajs/order`'s own service compute
   // order totals at all (`OrderModuleService.shouldIncludeTotals`: only when a top-level totals field is
@@ -106,6 +115,15 @@ export const ORDER_QUERY_FIELDS = [
   "shipping_methods.discount_subtotal",
   // P-63: the VAT Medusa charged on each shipping method — names the cause of a notice.
   "shipping_methods.tax_total",
+  // P-67: the fulfillment an invoice is for — the lines and quantities it shipped, and its date (BT-72).
+  "fulfillments.id",
+  "fulfillments.created_at",
+  "fulfillments.canceled_at",
+  "fulfillments.items.line_item_id",
+  "fulfillments.items.quantity",
+  // P-67: an order paid in full before it ships states the payment on its invoices (BT-113).
+  "payment_collections.captured_amount",
+  "payment_collections.refunded_amount",
 ] as const;
 
 export interface MedusaOrderAddress {
@@ -141,7 +159,17 @@ export interface MedusaOrderLineItem {
   readonly tax_lines?: readonly { readonly rate: number | string }[];
   /** The linked `OrderItem` row — real quantity lives here, not on the line item itself (see this file's
    * own doc comment). */
-  readonly detail?: { readonly quantity: number | string } | null;
+  readonly detail?: {
+    readonly quantity: number | string;
+    /** P-67: units fulfilled so far, and units that came back — Medusa's `OrderItem` lifecycle counts. */
+    readonly fulfilled_quantity?: number | string | null;
+    readonly return_received_quantity?: number | string | null;
+    readonly return_dismissed_quantity?: number | string | null;
+  } | null;
+  /** P-67: VAT included, after discounts, for the units the buyer still has (see `mapping/shipment.ts`). */
+  readonly total?: number | string | null;
+  /** P-67: the VAT of those units. */
+  readonly tax_total?: number | string | null;
   /** T-069/D-50 point 4: a real, first-class column on `@medusajs/order`'s own `OrderLineItem` model
    * (checked directly against `node_modules/@medusajs/order/dist/types/line-item.d.ts`, the same tier of
    * field as `is_tax_inclusive`/`unit_price` above — not a wildcard relation path this file's own doc
@@ -194,6 +222,15 @@ export interface MedusaOrderForInvoice {
   readonly tax_total?: number | string | null;
   /** P-63: store credit, gift cards and refunds Medusa recorded as credit lines — subtracted from `total`. */
   readonly credit_line_total?: number | string | null;
+  /** P-67: the order's fulfillments — each is invoiced on its own. */
+  readonly fulfillments?: readonly MedusaFulfillment[] | null;
+  /** P-67: what was captured and refunded, per payment collection. */
+  readonly payment_collections?:
+    | readonly {
+        readonly captured_amount?: number | string | null;
+        readonly refunded_amount?: number | string | null;
+      }[]
+    | null;
 }
 
 export class MissingBuyerCountryError extends PluginError {
@@ -231,6 +268,19 @@ export interface MapOrderOptions {
    * above. Defaults to `false` when omitted, matching `taxContext.ossRegistered`'s own pre-T-136 default —
    * "not OSS-registered" stays the honest default for a merchant who never configured this. */
   readonly ossRegistered?: boolean | undefined;
+  /** P-67: the one fulfillment this document covers. Omitted, the whole order. */
+  readonly shipment?: ShipmentScope | undefined;
+  /** P-67: BT-113 — what the buyer already paid of this document's total. */
+  readonly paidAmount?: Amount | undefined;
+}
+
+/** P-67: what a fulfillment's document covers (`mapping/shipment.ts`). */
+export interface ShipmentScope {
+  readonly lines: readonly ShipmentLine[];
+  /** Whether this document carries the order's shipping — the order's first invoice does. */
+  readonly includesShipping: boolean;
+  /** BT-72: the day of the fulfillment, where the seller is. */
+  readonly deliveryDate: IsoDate;
 }
 
 /**
@@ -309,12 +359,13 @@ export function toAmount(value: number | string | null | undefined): Amount {
 }
 
 /** P-39: one line allowance (BG-27) for everything Medusa discounted on this line, named after the
- * promotion code(s) it carries — BR-42 requires a reason on every line allowance. */
+ * promotion code(s) it carries — BR-42 requires a reason on every line allowance. P-67: `amount` is the
+ * share of a fulfillment's units when the document covers one. */
 function resolveLineAllowances(
   item: MedusaOrderLineItem,
-): readonly { readonly amount: Amount; readonly reason: string }[] | undefined {
   // P-61: in the line's own price basis — tax-inclusive for a tax-inclusive line.
-  const amount = toAmount(item.is_tax_inclusive ? item.discount_total : item.discount_subtotal);
+  amount: Amount = toAmount(item.is_tax_inclusive ? item.discount_total : item.discount_subtotal),
+): readonly { readonly amount: Amount; readonly reason: string }[] | undefined {
   if (Number(amount) <= 0) {
     return undefined;
   }
@@ -479,9 +530,62 @@ function resolveBuyerName(order: MedusaOrderForInvoice, buyerAddress: MedusaOrde
   return name ?? order.email ?? customer?.email ?? "Unknown customer";
 }
 
+/**
+ * P-67: whether the buyer paid the whole order before this document — what Medusa captured, less what it
+ * refunded, covers the order's total. Then the invoice states its total as paid (BT-113) and nothing due.
+ * Store credit and gift cards are credit lines, already taken off `order.total`; a refund is both a credit
+ * line and a refunded amount, so the comparison holds after one.
+ */
+export function orderPaidInFull(order: MedusaOrderForInvoice): boolean {
+  const total = Math.round(Number(order.total ?? 0) * 100);
+  if (total <= 0) return false;
+  const paid = (order.payment_collections ?? []).reduce(
+    (sum, collection) =>
+      sum +
+      Math.round(Number(collection.captured_amount ?? 0) * 100) -
+      Math.round(Number(collection.refunded_amount ?? 0) * 100),
+    0,
+  );
+  return paid >= total;
+}
+
 /** P-48: `document.number` of the check build a subscriber runs before it takes a real number — never on a
  * stored document. */
 export const UNALLOCATED_DOCUMENT_NUMBER = "UNALLOCATED";
+
+/** One order line as a document line: `quantity` and the line discount default to the whole line. */
+function toCommerceLine(
+  item: MedusaOrderLineItem,
+  index: number,
+  quantity = String(item.detail?.quantity ?? 1),
+  allowance?: Amount,
+): CommerceLine {
+  return {
+    identifier: String(index + 1),
+    quantity,
+    // UN/ECE Recommendation 20 "C62" (piece) — Medusa doesn't track a per-line unit-of-measure code by
+    // default; a merchant that needs a different BT-130 value has no source this mapping can read yet
+    // (a real, documented v0.1 gap, not an oversight).
+    unitCode: "C62",
+    ...unitPrice(item),
+    itemName: item.title,
+    chargedVatRate: chargedVatRate(item),
+    supplyType: resolveLineSupplyType(item),
+    allowances: resolveLineAllowances(item, allowance),
+  };
+}
+
+/** P-67: the order lines a shipment covers, in its order — an id the order does not have is dropped here
+ * and refused by `shipmentLines` before it gets this far. */
+function shipmentItems(
+  order: MedusaOrderForInvoice,
+  shipment: ShipmentScope,
+): readonly { readonly item: MedusaOrderLineItem; readonly line: ShipmentLine }[] {
+  return shipment.lines.flatMap((line) => {
+    const item = order.items.find((candidate) => candidate.id === line.itemId);
+    return item === undefined ? [] : [{ item, line }];
+  });
+}
 
 /**
  * Maps a Medusa order (fetched with `ORDER_QUERY_FIELDS`) plus this plugin's own seller config into a
@@ -517,6 +621,19 @@ export function mapOrderToCommerceInvoiceInput(
   // unconditionally, the same way `service.ts`'s seller-side check does. A plain email with EAS scheme
   // "EM" is the same convention every fixture already in this repo uses for this exact field.
   const buyerEmail = order.email ?? order.customer?.email ?? undefined;
+  // P-67: a fulfillment's document covers its own lines and units; the order's shipping goes on one of
+  // them, split — in a basket with two rates — by the rates of the whole order.
+  const shipment = options.shipment;
+  const wholeOrderLines = order.items.map((item, index) => toCommerceLine(item, index));
+  const covered = shipment === undefined ? undefined : shipmentItems(order, shipment);
+  const lines =
+    covered === undefined
+      ? wholeOrderLines
+      : covered.map(({ item, line }, index) =>
+          toCommerceLine(item, index, line.quantity, line.allowance),
+        );
+  const includesShipping = shipment?.includesShipping ?? true;
+  const documentItems = covered === undefined ? order.items : covered.map(({ item }) => item);
 
   return {
     schemaVersion: 1,
@@ -538,31 +655,18 @@ export function mapOrderToCommerceInvoiceInput(
       electronicAddress: buyerEmail,
       electronicAddressScheme: buyerEmail === undefined ? undefined : "EM",
     },
-    lines: order.items.map((item, index) => ({
-      identifier: String(index + 1),
-      quantity: String(item.detail?.quantity ?? 1),
-      // UN/ECE Recommendation 20 "C62" (piece) — Medusa doesn't track a per-line unit-of-measure code by
-      // default; a merchant that needs a different BT-130 value has no source this mapping can read yet
-      // (a real, documented v0.1 gap, not an oversight).
-      unitCode: "C62",
-      ...unitPrice(item),
-      itemName: item.title,
-      chargedVatRate: chargedVatRate(item),
-      supplyType: resolveLineSupplyType(item),
-      allowances: resolveLineAllowances(item),
-    })),
-    shipping: resolveShipping(order),
+    lines,
+    shipping: includesShipping ? resolveShipping(order) : undefined,
+    chargeSplitLines: covered !== undefined && includesShipping ? wholeOrderLines : undefined,
+    paidAmount: options.paidAmount,
     references,
     payment: options.payment,
     // BG-13 (P-25). `buildInvoice` only ever consults this for category K (BR-IC-11/12) — harmless to
     // populate unconditionally otherwise, the same way taxContext.buyerVatId is always computed regardless
-    // of the category that ends up resolving. `actualDeliveryDate: options.issueDate` is a deliberate
-    // simplification, not a guessed-at field: this subscriber runs in reaction to `order.fulfillment_created`
-    // itself, so "today" is an honest proxy for the dispatch date — a real per-fulfillment date would need a
-    // new query.graph field this task doesn't add without verifying it against a real running instance
-    // first (this file's own doc comment on why an unverified field path is a real risk, not a formality).
+    // of the category that ends up resolving. P-67: BT-72 is the fulfillment's own date; without one (the
+    // whole order, a credit note), the document's date.
     delivery: {
-      actualDeliveryDate: options.issueDate,
+      actualDeliveryDate: shipment?.deliveryDate ?? options.issueDate,
       deliverToCountryCode: deliveryAddress.country_code.toUpperCase() as CountryCode,
       deliverToAddressLine1: nonEmpty(deliveryAddress.address_1),
       deliverToAddressLine2: nonEmpty(deliveryAddress.address_2),
@@ -583,7 +687,7 @@ export function mapOrderToCommerceInvoiceInput(
       // shape category K's intra-eu-confirmed override and row 12's reverse-charge-cross-border already use.
       ossRegistered: options.ossRegistered ?? false,
       ossRateOverride: resolveOssRateOverride(order),
-      supplyType: resolveOrderSupplyType(order.items),
+      supplyType: resolveOrderSupplyType(documentItems),
       regimeOverride: resolveRegimeOverride(order),
     },
   };
