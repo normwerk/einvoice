@@ -72,7 +72,7 @@ code comments and commit messages only — never in text a user reads (section 1
 When an idea, improvement, edge case, refactor, or feature appears that is **not** part of the current task:
 - Do **not** implement it now.
 - Do **not** silently forget it.
-- Append one actionable line (**what + why**) to `ecom docs/todo.md` as a new `T-NNN` with status `todo`, under the fitting epic. Never renumber or delete existing IDs; a closed task is marked `done YYYY-MM-DD`.
+- Append one actionable line (**what + why**) to `ecom docs/todo.md` as a new `T-NNN` with status `todo`, under the fitting epic. Never renumber or reuse IDs. A closed task is marked `done YYYY-MM-DD`; at the next week boundary closed tasks move verbatim to `ecom docs/archive/todo-done.md`. The next free number is the highest across the active file **and** its archive — the same for `M-NNN` across `my-tasks.md`, `my-tasks-legal.md` and `archive/my-tasks-closed.md`.
 
 Also maintain `ecom docs/roadmap.md`: slot the idea under the release that fits, or under "Не запланировано" with an explicit trigger. Planning only — do not implement. The human marks releases as shipped.
 
