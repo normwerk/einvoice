@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { adminLogin, type AdminSession } from "../api/admin.js";
+import { adminGetJson, adminLogin, type AdminSession } from "../api/admin.js";
 import { registerCustomer, setCustomerVatId } from "../api/customer.js";
 import { checkoutToOrder } from "../api/checkout.js";
 import {
@@ -8,8 +8,10 @@ import {
   getEinvoiceStatus,
   retryRefusal,
   setOrderMetadata,
+  type EinvoiceDocumentSummary,
   type EinvoiceRefusalSummary,
 } from "../api/orders.js";
+import { capturePayment, getOrderPayment, refundPayment } from "../api/payments.js";
 import { loadCatalog, requireVariantId, type Catalog } from "../seed/catalog.js";
 import { waitFor } from "../harness/wait-for.js";
 import { UNAVAILABLE_VAT_ID } from "../harness/env.js";
@@ -20,7 +22,9 @@ import { validateBytes } from "../assert/conformance.js";
 // decided and the invoice is refused — recorded with its reason, visible through the admin API, instead of
 // an error in the log and no invoice. A retry while VIES is still down is refused again; once the merchant
 // confirms the number another way (`order.metadata.regime_override`, kind `intra-eu-confirmed`), the retry
-// issues the K invoice.
+// issues the K invoice. T-192 (P-73): with the confirmation gone from the order again, a refund is still
+// credited as K — the credit note corrects the supply as it was invoiced, following the decision stored with
+// the invoice; decided again on today's facts it would be refused like the first invoice was.
 describe("S14: VIES unavailable -> not issued, confirmed by hand, retried", () => {
   let admin: AdminSession;
   let catalog: Catalog;
@@ -104,5 +108,40 @@ describe("S14: VIES unavailable -> not issued, confirmed by hand, retried", () =
     const report = await validateBytes(xmlBytes, "s14-invoice.xml");
     expect(report.valid, JSON.stringify(report.messages)).toBe(true);
     expect(report.accepted, JSON.stringify(report.messages)).toBe(true);
+
+    // The confirmation is withdrawn. Medusa merges metadata on update and removes a key set to "" (`mergeMetadata`,
+    // `@medusajs/utils`).
+    await setOrderMetadata(admin, orderId, { regime_override: "" });
+    const { order } = await adminGetJson<{
+      readonly order: { readonly metadata: Record<string, unknown> | null };
+    }>(admin, `/admin/orders/${orderId}?fields=metadata`);
+    expect(order.metadata?.["regime_override"]).toBeUndefined();
+
+    const payment = await getOrderPayment(admin, orderId);
+    await capturePayment(admin, payment.id);
+    await refundPayment(admin, payment.id, 5);
+    let creditNote: EinvoiceDocumentSummary | undefined;
+    await waitFor(
+      `credit note for order ${orderId}`,
+      async () => {
+        creditNote = (await getEinvoiceStatus(admin, orderId)).documents.find(
+          (d) => d.type === "credit_note",
+        );
+        return creditNote !== undefined;
+      },
+      { timeoutMs: 30_000 },
+    );
+    if (creditNote === undefined) {
+      throw new Error("unreachable: waitFor guarantees a credit note");
+    }
+    const creditXmlBytes = await downloadEinvoiceFile(admin, orderId, creditNote.id, "xml");
+    const creditXml = creditXmlBytes.toString("utf-8");
+    expect(bt.vatCategoryCode(creditXml)).toBe("K");
+    expect(bt.correctedInvoiceNumber(creditXml)).toBe(invoice.documentNumber);
+    expect(creditNote.taxDecisions).toEqual(invoice.taxDecisions);
+    expect(creditNote.vatIdEvidence).toEqual(invoice.vatIdEvidence);
+    const creditReport = await validateBytes(creditXmlBytes, "s14-credit-note.xml");
+    expect(creditReport.valid, JSON.stringify(creditReport.messages)).toBe(true);
+    expect(creditReport.accepted, JSON.stringify(creditReport.messages)).toBe(true);
   });
 });

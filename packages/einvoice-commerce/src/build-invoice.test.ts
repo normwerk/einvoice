@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateModel } from "@normwerk/einvoice-model";
 import {
+  DecisionCarriedToInvoiceError,
   DuplicateBuyerReferenceError,
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
@@ -747,6 +748,100 @@ describe("buildInvoice — credit note (row 10, T-064)", () => {
     expect(result.invoice.precedingInvoiceReferences).toEqual([
       { invoiceNumber: "RE-2026-0001", issueDate: "2026-09-14" },
     ]);
+  });
+});
+
+describe("buildInvoice — a credit note follows the decision of the invoice it corrects (T-192, P-73)", () => {
+  const CREDIT_NOTE = {
+    kind: "credit-note" as const,
+    number: "GS-2026-0001",
+    issueDate: "2026-09-20",
+    currency: "EUR" as const,
+    correctedInvoice: { number: "RE-2026-0001", issueDate: "2026-09-14" },
+  };
+  const INTRA_EU_DECISION = {
+    ruleId: "tax-semantics#3",
+    categoryCode: "K" as const,
+    exemptionReasonCode: "VATEX-EU-IC" as const,
+    exemptionReasonText:
+      "Innergemeinschaftliche Lieferung (§4 Nr. 1b, §6a UStG) / Intra-Community supply",
+    reasoning:
+      "Buyer VAT-ID FR12345678901 confirmed valid by VIES (consultation X1, checked 2026-09-14).",
+    scope: { kind: "document" as const },
+  };
+  const intraEuCreditNote = domesticInput({
+    document: CREDIT_NOTE,
+    buyer: {
+      name: "Exemple SARL",
+      countryCode: "FR",
+      city: "Paris",
+      postCode: "75008",
+      vatIdentifier: "FR12345678901",
+    },
+    delivery: { actualDeliveryDate: "2026-09-10", deliverToCountryCode: "FR" },
+    taxContext: {
+      sellerCountry: "DE",
+      sellerVatId: "DE123456789",
+      buyerCountry: "FR",
+      buyerVatId: "FR12345678901",
+      buyerIsBusiness: true,
+      ossRegistered: false,
+      supplyType: "goods",
+    },
+  });
+
+  it("credits a K invoice as K although VIES says the VAT-ID is invalid today", () => {
+    const today = { vatId: "FR12345678901", status: "invalid" as const, checkedAt: "2026-09-20" };
+    expect(() => buildInvoice(intraEuCreditNote, { vatIdEvidence: today })).toThrow(
+      expect.objectContaining({ code: "VAT_ID_UNVERIFIED" }),
+    );
+    const result = buildInvoice(intraEuCreditNote, { correctedInvoiceDecision: INTRA_EU_DECISION });
+    expect(result.invoice.vatBreakdown[0]?.categoryCode).toBe("K");
+    expect(result.decisions).toEqual([INTRA_EU_DECISION]);
+  });
+
+  it("credits a domestic invoice at 19 % after the order's address moved abroad and OSS was switched on", () => {
+    const domesticDecision = {
+      ruleId: "tax-semantics#1",
+      categoryCode: "S" as const,
+      reasoning: "Domestic DE→DE supply, standard VAT regime (UStG §12).",
+      scope: { kind: "document" as const },
+    };
+    const input = domesticInput({
+      document: CREDIT_NOTE,
+      buyer: { name: "Jean Dupont", countryCode: "FR", city: "Paris", postCode: "75008" },
+      taxContext: {
+        sellerCountry: "DE",
+        sellerVatId: "DE123456789",
+        buyerCountry: "FR",
+        buyerIsBusiness: false,
+        ossRegistered: true,
+        supplyType: "goods",
+      },
+    });
+    expect(() => buildInvoice(input)).toThrow(
+      expect.objectContaining({ code: "OSS_RATE_MISSING" }),
+    );
+    const result = buildInvoice(input, { correctedInvoiceDecision: domesticDecision });
+    expect(result.invoice.vatBreakdown).toEqual([
+      expect.objectContaining({ categoryCode: "S", rate: "19" }),
+    ]);
+  });
+
+  it("still checks the document itself: a K credit note without the buyer's VAT-ID is refused", () => {
+    const input = {
+      ...intraEuCreditNote,
+      buyer: { ...intraEuCreditNote.buyer, vatIdentifier: undefined },
+    };
+    expect(() => buildInvoice(input, { correctedInvoiceDecision: INTRA_EU_DECISION })).toThrow(
+      MissingBuyerVatIdError,
+    );
+  });
+
+  it("refuses a decision carried over to an invoice — an invoice is decided on its own supply", () => {
+    expect(() =>
+      buildInvoice(domesticInput(), { correctedInvoiceDecision: INTRA_EU_DECISION }),
+    ).toThrow(DecisionCarriedToInvoiceError);
   });
 });
 

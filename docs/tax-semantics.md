@@ -225,6 +225,14 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   stored with it, so a later refund does not pay for them again. A cancelled fulfillment's invoice gets a
   credit note for whatever is outstanding on it, at each rate; so does an invoice still standing when the
   order is cancelled.
+- **A credit note corrects the supply as it was invoiced, not as the order looks today (row 10).** Between
+  the invoice and a refund the buyer's VAT-ID can stop being valid, the shop can register for OSS, the order's
+  address can be edited — decided again, a credit note would get another category than the invoice it
+  corrects, or none. The Medusa adapter keeps the tax decision with each invoice and a credit note follows it
+  (`correctedInvoiceDecision` of `buildInvoice`): the invoice's category, exemption reason and rule, and the
+  VIES answer the invoice rested on — no second VIES check. The credit note itself is still checked: a K
+  credit note needs the buyer's VAT-ID and a delivery to another member state on the document. An invoice
+  issued before decisions were kept is decided again, as before.
 - **Two invoices for one supply validate, each on its own.** An invoice for goods already invoiced makes the
   VAT on it owed a second time (UStAE 14c.1 Abs. 4, BFH XI R 54/93), and a validator sees one document at a
   time. The Medusa adapter invoices each fulfillment for the lines and units it shipped, dated the day it

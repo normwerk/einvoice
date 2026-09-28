@@ -118,4 +118,7 @@ export type CommerceErrorCode =
   /** A credit exceeds what is still uncredited on the invoice it corrects. */
   | "CREDIT_EXCEEDS_INVOICE"
   /** The amount stated as already paid is negative or more than the invoice total. */
-  | "INVALID_PAID_AMOUNT";
+  | "INVALID_PAID_AMOUNT"
+  /** A tax decision was carried over to a document that is not a credit note. An invoice is decided on the
+   * facts of its own supply; only a credit note follows the decision of the invoice it corrects. */
+  | "DECISION_CARRIED_TO_INVOICE";

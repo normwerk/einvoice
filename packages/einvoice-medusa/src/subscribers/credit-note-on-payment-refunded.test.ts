@@ -351,6 +351,56 @@ describe("creditNoteOnPaymentRefunded", () => {
     );
   });
 
+  it("follows the decision and the VIES answer stored with the invoice — no second VIES check (T-192, P-73)", async () => {
+    const decision = {
+      ruleId: "tax-semantics#3",
+      categoryCode: "K",
+      reasoning: "Buyer VAT-ID FR98765432109 confirmed valid by VIES.",
+      scope: { kind: "document" },
+    };
+    const evidence = { vatId: "FR98765432109", status: "valid", checkedAt: "2026-01-01" };
+    const invoice = { ...ORIGINAL_INVOICE, tax_decisions: [decision], vat_id_evidence: evidence };
+    // Today VIES would say the number is no longer valid.
+    const verify = vi.fn(async () => ({ ...evidence, status: "invalid", checkedAt: "2026-09-25" }));
+    const einvoiceService = makeEinvoiceService({
+      options: { vatIdVerifier: { verify } },
+      listEinvoiceDocuments: async (filter) => (filter["type"] === "invoice" ? [invoice] : []),
+    });
+    const order = {
+      ...ORDER,
+      customer: { ...ORDER.customer, metadata: { vat_id: "FR98765432109" } },
+    };
+    const { container } = makeContainer({ einvoiceService, orders: [order] });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(verify).not.toHaveBeenCalled();
+    expect(mocks.buildInvoice).toHaveBeenCalledWith(expect.anything(), {
+      vatIdEvidence: evidence,
+      correctedInvoiceDecision: decision,
+    });
+  });
+
+  it("decides again, with a fresh VIES check, for an invoice issued before decisions were kept", async () => {
+    const verify = vi.fn(async (vatId: string) => ({
+      vatId,
+      status: "valid",
+      checkedAt: "2026-09-25",
+    }));
+    const einvoiceService = makeEinvoiceService({ options: { vatIdVerifier: { verify } } });
+    const order = {
+      ...ORDER,
+      customer: { ...ORDER.customer, metadata: { vat_id: "FR98765432109" } },
+    };
+    const { container } = makeContainer({ einvoiceService, orders: [order] });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(verify).toHaveBeenCalledWith("FR98765432109", expect.any(Date));
+    const [, options] = mocks.buildInvoice.mock.calls[0] as unknown as [unknown, object];
+    expect(options).not.toHaveProperty("correctedInvoiceDecision");
+  });
+
   it("cleans up the just-uploaded files when recordDocumentIfAbsent loses the concurrency race", async () => {
     mocks.storeEinvoiceFiles.mockResolvedValue({ xmlFileId: "file_xml", pdfFileId: "file_pdf" });
     const einvoiceService = makeEinvoiceService({

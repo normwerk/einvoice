@@ -244,6 +244,18 @@ export class InvalidAssembledInvoiceError extends EinvoiceError<CommerceErrorCod
   }
 }
 
+/** T-192 (P-73): `correctedInvoiceDecision` given for an invoice. */
+export class DecisionCarriedToInvoiceError extends EinvoiceError<CommerceErrorCode> {
+  constructor() {
+    super(
+      "DECISION_CARRIED_TO_INVOICE",
+      "options.correctedInvoiceDecision is for a credit note, which follows the decision of the invoice it " +
+        "corrects — an invoice is decided on the facts of its own supply.",
+    );
+    this.name = "DecisionCarriedToInvoiceError";
+  }
+}
+
 export class InvalidPaidAmountError extends EinvoiceError<CommerceErrorCode> {
   constructor(
     readonly paidAmount: string,
@@ -276,6 +288,15 @@ export interface BuildInvoiceOptions {
    * function does not perform I/O itself). Only consulted when the resolved regime needs it (intra-EU
    * supply, docs/tax-semantics.md row 3). */
   readonly vatIdEvidence?: VatIdEvidence;
+  /**
+   * T-192 (P-73): on a credit note, the decision of the invoice it corrects — its category, exemption reason
+   * and rule. The credit note then follows it instead of deciding again on today's facts: a VAT-ID that is no
+   * longer valid, an OSS registration made since, an address edited since would otherwise give the credit
+   * note another category than the supply it corrects (§17 UStG corrects that supply). The checks on the
+   * document itself still run — a K credit note still needs the buyer's VAT-ID and a delivery to another
+   * member state. Refused on an invoice (`DecisionCarriedToInvoiceError`).
+   */
+  readonly correctedInvoiceDecision?: TaxDecision;
 }
 
 function mapParty(party: CommerceParty) {
@@ -407,6 +428,15 @@ function assertNotSpecialVatTerritory(input: CommerceInvoiceInput): void {
   }
 }
 
+/** The category decided on the order's own facts — after the special territories are ruled out. */
+function decideOnTodaysFacts(
+  input: CommerceInvoiceInput,
+  options: BuildInvoiceOptions,
+): TaxDecision {
+  assertNotSpecialVatTerritory(input);
+  return decideVatCategory(input.taxContext, options.vatIdEvidence);
+}
+
 /** `resolveLineRate` for one line, with a refusal naming the line it is about. */
 function lineRate(
   decision: TaxDecision,
@@ -507,8 +537,11 @@ export function buildInvoice(
     });
   }
 
-  assertNotSpecialVatTerritory(input);
-  const regimeDecision: TaxDecision = decideVatCategory(input.taxContext, options.vatIdEvidence);
+  if (options.correctedInvoiceDecision !== undefined && input.document.kind !== "credit-note") {
+    throw new DecisionCarriedToInvoiceError();
+  }
+  const regimeDecision: TaxDecision =
+    options.correctedInvoiceDecision ?? decideOnTodaysFacts(input, options);
   const decisions: TaxDecision[] = [regimeDecision];
 
   if (

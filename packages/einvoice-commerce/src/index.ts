@@ -23,10 +23,12 @@ export type {
 
 export {
   buildInvoice,
+  DecisionCarriedToInvoiceError,
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
   DuplicateBuyerReferenceError,
   InvalidLeitwegIdError,
+  InvalidPaidAmountError,
   InvalidPriceBasisError,
   LineAllowanceExceedsLineAmountError,
   MissingBuyerIdentifierForReverseChargeError,

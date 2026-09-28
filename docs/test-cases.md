@@ -18,7 +18,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/errors.test.ts` — `EinvoiceError`: a stable code and the link to its explanation, anchored in lower
   case with hyphens.
 
-### `einvoice-commerce` (152 tests)
+### `einvoice-commerce` (156 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -34,7 +34,9 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   including VAT (each rate group's VAT taken out of its gross total, so the invoice totals the gross amounts;
   both a net and a VAT-inclusive amount, or neither, refused), special VAT territories refused before any
   category is decided (goods placed where they go, a service where its buyer is, Northern Ireland for goods
-  only), and defensive behavior against a malformed non-TypeScript caller (ADR-003).
+  only), a credit note following the decision of the invoice it corrects (K although VIES says invalid today,
+  19 % although the address moved abroad and OSS was switched on, the document itself still checked, refused
+  on an invoice), and defensive behavior against a malformed non-TypeScript caller (ADR-003).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany, OSS for services,
@@ -86,7 +88,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
   lines above post code and city.
 
-### `einvoice-medusa` (267 tests)
+### `einvoice-medusa` (269 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -146,7 +148,9 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   invoice, a received return paid for first at its own rate and recorded as covered, a refund with no
   invoice recorded as a refusal naming its payment, a refund of an overpayment
   the invoice's notice names crediting nothing while a later one credits its own amount, and with two
-  invoices a refund credited on the one holding the returned goods, or refused when it names none.
+  invoices a refund credited on the one holding the returned goods, or refused when it names none; the
+  decision and VIES answer stored with the invoice followed without a second VIES check, and an invoice
+  without a stored decision decided again.
 - `src/subscribers/credit-note-on-fulfillment-canceled.test.ts` — a cancelled fulfillment's invoice restated
   with its own lines, a fulfillment never invoiced leaving nothing to credit and its refusal dropped, and the
   credit note issued once however often the event comes.
@@ -252,7 +256,8 @@ state: issued with a refund-due notice; refunding the overpayment credits nothin
 credits its own amount), S13 (an invoice stating more VAT than was charged: not issued, the reason in the
 admin API, the order corrected, the retry issues it; a refund made meanwhile refused and credited by its own
 retry), S14 (VIES unavailable: the invoice refused and recorded, retried after the VAT-ID was confirmed by
-hand, the invoice keeping VIES's "unavailable"), S15 (a 7 % / 19 % basket: shipping split into a charge per rate with the notice naming it as the
+hand, the invoice keeping VIES's "unavailable"; with the confirmation withdrawn, a refund still credited as
+K, following the invoice's decision), S15 (a 7 % / 19 % basket: shipping split into a charge per rate with the notice naming it as the
 cause; a received return credited at its own rate, a goodwill refund and the rest of a cancelled order
 credited per rate, every document KoSIT-green), S16 (prices including VAT, shipping without VAT in Medusa:
 the invoice takes 19% out of what was paid and is issued with a notice that Medusa counts less VAT),

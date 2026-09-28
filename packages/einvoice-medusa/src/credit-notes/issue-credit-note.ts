@@ -240,18 +240,30 @@ export async function issueCreditNote({
       preferredProfile: einvoiceService.options.defaultProfile,
     });
 
+    // T-192 (P-73): the credit note corrects the invoice's supply, so it follows the decision stored with that
+    // invoice — and the VIES answer it rested on — instead of deciding again on today's facts: VIES, the
+    // plugin options and the order's address may all have changed since. An invoice issued before decisions
+    // were kept is decided again, with a fresh VIES check, as before.
+    const invoiceDecisions = basis.invoice.tax_decisions ?? [];
+    const correctedInvoiceDecision =
+      invoiceDecisions.length === 1 && invoiceDecisions[0]?.scope.kind === "document"
+        ? invoiceDecisions[0]
+        : undefined;
     // VAT-ID verification is I/O and happens before buildInvoice (ADR-003) — and before a number is taken.
     const vatIdEvidence =
-      einvoiceService.options.vatIdVerifier !== undefined &&
-      input.taxContext.buyerVatId !== undefined
-        ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
-        : undefined;
+      correctedInvoiceDecision !== undefined
+        ? (basis.invoice.vat_id_evidence ?? undefined)
+        : einvoiceService.options.vatIdVerifier !== undefined &&
+            input.taxContext.buyerVatId !== undefined
+          ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
+          : undefined;
 
     // P-65: a partial credit states what it credits at each rate — received returns first, at their own
     // rates; the rest in proportion to what is still uncredited per rate (`allocateCreditAcrossRates`).
     let coveredReturns: CoveredReturn[] = [];
     if (scope.kind === "partial") {
-      const decision = commerce.decideVatCategory(input.taxContext, vatIdEvidence);
+      const decision =
+        correctedInvoiceDecision ?? commerce.decideVatCategory(input.taxContext, vatIdEvidence);
       const taxContext = input.taxContext;
       const lineRates = input.lines.map((line) =>
         rateKey(
@@ -304,7 +316,10 @@ export async function issueCreditNote({
       input = toPartialCreditNoteInput(input, lines, basis.invoice.document_number);
     }
 
-    const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
+    const buildOptions = {
+      ...(vatIdEvidence === undefined ? {} : { vatIdEvidence }),
+      ...(correctedInvoiceDecision === undefined ? {} : { correctedInvoiceDecision }),
+    };
     // P-48: refusals before a document number is taken — see invoices/issue-invoice.ts.
     commerce.buildInvoice(
       { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
