@@ -91,7 +91,7 @@ export interface EinvoiceModuleOptions {
    * `@normwerk/einvoice-pdfa`. Returning `undefined` — or omitting the option — produces XML only.
    *
    * The PDF is embedded as it is — nothing repairs it — so it is checked first (`checkPdfAEligibility`):
-   * T-033: an encrypted PDF, or one with a font it does not embed, cannot become PDF/A. The document is then
+   * an encrypted PDF, or one with a font it does not embed, cannot become PDF/A (T-033). The document is then
    * issued as XML alone and carries a notice saying why (`PDF_ENCRYPTED`, `PDF_FONT_NOT_EMBEDDED`, `pdf.ts`).
    */
   readonly standalone?: {

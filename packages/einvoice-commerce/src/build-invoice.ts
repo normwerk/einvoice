@@ -245,7 +245,7 @@ export class InvalidAssembledInvoiceError extends EinvoiceError<CommerceErrorCod
   }
 }
 
-/** T-192 (P-73): `correctedInvoiceDecision` given for an invoice. */
+/** T-192, P-73: `correctedInvoiceDecision` given for an invoice. */
 export class DecisionCarriedToInvoiceError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
@@ -257,7 +257,7 @@ export class DecisionCarriedToInvoiceError extends EinvoiceError<CommerceErrorCo
   }
 }
 
-/** T-199 (P-73): a line of an invoice carries `invoicedVatRate`. */
+/** T-199, P-73: a line of an invoice carries `invoicedVatRate`. */
 export class InvoicedRateOnInvoiceError extends EinvoiceError<CommerceErrorCode> {
   constructor() {
     super(
