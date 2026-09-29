@@ -17,7 +17,7 @@ Adapted from a portable rule set; sections that belonged to a mobile / on-device
 | Docs index | `docs/README.md` |
 | Domain knowledge base | `docs/domain-glossary.md` |
 | Implementation plans | `ecom docs/plan-*.md` — **outside this repository**, see section 1 |
-| Language | Code identifiers, comments, logs, public docs, commit messages: **English**. Private strategy documents: Russian. Chat: follow the user |
+| Language | Code identifiers, comments, logs, public docs, commit messages: **English**. Chat: follow the user |
 
 ---
 
@@ -74,7 +74,7 @@ When an idea, improvement, edge case, refactor, or feature appears that is **not
 - Do **not** silently forget it.
 - Append one actionable line (**what + why**) to `ecom docs/todo.md` as a new `T-NNN` with status `todo`, under the fitting epic. Never renumber or reuse IDs. A closed task is marked `done YYYY-MM-DD`; at the next week boundary closed tasks move verbatim to `ecom docs/archive/todo-done.md`. The next free number is the highest across the active file **and** its archive — the same for `M-NNN` across `my-tasks.md`, `my-tasks-legal.md` and `archive/my-tasks-closed.md`.
 
-Also maintain `ecom docs/roadmap.md`: slot the idea under the release that fits, or under "Не запланировано" with an explicit trigger. Planning only — do not implement. The human marks releases as shipped.
+Also maintain `ecom docs/roadmap.md`: slot the idea under the release that fits, or in its unplanned section with an explicit trigger. Planning only — do not implement. The human marks releases as shipped.
 
 Human-only action items (accounts, API keys, billing, console setup, licenses, legal, outreach) go to `ecom docs/my-tasks.md` as `M-NNN · open · …` with the blocked result named. Consultations, reviews and audits by lawyers, tax advisors or other outside experts go to `ecom docs/my-tasks-legal.md` in the same format; the `M-NNN` sequence is shared by both files. Mark `blocked(M-NNN)` on the dependent `T-NNN`.
 
@@ -84,14 +84,14 @@ Never store secrets in this repository. Leave a `__________` placeholder and ask
 
 ## 4. Scope gate — before building anything new
 
-Scope is fixed in `ecom docs/STRATEGY.md` §2 and deliberately narrow. This gate replaces the product-hypothesis gate of the portable rules: the product shape is already decided, so the question is not "is this a good feature" but "is this inside the probe".
+Scope is fixed in `ecom docs/STRATEGY.md` §2 and deliberately narrow. This gate replaces the product-hypothesis gate of the portable rules: the product shape is already decided, so the question is not "is this a good feature" but "is this inside the agreed scope".
 
 Applies to: new packages, new profiles, new platform adapters, new delivery channels, anything from `todo.md` phrased open-endedly, and any request shaped as "also add X".
 
 Skip for: bug fixes, refactors, tests, docs, tooling, and clear follow-through of an agreed step in `ecom docs/plan-*.md`.
 
 Check, briefly:
-1. **In scope?** Named in `STRATEGY.md` §2 "В scope"? If it appears in "Вне scope", stop.
+1. **In scope?** Named in the in-scope list of `STRATEGY.md` §2? If it appears in the out-of-scope list, stop.
 2. **Which layer?** Format, commerce, adapter, or conformance (section 6). Something that does not fit a layer usually does not belong.
 3. **Smaller version?** Is there a version that delivers most of the value inside the current release?
 4. **Already covered?** By an existing package or by a PDF plugin we sit on top of.
@@ -101,7 +101,7 @@ Check, briefly:
 |---|---|
 | **In scope, clear** | Implement now |
 | **Better shape** | Propose a concrete alternative; **do not code** until the user picks |
-| **Out of scope** | Do not code. Capture per section 3 (`roadmap.md` → "Не запланировано" with a trigger) and say so in one line |
+| **Out of scope** | Do not code. Capture per section 3 (`roadmap.md`, unplanned section, with a trigger) and say so in one line |
 
 Challenge early, one clear recommendation, no ceremony on obvious work.
 
@@ -122,7 +122,7 @@ Decision D-17 / M-005: **zero third-party e-invoicing libraries in runtime.** Se
 
 ### 5.2 Data gate
 
-The Uzbek development side must not touch personal data (decision D-08), and this repository is public.
+No contributor handles real personal data, and this repository is public.
 
 - **Fixtures are synthetic.** Never commit a real invoice, a real customer name, address, VAT-ID, bank detail, or order export. Anonymised real invoices (M-007) are anonymised **before** they reach the repository, and the anonymisation is verified by a human.
 - Never log invoice payloads at info level or above. Debug logging of payloads must be opt-in and off by default.
@@ -158,7 +158,7 @@ Golden workflow:
 
 ## 7. Environment fence
 
-Building and unit-testing needs Node 22 and pnpm. **Conformance validation needs Docker and a JVM-based toolchain**; there is no pure-JS EN 16931 validator (`researches/02`).
+Building and unit-testing needs Node 22 and pnpm. **Conformance validation needs Docker and a JVM-based toolchain**; there is no pure-JS EN 16931 validator.
 
 - On a host without Docker: read, edit, plan, and write tests — but **do not claim conformance results**. State the exact commands to run on a Docker-capable host and stop.
 - Never substitute a hand-written XSD check, a regex, or your own reading of the spec for a validator run, and never describe an unrun check as passing. A wrong "validator green" is worse than no answer: the entire project's credibility rests on these outputs being verifiably correct.
@@ -265,7 +265,7 @@ TypeScript strict across the repository.
 
 ## 15. Maintainer obligations
 
-The plugin is a demand probe and a reputation carrier (D-09). An abandoned-looking repository costs more than no repository.
+An abandoned-looking repository costs more than no repository.
 
 - Issue response SLA: **3 business days**, even if the answer is "not now".
 - Compatibility matrix for Medusa and Vendure versions stays current. `e2e.yml` runs the e2e suite (T-078)
@@ -274,4 +274,4 @@ The plugin is a demand probe and a reputation carrier (D-09). An abandoned-looki
   describe them as existing; this line has twice been out of step with the workflows, which is exactly the
   failure §1 of this document forbids.
 - If the project is wound down, archive it **explicitly**: README switches to "looking for maintainer", per the archiving policy (T-002). Never abandon silently.
-- `README.md` carries the "Commercial support" line (contact `hello@normwerk.dev`) and a pinned "Who is using this?" issue — these are the probe's measurement instruments (`researches/05`), not decoration. Do not remove them.
+- `README.md` carries the "Commercial support" line (contact `hello@normwerk.dev`) and a pinned "Who is using this?" issue. Do not remove them.
