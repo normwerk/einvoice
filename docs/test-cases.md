@@ -89,7 +89,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   (`UnrepresentableCharacterError`). The tests call the
   `en16931-cii` profile only; `serializeCii` does not yet vary its output by profile.
 
-### `einvoice-pdfa` (24 tests)
+### `einvoice-pdfa` (27 tests)
 
 - `src/index.test.ts` — `buildXmpPacket` (the hand-written XMP packet, both ZUGFeRD/Factur-X profiles) and
   `embedInvoiceInPdfA3` (determinism — two calls on the same input give byte-identical output — that
@@ -100,8 +100,10 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   lines above post code and city, and the title by document type — "Rechnung / Invoice", "Rechnungskorrektur
   / Credit note" (never "Gutschrift") and "Rechnungskorrektur (berichtigt) / Corrected invoice", a
   correction naming the invoice it corrects, and a type without a title refused.
-- `src/preflight.test.ts` — `checkPdfAEligibility`: the package's own rendering passes, a font referenced by
-  name only (Helvetica) is named, an encrypted PDF is refused.
+- `src/preflight.test.ts` — `checkPdfAEligibility`: the package's own rendering passes, and so does a page
+  with no fonts; a font referenced by name only (Helvetica) is named, also when the page's resources hold
+  it directly rather than by reference, and a font without a name is called "(unnamed)"; an encrypted PDF is
+  refused.
 
 ### `einvoice-medusa` (296 tests)
 

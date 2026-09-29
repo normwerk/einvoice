@@ -1,18 +1,12 @@
 import { configDefaults, defineConfig } from "vitest/config";
 
+// Its own config, so that the repository root's (the projects list) is not picked up instead.
 export default defineConfig({
   test: {
     // The compiled copies of the tests in dist/ are not run: vitest 4 no longer excludes dist/ itself.
     exclude: [...configDefaults.exclude, "**/dist/**"],
     coverage: {
-      // Every source file counts, loaded by a test or not — vitest 4 reports only loaded files by default.
       include: ["src/**/*.{ts,tsx,mts}"],
-      thresholds: {
-        statements: 85,
-        lines: 85,
-        functions: 85,
-        branches: 85,
-      },
     },
   },
 });

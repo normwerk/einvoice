@@ -16,6 +16,15 @@ async function helveticaPdf(): Promise<Uint8Array> {
   return doc.save();
 }
 
+/** A one-page PDF whose page resources hold `font` as a direct object — no indirect reference to it. */
+async function pdfWithDirectFont(font: Record<string, string>): Promise<Uint8Array> {
+  const doc = await PDFDocument.create({ updateMetadata: false });
+  const page = doc.addPage();
+  page.node.normalize();
+  page.node.Resources()?.set(PDFName.of("Font"), doc.context.obj({ F1: doc.context.obj(font) }));
+  return doc.save();
+}
+
 describe("checkPdfAEligibility (T-033)", () => {
   it("passes a PDF whose fonts are embedded — the package's own rendering", async () => {
     const invoice = JSON.parse(
@@ -30,6 +39,26 @@ describe("checkPdfAEligibility (T-033)", () => {
       reason: "font-not-embedded",
       fontName: "Helvetica",
     });
+  });
+
+  it("passes a page with no fonts at all", async () => {
+    const doc = await PDFDocument.create({ updateMetadata: false });
+    doc.addPage();
+    expect(await checkPdfAEligibility(await doc.save())).toEqual({ eligible: true });
+  });
+
+  it("finds a font written into the page's resources directly, not by reference", async () => {
+    expect(
+      await checkPdfAEligibility(
+        await pdfWithDirectFont({ Type: "Font", Subtype: "Type1", BaseFont: "Courier" }),
+      ),
+    ).toEqual({ eligible: false, reason: "font-not-embedded", fontName: "Courier" });
+  });
+
+  it("calls a font without a BaseFont (unnamed)", async () => {
+    expect(
+      await checkPdfAEligibility(await pdfWithDirectFont({ Type: "Font", Subtype: "Type1" })),
+    ).toEqual({ eligible: false, reason: "font-not-embedded", fontName: "(unnamed)" });
   });
 
   it("refuses an encrypted PDF", async () => {

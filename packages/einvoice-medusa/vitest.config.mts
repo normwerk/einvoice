@@ -5,8 +5,10 @@ import { configDefaults, coverageConfigDefaults, defineConfig } from "vitest/con
 // also pick up its transpiled `*.test.js` copies and fail to run them as CommonJS.
 export default defineConfig({
   test: {
-    exclude: [...configDefaults.exclude, "**/.medusa/**"],
+    exclude: [...configDefaults.exclude, "**/.medusa/**", "**/dist/**"],
     coverage: {
+      // Every source file counts, loaded by a test or not — vitest 4 reports only loaded files by default.
+      include: ["src/**/*.{ts,tsx,mts}"],
       exclude: [
         ...coverageConfigDefaults.exclude,
         // These are exercised by `docs/manual-testing.md`'s procedures, not vitest — not a gap, a
