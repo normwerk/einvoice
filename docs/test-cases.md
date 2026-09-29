@@ -18,7 +18,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/errors.test.ts` — `EinvoiceError`: a stable code and the link to its explanation, anchored in lower
   case with hyphens.
 
-### `einvoice-commerce` (162 tests)
+### `einvoice-commerce` (173 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -38,13 +38,21 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   19 % although the address moved abroad and OSS was switched on, the document itself still checked, refused
   on an invoice), a domestic invoice on which the shop charged no VAT at all refused as `NO_VAT_CHARGED`
   (every line and the shipping at 0 %, or no rate recorded and none classified; one untaxed line among
-  taxed ones, or taxed shipping, keeps the line's own code; a credit note not checked), and defensive
-  behavior against a malformed non-TypeScript caller (ADR-003).
+  taxed ones, or taxed shipping, keeps the line's own code; a credit note not checked), the rates of the
+  supply date (a delivery in the second half of 2020 invoiced at 16 %, an order charged 16 % and delivered in
+  2021 refused), a credit note at the rate its invoice stated (16 %, though the shop's tax line and today's
+  rates say 19 %; an invoice's line carrying such a rate refused), and defensive behavior against a malformed
+  non-TypeScript caller (ADR-003).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany, OSS for services,
   at a rate of zero or with a reduced line) and `resolveLineRate` never invoicing a line at a rate other
-  than the one it was charged at; each refusal names its own code, linked to its explanation.
+  than the one it was charged at, at the rates of its supply date — a line charged at another period's rate,
+  or supplied before the table starts, refused with its own code; each refusal names its own code, linked to
+  its explanation.
+- `src/de-vat-rates.test.ts` — Germany's rates by period: 16 % and 5 % from 2020-07-01 to 2020-12-31 and
+  19 % and 7 % either side, nothing before 2007-01-01, every day covered exactly once, and a quoted norm and
+  BGBl reference for both rates of every period.
 - `src/supported-jurisdictions.test.ts` — what the release supports: a seller in Germany; buyers in
   Germany, the EU/EEA, Switzerland and the UK served with EN 16931; Italy and Poland refused as clearance
   countries; the one-line statement of it, with nothing planned in it; special VAT territories recognised
@@ -93,7 +101,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   / Credit note" (never "Gutschrift") and "Rechnungskorrektur (berichtigt) / Corrected invoice", a
   correction naming the invoice it corrects, and a type without a title refused.
 
-### `einvoice-medusa` (273 tests)
+### `einvoice-medusa` (275 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -138,7 +146,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   nothing without one.
 - `src/mapping/credit-note.test.ts` — `decideCreditScope` (a refund credits at most what is still
   outstanding on the invoice; the whole order is restated only when nothing was credited before),
-  `toPartialCreditNoteInput` (VAT-inclusive lines over the credited sums), `extractGrandTotalFromCii`,
+  `toPartialCreditNoteInput` (VAT-inclusive lines over the credited sums, at the invoice's rate),
+  `extractDeliveryDateFromCii` (BT-72, the day of the supply a credit note corrects), `extractGrandTotalFromCii`,
   `extractGrossByRateFromCii` (a document's gross per rate from its BG-23 breakdown), `returnsToCredit`
   (received returns valued at what the invoice stated for their lines, oldest first, less what earlier
   credit notes paid), `invoicedLineValues` (each order line as the invoice stated it, with its discount
@@ -155,7 +164,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   the invoice's notice names crediting nothing while a later one credits its own amount, and with two
   invoices a refund credited on the one holding the returned goods, or refused when it names none; the
   decision and VIES answer stored with the invoice followed without a second VIES check, and an invoice
-  without a stored decision decided again.
+  without a stored decision decided again; an invoice issued at 16 % credited at 16 % and dated by its supply,
+  in full and in part, though the order's tax lines say 19 %.
 - `src/subscribers/credit-note-on-fulfillment-canceled.test.ts` — a cancelled fulfillment's invoice restated
   with its own lines, a fulfillment never invoiced leaving nothing to credit and its refusal dropped, and the
   credit note issued once however often the event comes.
@@ -208,7 +218,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 
 ## Tooling tests (`node:test`, not part of any package)
 
-Run together: `node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/conformance/roundtrip-mustang/*.test.mjs tools/license-scan/*.test.mjs`
+Run together: `node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/conformance/roundtrip-mustang/*.test.mjs tools/license-scan/*.test.mjs tools/rates/*.test.mjs`
 (exactly the line `.github/workflows/ci.yml` runs).
 
 - `tools/codegen/model/extract-codelists.test.mjs`, `extract-term-names.test.mjs` — the EN 16931 artifact
@@ -224,6 +234,10 @@ Run together: `node --test tools/codegen/model/*.test.mjs tools/conformance/orac
   expression normalization (plain string, `(X AND Y)`, `(X OR Y)`, the legacy `licenses` array form), and
   that the runtime/dev allow-lists actually reject a real copyleft license and accept the two dev-only
   exceptions named in `AGENTS.md` §5.1 (`WTFPL`, `EUPL-1.2`).
+- `tools/rates/ustg.test.mjs`, `watch-ustg.test.mjs` — reading § 12 and § 28 out of the UStG XML, the rate
+  table's quotes checked against them (a changed rate, a quote without its rate or a temporary rate without
+  its days fails), and the weekly watcher on a synthetic XML: unchanged, one line and no call to GitHub; § 12
+  changed, an issue naming it with the quotes that no longer hold and the new text (a stand-in `gh`).
 
 ## Conformance suite (Docker-based, the official validators — not a stub)
 
@@ -234,7 +248,7 @@ completeness since it's as much a "test suite" as the vitest ones above, just on
 | Level | What                                                                                                                                                                                                                                                                                       | Command                           | Fixtures                                                                                           |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | -------------------------------------------------------------------------------------------------- |
 | L1+L2 | Real KoSIT Validator (XSD + Schematron, incl. `BR-DE-*`)                                                                                                                                                                                                                                   | `pnpm conformance:fixtures`       | 14/14, `fixtures/`                                                                                 |
-| L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)                                                                                                                                                                                        | `pnpm conformance:commerce`       | 6/6, `packages/einvoice-commerce/fixtures/`                                                        |
+| L1+L2 | Same, for `CommerceInvoiceInput` → `buildInvoice` → `serializeCii` (not just hand-built `Invoice`s)                                                                                                                                                                                        | `pnpm conformance:commerce`       | 8/8, `packages/einvoice-commerce/fixtures/`                                                        |
 | L1+L2 | Same, starting from a synthetic Medusa order through the real adapter; 3× per run for determinism                                                                                                                                                                                          | `pnpm conformance:tax-matrix`     | 22/22 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
 | L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance), both ZUGFeRD profiles                                                                                                                                                                                        | `pnpm conformance:pdfa`           | 28/28 (14 fixtures × `XRECHNUNG`, `EN16931`)                                                       |
 | L4    | Differential oracle vs. `@e-invoice-eu/core`                                                                                                                                                                                                                                               | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |

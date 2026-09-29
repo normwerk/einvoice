@@ -106,6 +106,8 @@ export interface PartialCreditNoteLine {
    * from them as it did for that line on the invoice. */
   readonly taxRateKind: "standard" | "reduced" | undefined;
   readonly chargedVatRate: Amount | undefined;
+  /** T-199: the rate the invoice stated for it — the credit note credits at it. */
+  readonly invoicedVatRate: Amount | undefined;
   /** What the line credits: goods returned, a partial refund, the rest of a cancelled invoice. */
   readonly label: string;
 }
@@ -133,6 +135,7 @@ export function toPartialCreditNoteInput(
       itemName: `${line.label} — Rechnung ${originalInvoiceNumber}`,
       taxRateKind: line.taxRateKind,
       chargedVatRate: line.chargedVatRate,
+      invoicedVatRate: line.invoicedVatRate,
       supplyType,
     })),
     shipping: undefined,
@@ -280,6 +283,19 @@ export function extractIssueDateFromCii(xml: string): IsoDate {
   }
   const digits = match[1] as string;
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
+/** T-199: BT-72 of a CII document this plugin generated itself — the day the supply it invoices was made, or
+ * `undefined` when it states none. */
+export function extractDeliveryDateFromCii(xml: string): IsoDate | undefined {
+  const match =
+    /<ram:ActualDeliverySupplyChainEvent>\s*<ram:OccurrenceDateTime>\s*<udt:DateTimeString[^>]*>(\d{8})<\/udt:DateTimeString>/.exec(
+      xml,
+    );
+  const digits = match?.[1];
+  return digits === undefined
+    ? undefined
+    : `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 }
 
 /** BT-112 of a CII document this plugin generated itself — what an invoice or credit note amounts to. */

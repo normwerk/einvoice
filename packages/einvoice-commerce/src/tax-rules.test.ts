@@ -476,6 +476,30 @@ describe("refusal codes (T-077)", () => {
     ).toBe("MIXED_SUPPLY_CROSS_BORDER");
   });
 
+  it("resolves a domestic line at the rates of its supply date: 16 % and 5 % in the second half of 2020 (T-199)", () => {
+    const decision = decideVatCategory(BASE);
+    expect(resolveLineRate(decision, BASE, "standard", undefined, "2020-08-01")).toBe("16");
+    expect(resolveLineRate(decision, BASE, "reduced", undefined, "2020-08-01")).toBe("5");
+    expect(resolveLineRate(decision, BASE, undefined, "16", "2020-12-31")).toBe("16");
+    expect(resolveLineRate(decision, BASE, undefined, "19", "2021-01-01")).toBe("19");
+  });
+
+  it("refuses a line charged at the rate of another period than its supply date — the rate changed in between (T-199)", () => {
+    const decision = decideVatCategory(BASE);
+    expect(codeOf(() => resolveLineRate(decision, BASE, undefined, "16", "2021-01-05"))).toBe(
+      "RATE_NOT_IN_FORCE_ON_SUPPLY_DATE",
+    );
+    expect(() => resolveLineRate(decision, BASE, undefined, "7", "2020-07-01")).toThrow(
+      /charged 7% VAT, Germany's reduced rate from 2007-01-01 to 2020-06-30, but it was supplied on 2020-07-01/,
+    );
+    expect(codeOf(() => resolveLineRate(decision, BASE, undefined, "0", "2021-01-05"))).toBe(
+      "UNSUPPORTED_CHARGED_RATE",
+    );
+    expect(codeOf(() => resolveLineRate(decision, BASE, "standard", undefined, "2006-12-31"))).toBe(
+      "SUPPLY_DATE_BEFORE_RATE_TABLE",
+    );
+  });
+
   it("names each reason resolveLineRate refuses with its own code", () => {
     const decision = decideVatCategory(BASE);
     expect(codeOf(() => resolveLineRate(decision, BASE, undefined, "16"))).toBe(

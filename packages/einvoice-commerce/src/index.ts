@@ -25,6 +25,7 @@ export type {
 export {
   buildInvoice,
   DecisionCarriedToInvoiceError,
+  InvoicedRateOnInvoiceError,
   InvalidAssembledInvoiceError,
   InvalidCommerceInvoiceInputError,
   DuplicateBuyerReferenceError,
@@ -77,6 +78,14 @@ export {
 } from "./tax-rules.js";
 
 export { MapVatIdVerifier, StaticVatIdVerifier } from "./vat-id-verifier.js";
+
+export {
+  DE_VAT_RATE_PERIODS,
+  DE_VAT_RATES_FROM,
+  germanVatRatesOn,
+  type GermanVatRatePeriod,
+  type NormQuote,
+} from "./de-vat-rates.js";
 
 export {
   buyerCountrySupport,

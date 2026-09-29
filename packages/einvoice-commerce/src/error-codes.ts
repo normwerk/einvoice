@@ -57,6 +57,11 @@ export type TaxRuleCode =
   | "UNSUPPORTED_CHARGED_RATE"
   /** A domestic line is classified at one German rate but was charged the other. */
   | "CHARGED_RATE_MISMATCH"
+  /** A domestic line was charged a German VAT rate of another period than the day it was supplied — the
+   * rate changed between the order and its delivery. Issue this invoice outside the plugin. */
+  | "RATE_NOT_IN_FORCE_ON_SUPPLY_DATE"
+  /** The supply date is before the first day this package knows Germany's VAT rates for (2007-01-01). */
+  | "SUPPLY_DATE_BEFORE_RATE_TABLE"
   /** A domestic line has neither a rate classification nor a charged rate, so its rate cannot be resolved. */
   | "LINE_RATE_UNKNOWN"
   /** No line and no shipping of a domestic order carries VAT: the shop charged none. Either its tax
@@ -126,4 +131,7 @@ export type CommerceErrorCode =
   | "INVALID_PAID_AMOUNT"
   /** A tax decision was carried over to a document that is not a credit note. An invoice is decided on the
    * facts of its own supply; only a credit note follows the decision of the invoice it corrects. */
-  | "DECISION_CARRIED_TO_INVOICE";
+  | "DECISION_CARRIED_TO_INVOICE"
+  /** A line of an invoice carries the rate of an invoice it corrects. Only a credit note's lines are
+   * credited at the rate their invoice stated. */
+  | "INVOICED_RATE_ON_INVOICE";

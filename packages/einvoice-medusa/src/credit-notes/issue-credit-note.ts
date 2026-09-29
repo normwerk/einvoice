@@ -32,6 +32,7 @@ import {
   UNALLOCATED_DOCUMENT_NUMBER,
 } from "../mapping/order-to-commerce-invoice-input.js";
 import {
+  extractDeliveryDateFromCii,
   extractGrandTotalFromCii,
   extractGrossByRateFromCii,
   extractIssueDateFromCii,
@@ -50,6 +51,8 @@ import type { CoveredReturn, InvoicedLine } from "../modules/einvoice/service.js
 export interface CreditBasis {
   readonly invoice: EinvoiceDocumentRecord;
   readonly invoiceIssueDate: IsoDate;
+  /** T-199: the invoice's BT-72 — the day of the supply the credit note corrects, whose rates apply. */
+  readonly invoiceDeliveryDate: IsoDate | undefined;
   readonly invoiceTotal: Amount;
   readonly creditedTotals: readonly Amount[];
   /** P-63: what the buyer overpaid by the invoice's notice (`VAT_OVERCHARGED`) — `"0.00"` without one. */
@@ -112,6 +115,7 @@ export async function loadCreditBasis(
   return {
     invoice,
     invoiceIssueDate: extractIssueDateFromCii(invoiceXml),
+    invoiceDeliveryDate: extractDeliveryDateFromCii(invoiceXml),
     invoiceTotal: extractGrandTotalFromCii(invoiceXml),
     creditedTotals,
     overpaid: invoice.notice?.code === "VAT_OVERCHARGED" ? invoice.notice.refundDue : "0.00",
@@ -138,6 +142,7 @@ function invoiceShipment(
       itemId: line.itemId,
       quantity: line.quantity,
       allowance: line.allowance ?? "0.00",
+      invoicedRate: line.rate,
     })),
     includesShipping: invoice.includes_shipping,
     deliveryDate,
@@ -227,7 +232,8 @@ export async function issueCreditNote({
       issueDate,
       payment: einvoiceService.options.payment,
       ossRegistered: einvoiceService.options.ossRegistered,
-      shipment: invoiceShipment(basis.invoice, issueDate),
+      // T-199: the supply the credit note corrects was made when its invoice says — its rates apply.
+      shipment: invoiceShipment(basis.invoice, basis.invoiceDeliveryDate ?? basis.invoiceIssueDate),
       correctedInvoice: {
         number: basis.invoice.document_number,
         issueDate: basis.invoiceIssueDate,
@@ -265,9 +271,17 @@ export async function issueCreditNote({
       const decision =
         correctedInvoiceDecision ?? commerce.decideVatCategory(input.taxContext, vatIdEvidence);
       const taxContext = input.taxContext;
+      // T-199: each line at the rate its invoice stated; decided again only for an invoice that kept none.
       const lineRates = input.lines.map((line) =>
         rateKey(
-          commerce.resolveLineRate(decision, taxContext, line.taxRateKind, line.chargedVatRate),
+          line.invoicedVatRate ??
+            commerce.resolveLineRate(
+              decision,
+              taxContext,
+              line.taxRateKind,
+              line.chargedVatRate,
+              basis.invoiceDeliveryDate ?? basis.invoiceIssueDate,
+            ),
         ),
       );
       const received = await loadReturnsForCredit(container, order.id);
@@ -299,6 +313,7 @@ export async function issueCreditNote({
             gross: (cents / 100).toFixed(2),
             taxRateKind: line?.taxRateKind,
             chargedVatRate: line?.chargedVatRate,
+            invoicedVatRate: line?.invoicedVatRate,
             label:
               kind === "return"
                 ? "Rückgabe / Return"

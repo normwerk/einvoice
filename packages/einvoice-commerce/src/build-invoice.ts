@@ -16,6 +16,7 @@ import {
   validateModel,
   type CountryCode,
   type Invoice,
+  type IsoDate,
   type VatCategoryCode,
 } from "@normwerk/einvoice-model";
 import type { CommerceErrorCode } from "./error-codes.js";
@@ -256,6 +257,18 @@ export class DecisionCarriedToInvoiceError extends EinvoiceError<CommerceErrorCo
   }
 }
 
+/** T-199 (P-73): a line of an invoice carries `invoicedVatRate`. */
+export class InvoicedRateOnInvoiceError extends EinvoiceError<CommerceErrorCode> {
+  constructor() {
+    super(
+      "INVOICED_RATE_ON_INVOICE",
+      "lines[].invoicedVatRate is for a credit note's lines, credited at the rate the invoice they correct " +
+        "stated — an invoice's lines take the rate of their own supply date.",
+    );
+    this.name = "InvoicedRateOnInvoiceError";
+  }
+}
+
 export class InvalidPaidAmountError extends EinvoiceError<CommerceErrorCode> {
   constructor(
     readonly paidAmount: string,
@@ -468,15 +481,37 @@ function assertVatCharged(decision: TaxDecision, input: CommerceInvoiceInput): v
   );
 }
 
-/** `resolveLineRate` for one line, with a refusal naming the line it is about. */
+/**
+ * T-199: the day the supply was made, whose rates apply — the delivery date (BT-72); for a credit note without
+ * one, the date of the invoice it corrects; else the document's own date.
+ */
+function supplyDate(input: CommerceInvoiceInput): IsoDate {
+  return (
+    input.delivery?.actualDeliveryDate ??
+    input.document.correctedInvoice?.issueDate ??
+    input.document.issueDate
+  );
+}
+
+/** `resolveLineRate` for one line, with a refusal naming the line it is about. A credit note's line credited
+ * at its invoice's rate (`invoicedVatRate`) takes that rate. */
 function lineRate(
   decision: TaxDecision,
   input: CommerceInvoiceInput,
   identifier: string,
   line: CommerceLine,
 ): string {
+  if (decision.categoryCode === "S" && line.invoicedVatRate !== undefined) {
+    return line.invoicedVatRate;
+  }
   try {
-    return resolveLineRate(decision, input.taxContext, line.taxRateKind, line.chargedVatRate);
+    return resolveLineRate(
+      decision,
+      input.taxContext,
+      line.taxRateKind,
+      line.chargedVatRate,
+      supplyDate(input),
+    );
   } catch (error) {
     if (error instanceof TaxRuleError) {
       throw new TaxRuleError(error.code, `Line ${identifier}: ${error.message}`, error.ruleId);
@@ -570,6 +605,14 @@ export function buildInvoice(
 
   if (options.correctedInvoiceDecision !== undefined && input.document.kind !== "credit-note") {
     throw new DecisionCarriedToInvoiceError();
+  }
+  if (
+    input.document.kind !== "credit-note" &&
+    [...input.lines, ...(input.chargeSplitLines ?? [])].some(
+      (line) => line.invoicedVatRate !== undefined,
+    )
+  ) {
+    throw new InvoicedRateOnInvoiceError();
   }
   const regimeDecision: TaxDecision =
     options.correctedInvoiceDecision ?? decideOnTodaysFacts(input, options);

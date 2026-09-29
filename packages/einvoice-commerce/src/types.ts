@@ -174,6 +174,13 @@ export interface CommerceLine {
    */
   readonly chargedVatRate?: Amount | undefined;
   /**
+   * T-199 (P-73): on a credit note, the VAT rate (BT-152) the corrected invoice stated for what this line
+   * credits. The line is credited at exactly that rate — §17 UStG corrects the supply as it was invoiced — not
+   * at one resolved from `taxRateKind`, `chargedVatRate` or the rate table: a rate change since, or a table
+   * wrong about a past period, cannot change it. Read for category S; refused on an invoice.
+   */
+  readonly invoicedVatRate?: Amount | undefined;
+  /**
    * T-069/D-50 point 6: forward-compatible groundwork, not yet consumed. `decideVatCategory` still reads
    * only the single whole-order `TaxContext.supplyType` aggregate an adapter derives from all of a
    * document's lines — true per-line category resolution (docs/tax-semantics.md's "variant в") is

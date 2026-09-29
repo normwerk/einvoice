@@ -16,11 +16,24 @@ import type { CommerceErrorCode, TaxRuleCode } from "./error-codes.js";
 import { EU_MEMBER_STATES, SUPPORTED_SELLER_COUNTRIES } from "./supported-jurisdictions.js";
 import { compareDecimals } from "./decimal.js";
 import type { TaxContext, TaxDecision, TaxDecisionScope, VatIdEvidence } from "./types.js";
+import type { IsoDate } from "@normwerk/einvoice-model";
+import {
+  DE_VAT_RATE_PERIODS,
+  DE_VAT_RATES_FROM,
+  germanVatRatesOn,
+  type GermanVatRatePeriod,
+} from "./de-vat-rates.js";
 
-/** UStG §12 Abs. 1 — docs/tax-semantics.md row 1. */
-export const DE_STANDARD_RATE = "19";
-/** UStG §12 Abs. 2 Nr. 1 + Anlage 2 — docs/tax-semantics.md row 2. */
-export const DE_REDUCED_RATE = "7";
+/** The period in force today, as far as this release knows — the table's last, open-ended one. */
+const CURRENT_DE_VAT_RATES = DE_VAT_RATE_PERIODS[
+  DE_VAT_RATE_PERIODS.length - 1
+] as GermanVatRatePeriod;
+
+/** UStG §12 Abs. 1 as it stands — docs/tax-semantics.md row 1. A supply is taxed at the rate of its own date:
+ * `germanVatRatesOn` (T-199). */
+export const DE_STANDARD_RATE = CURRENT_DE_VAT_RATES.standard;
+/** UStG §12 Abs. 2 Nr. 1 + Anlage 2 as it stands — docs/tax-semantics.md row 2. See `DE_STANDARD_RATE`. */
+export const DE_REDUCED_RATE = CURRENT_DE_VAT_RATES.reduced;
 
 export { EU_MEMBER_STATES };
 
@@ -409,11 +422,18 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
   );
 }
 
-/** The rate kind a charged rate is, when it is exactly one of Germany's rates. */
-function germanRateKind(rate: string): "standard" | "reduced" | undefined {
-  if (compareDecimals(rate, DE_STANDARD_RATE) === 0) return "standard";
-  if (compareDecimals(rate, DE_REDUCED_RATE) === 0) return "reduced";
+/** The rate kind a charged rate is in a period, when it is exactly one of that period's rates. */
+function germanRateKind(
+  period: GermanVatRatePeriod,
+  rate: string,
+): "standard" | "reduced" | undefined {
+  if (compareDecimals(rate, period.standard) === 0) return "standard";
+  if (compareDecimals(rate, period.reduced) === 0) return "reduced";
   return undefined;
+}
+
+function periodLabel(period: GermanVatRatePeriod): string {
+  return period.to === undefined ? `since ${period.from}` : `from ${period.from} to ${period.to}`;
 }
 
 /**
@@ -427,12 +447,18 @@ function germanRateKind(rate: string): "standard" | "reduced" | undefined {
  * or classified as one and charged the other, is refused (P-50); so is an OSS line charged at anything but
  * the declared destination rate, or classified as reduced (P-46) — the one declared rate is the destination's
  * standard rate, and a reduced destination rate cannot be declared yet.
+ *
+ * T-199: Germany's rates are those in force on `supplyDate` (`germanVatRatesOn`) — 16 % and 5 % for a supply
+ * made between 2020-07-01 and 2020-12-31. Without a date, the rates in force as this release knows them. A
+ * line charged at a German rate of another period — charged before the rate changed, delivered after — is
+ * refused with its own code rather than invoiced at either rate.
  */
 export function resolveLineRate(
   decision: TaxDecision,
   context: TaxContext,
   taxRateKind: "standard" | "reduced" | undefined,
   chargedVatRate?: string | undefined,
+  supplyDate?: IsoDate | undefined,
 ): string {
   if (decision.categoryCode !== "S") {
     return "0";
@@ -475,12 +501,36 @@ export function resolveLineRate(
     }
     return ossRate;
   }
-  const chargedKind = chargedVatRate === undefined ? undefined : germanRateKind(chargedVatRate);
+  const period = supplyDate === undefined ? CURRENT_DE_VAT_RATES : germanVatRatesOn(supplyDate);
+  if (period === undefined) {
+    throw new TaxRuleError(
+      "SUPPLY_DATE_BEFORE_RATE_TABLE",
+      `The supply date ${supplyDate} is before ${DE_VAT_RATES_FROM}, the first day this package knows ` +
+        `Germany's VAT rates for — refusing rather than guessing a rate.`,
+      "tax-semantics#1",
+    );
+  }
+  const chargedKind =
+    chargedVatRate === undefined ? undefined : germanRateKind(period, chargedVatRate);
   if (chargedVatRate !== undefined && chargedKind === undefined) {
+    const chargedIn = DE_VAT_RATE_PERIODS.find(
+      (other) => germanRateKind(other, chargedVatRate) !== undefined,
+    );
+    if (chargedIn !== undefined && supplyDate !== undefined) {
+      throw new TaxRuleError(
+        "RATE_NOT_IN_FORCE_ON_SUPPLY_DATE",
+        `A domestic line was charged ${chargedVatRate}% VAT, Germany's ` +
+          `${germanRateKind(chargedIn, chargedVatRate)} rate ${periodLabel(chargedIn)}, but it was supplied ` +
+          `on ${supplyDate}, when the rates are ${period.standard}% and ${period.reduced}%. The rate changed ` +
+          `between the order and its delivery: refusing rather than invoicing either rate.`,
+        "tax-semantics#1",
+      );
+    }
     throw new TaxRuleError(
       "UNSUPPORTED_CHARGED_RATE",
-      `A domestic line was charged ${chargedVatRate}% VAT, which is neither of Germany's rates (19%, 7%). ` +
-        `Refusing rather than invoicing a rate the buyer was not charged — check the shop's tax settings.`,
+      `A domestic line was charged ${chargedVatRate}% VAT, which is neither of Germany's rates ` +
+        `(${period.standard}%, ${period.reduced}%). Refusing rather than invoicing a rate the buyer was not ` +
+        `charged — check the shop's tax settings.`,
       "tax-semantics#1",
     );
   }
@@ -501,5 +551,5 @@ export function resolveLineRate(
       "tax-semantics#1",
     );
   }
-  return kind === "reduced" ? DE_REDUCED_RATE : DE_STANDARD_RATE;
+  return kind === "reduced" ? period.reduced : period.standard;
 }

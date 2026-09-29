@@ -77,9 +77,11 @@ inventory items is one set, not the sum of its parts — dated the day it shippe
 first invoice still standing, and each line's discount shared out by units. Beside the XML, an invoice's row keeps what each
 line was invoiced at and its discount share (`line_values`) and whether it carries the shipping
 (`includes_shipping`) — what the order's next invoice reads to take the rest. A credit note's row names the
-invoice it corrects (`corrected_document_id`). Cancelling a fulfillment credits its invoice
-(`src/subscribers/credit-note-on-fulfillment-canceled.ts`); a refund credits the one invoice it can be tied
-to (`chooseRefundInvoice`, `src/mapping/credit-note.ts`) or is recorded as refused.
+invoice it corrects (`corrected_document_id`). A credit note credits each line at the rate its invoice
+stated (`line_values`) and states the invoice's delivery date — it corrects that supply, whatever the rates
+are today. Cancelling a fulfillment credits its invoice (`src/subscribers/credit-note-on-fulfillment-canceled.ts`);
+a refund credits the one invoice it can be tied to (`chooseRefundInvoice`, `src/mapping/credit-note.ts`) or is
+recorded as refused.
 
 ## Notices, and invoices not issued
 

@@ -12,6 +12,7 @@ import {
   decideCreditScope,
   extractGrandTotalFromCii,
   extractIssueDateFromCii,
+  extractDeliveryDateFromCii,
   toPartialCreditNoteInput,
 } from "./credit-note.js";
 
@@ -142,7 +143,7 @@ describe("toPartialCreditNoteInput (P-41)", () => {
     taxContext: { supplyType: "goods" },
   } as unknown as CommerceInvoiceInput;
 
-  it("replaces the order's lines, shipping and discounts with one VAT-inclusive line for the credited sum", () => {
+  it("replaces the order's lines, shipping and discounts with one VAT-inclusive line for the credited sum, at the invoice's rate", () => {
     const result = toPartialCreditNoteInput(
       INPUT,
       [
@@ -150,6 +151,7 @@ describe("toPartialCreditNoteInput (P-41)", () => {
           gross: "10.00",
           taxRateKind: "standard",
           chargedVatRate: undefined,
+          invoicedVatRate: "16",
           label: "Teilerstattung / Partial refund",
         },
       ],
@@ -164,6 +166,7 @@ describe("toPartialCreditNoteInput (P-41)", () => {
         itemName: "Teilerstattung / Partial refund — Rechnung RE-2026-0007",
         taxRateKind: "standard",
         chargedVatRate: undefined,
+        invoicedVatRate: "16",
         supplyType: "goods",
       },
     ]);
@@ -181,6 +184,15 @@ describe("reading an already generated CII invoice back (P-41)", () => {
   it("extracts the issue date (BT-2) and the grand total (BT-112)", () => {
     expect(extractIssueDateFromCii(XML)).toBe("2026-09-15");
     expect(extractGrandTotalFromCii(XML)).toBe("23.80");
+  });
+
+  it("extracts the delivery date (BT-72) — the day of the supply a credit note corrects (T-199)", () => {
+    const delivered =
+      "<ram:ApplicableHeaderTradeDelivery><ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime>" +
+      '<udt:DateTimeString format="102">20200801</udt:DateTimeString></ram:OccurrenceDateTime>' +
+      "</ram:ActualDeliverySupplyChainEvent></ram:ApplicableHeaderTradeDelivery>";
+    expect(extractDeliveryDateFromCii(delivered)).toBe("2020-08-01");
+    expect(extractDeliveryDateFromCii(XML)).toBeUndefined();
   });
 
   it("refuses to guess when the grand total is missing", () => {

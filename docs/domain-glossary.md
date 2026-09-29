@@ -662,3 +662,9 @@ integrations` itself states the list "is curated from npm," and its own visible 
   ships as 1 + 4 units of one `line_item_id`. The line's own units are in the order's record of the
   fulfillment — a `FULFILL_ITEM` action, `reference_id` the fulfillment's id, `details.reference_id` the line
   (`registerFulfillment`, `@medusajs/order`), read through Query as `order_change.actions`.
+- **The EU's TEDB does not know Germany's 2020 rates.** Asked for Germany on 2020-09-01 (`retrieveVatRates`),
+  it answers 19 %, and has no 16 % record between 2019 and 2021 at all. The periods come from the UStG itself:
+  § 28 Abs. 1 and 2 still carry the 16 % and 5 % of 2020-07-01 to 2020-12-31 in the consolidated text.
+- **A credit note's BT-72 is its invoice's.** A credit note corrects the supply its invoice was issued for,
+  so it states that delivery date, read back from the invoice's CII, and that day's rates apply to it — not
+  the day the credit note is issued.

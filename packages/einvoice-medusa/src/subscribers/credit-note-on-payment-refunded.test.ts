@@ -401,6 +401,51 @@ describe("creditNoteOnPaymentRefunded", () => {
     expect(options).not.toHaveProperty("correctedInvoiceDecision");
   });
 
+  it("credits an invoice issued at 16 % at 16 %, dated by its supply, though Medusa's tax lines say 19 % (T-199, P-73)", async () => {
+    // Delivered 2020-08-01, invoiced at 16 %; the order's tax lines say 19 %, and so do today's rates.
+    const invoice2020 = {
+      ...ORIGINAL_INVOICE,
+      line_values: [{ itemId: "item_1", rate: "16", quantity: "2", gross: "232.00" }],
+    };
+    mocks.fetchFileBytes.mockImplementation(async () =>
+      new TextEncoder().encode(
+        "<ram:IssueDateTime><udt:DateTimeString>20200803</udt:DateTimeString></ram:IssueDateTime>" +
+          "<ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime>" +
+          '<udt:DateTimeString format="102">20200801</udt:DateTimeString></ram:OccurrenceDateTime>' +
+          "</ram:ActualDeliverySupplyChainEvent>" +
+          breakdown({ "16": "232.00" }) +
+          "<ram:GrandTotalAmount>232.00</ram:GrandTotalAmount>",
+      ),
+    );
+    const order = { ...ORDER, items: [{ ...ORDER.items[0], id: "item_1" }] };
+    const einvoiceService = makeEinvoiceService({
+      listEinvoiceDocuments: async (filter) => (filter["type"] === "invoice" ? [invoice2020] : []),
+    });
+    for (const amount of [232, 23.2]) {
+      mocks.buildInvoice.mockClear();
+      const { container } = makeContainer({
+        einvoiceService,
+        orders: [order],
+        payment: {
+          id: "pay_01",
+          payment_collection_id: "paycol_01",
+          refunds: [{ id: `refund_${amount}`, amount }],
+        },
+      });
+
+      await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+      const [input] = mocks.buildInvoice.mock.calls[0] as unknown as [
+        {
+          lines: readonly { invoicedVatRate?: string }[];
+          delivery?: { actualDeliveryDate?: string };
+        },
+      ];
+      expect(input.lines.map((line) => line.invoicedVatRate)).toEqual(["16"]);
+      expect(input.delivery?.actualDeliveryDate).toBe("2020-08-01");
+    }
+  });
+
   it("cleans up the just-uploaded files when recordDocumentIfAbsent loses the concurrency race", async () => {
     mocks.storeEinvoiceFiles.mockResolvedValue({ xmlFileId: "file_xml", pdfFileId: "file_pdf" });
     const einvoiceService = makeEinvoiceService({

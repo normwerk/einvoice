@@ -15,12 +15,13 @@ Run for real against the KoSIT validator: `pnpm conformance:commerce`
 with `serializeCii`, and validates the result with the real Docker KoSIT image (AGENTS.md §8: never
 simulate conformance).
 
-| Fixture                         | `docs/tax-semantics.md` row | What it proves                                                                                                                     |
-| ------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `commerce-domestic-mixed-rates` | 1, 2, 9                     | Two lines at different rates → two `BG-23` groups; shipping + discount split per rate                                              |
-| `commerce-intra-eu`             | 3                           | Category K, VIES evidence gate, mandatory delivery info (`BR-IC-11`/`BR-IC-12`)                                                    |
-| `commerce-credit-note`          | 10                          | `document.kind === "credit-note"` requires `correctedInvoice`                                                                      |
-| `commerce-b2g-leitweg-id`       | —                           | Real Leitweg-ID declared as `leitwegId`, validated by its own MOD 97-10 check digit                                                |
-| `commerce-customs-hs-origin`    | 1                           | `lines[].hsCode`/`originCountry` (BT-158/159) mapped per-line, not document-wide                                                   |
-| `commerce-gross-prices`         | 1, 2, 9                     | Prices including VAT: each group's VAT taken out of its gross total, total = gross charged                                         |
-| `commerce-shipment-prepaid`     | 1, 2, 9                     | One shipment of a mixed order: shipping split by the order's rates, a charge-only group; paid in full (BT-113 = total, BT-115 = 0) |
+| Fixture                          | `docs/tax-semantics.md` row | What it proves                                                                                                                         |
+| -------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `commerce-domestic-mixed-rates`  | 1, 2, 9                     | Two lines at different rates → two `BG-23` groups; shipping + discount split per rate                                                  |
+| `commerce-intra-eu`              | 3                           | Category K, VIES evidence gate, mandatory delivery info (`BR-IC-11`/`BR-IC-12`)                                                        |
+| `commerce-credit-note`           | 10                          | `document.kind === "credit-note"` requires `correctedInvoice`                                                                          |
+| `commerce-b2g-leitweg-id`        | —                           | Real Leitweg-ID declared as `leitwegId`, validated by its own MOD 97-10 check digit                                                    |
+| `commerce-customs-hs-origin`     | 1                           | `lines[].hsCode`/`originCountry` (BT-158/159) mapped per-line, not document-wide                                                       |
+| `commerce-gross-prices`          | 1, 2, 9                     | Prices including VAT: each group's VAT taken out of its gross total, total = gross charged                                             |
+| `commerce-shipment-prepaid`      | 1, 2, 9                     | One shipment of a mixed order: shipping split by the order's rates, a charge-only group; paid in full (BT-113 = total, BT-115 = 0)     |
+| `commerce-credit-note-2020-rate` | 9, 10                       | A credit note for a supply of 2020-08-01 at the invoice's 16 % and 5 %, though the shop's tax lines and today's rates say 19 % and 7 % |

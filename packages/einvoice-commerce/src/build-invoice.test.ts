@@ -7,6 +7,7 @@ import {
   InvalidCommerceInvoiceInputError,
   InvalidLeitwegIdError,
   InvalidPriceBasisError,
+  InvoicedRateOnInvoiceError,
   LineAllowanceExceedsLineAmountError,
   MissingBuyerIdentifierForReverseChargeError,
   MissingBuyerVatIdError,
@@ -416,6 +417,70 @@ describe("buildInvoice — a domestic order that carries no VAT at all: the shop
       lines: [untaxed("0")],
     });
     expect(codeOf(input)).toBe("UNSUPPORTED_CHARGED_RATE");
+  });
+});
+
+describe("buildInvoice — rates of the supply date; a credit note at its invoice's rate (T-199, P-73)", () => {
+  const line = (overrides: Partial<CommerceInvoiceInput["lines"][number]> = {}) => ({
+    quantity: "1",
+    unitCode: "C62",
+    netPrice: "100.00",
+    itemName: "Widget",
+    ...overrides,
+  });
+
+  it("invoices a supply delivered in the second half of 2020 at 16 %", () => {
+    const input = domesticInput({
+      document: {
+        kind: "invoice",
+        number: "RE-2020-0001",
+        issueDate: "2020-08-03",
+        currency: "EUR",
+      },
+      delivery: { actualDeliveryDate: "2020-08-01", deliverToCountryCode: "DE" },
+      lines: [line({ chargedVatRate: "16" })],
+    });
+    expect(buildInvoice(input).invoice.vatBreakdown).toEqual([
+      expect.objectContaining({ rate: "16", taxableAmount: "100.00", taxAmount: "16.00" }),
+    ]);
+  });
+
+  it("refuses an order charged 16 % in 2020 and delivered in 2021 instead of invoicing either rate", () => {
+    const input = domesticInput({
+      document: {
+        kind: "invoice",
+        number: "RE-2021-0001",
+        issueDate: "2021-01-05",
+        currency: "EUR",
+      },
+      delivery: { actualDeliveryDate: "2021-01-05", deliverToCountryCode: "DE" },
+      lines: [line({ chargedVatRate: "16" })],
+    });
+    expect(() => buildInvoice(input)).toThrow(/^Line 1: A domestic line was charged 16% VAT/);
+  });
+
+  it("credits an invoice issued at 16 % at 16 %, though Medusa's tax line and today's rates say 19 %", () => {
+    const input = domesticInput({
+      document: {
+        kind: "credit-note",
+        number: "GS-2026-0001",
+        issueDate: "2026-09-29",
+        currency: "EUR",
+        correctedInvoice: { number: "RE-2020-0001", issueDate: "2020-08-03" },
+      },
+      lines: [line({ chargedVatRate: "19", invoicedVatRate: "16" })],
+    });
+    const result = buildInvoice(input);
+    expect(result.invoice.typeCode).toBe("381");
+    expect(result.invoice.vatBreakdown).toEqual([
+      expect.objectContaining({ categoryCode: "S", rate: "16", taxAmount: "16.00" }),
+    ]);
+  });
+
+  it("refuses an invoice's line that carries the rate of an invoice it would correct", () => {
+    expect(() => buildInvoice(domesticInput({ lines: [line({ invoicedVatRate: "16" })] }))).toThrow(
+      InvoicedRateOnInvoiceError,
+    );
   });
 });
 

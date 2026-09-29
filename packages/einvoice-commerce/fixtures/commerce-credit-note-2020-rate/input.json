@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "document": {
+    "kind": "credit-note",
+    "number": "GS-2026-1004",
+    "issueDate": "2026-09-29",
+    "currency": "EUR",
+    "correctedInvoice": {
+      "number": "RE-2020-1042",
+      "issueDate": "2020-08-03"
+    }
+  },
+  "seller": {
+    "name": "Musterfirma GmbH",
+    "countryCode": "DE",
+    "addressLine1": "Musterstraße 1",
+    "city": "Berlin",
+    "postCode": "10115",
+    "vatIdentifier": "DE123456789",
+    "electronicAddress": "rechnung@musterfirma.example",
+    "electronicAddressScheme": "EM",
+    "contact": {
+      "name": "Rechnungsstelle",
+      "telephone": "+493012345678",
+      "email": "rechnung@musterfirma.example"
+    }
+  },
+  "buyer": {
+    "name": "Beispielkunde GmbH",
+    "countryCode": "DE",
+    "addressLine1": "Beispielweg 2",
+    "city": "Hamburg",
+    "postCode": "20095",
+    "electronicAddress": "ap@commerce-credit-note-2020-rate.example",
+    "electronicAddressScheme": "EM"
+  },
+  "lines": [
+    {
+      "identifier": "1",
+      "quantity": "2",
+      "unitCode": "C62",
+      "netPrice": "50.00",
+      "itemName": "Tischleuchte — return",
+      "chargedVatRate": "19",
+      "invoicedVatRate": "16"
+    },
+    {
+      "identifier": "2",
+      "quantity": "1",
+      "unitCode": "C62",
+      "netPrice": "20.00",
+      "itemName": "Kochbuch — return",
+      "chargedVatRate": "7",
+      "invoicedVatRate": "5"
+    }
+  ],
+  "payment": {
+    "means": "58",
+    "iban": "DE89370400440532013000"
+  },
+  "references": {
+    "buyerReference": "Buchhaltung-2020-08"
+  },
+  "taxContext": {
+    "sellerCountry": "DE",
+    "sellerVatId": "DE123456789",
+    "buyerCountry": "DE",
+    "buyerIsBusiness": true,
+    "ossRegistered": false,
+    "supplyType": "goods"
+  },
+  "delivery": {
+    "actualDeliveryDate": "2020-08-01",
+    "deliverToCountryCode": "DE",
+    "deliverToAddressLine1": "Beispielweg 2",
+    "deliverToCity": "Hamburg",
+    "deliverToPostCode": "20095"
+  },
+  "shipping": {
+    "amount": "6.00",
+    "reason": "Versand / Shipping"
+  }
+}

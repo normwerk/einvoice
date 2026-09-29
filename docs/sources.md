@@ -47,6 +47,32 @@ needing FeRD's own schema files.
 The binding is therefore reconstructed from free derivative artifacts, with no need to purchase the paid
 standards for the v0.1 scope.
 
+## Germany's VAT rates — the consolidated UStG (fetched, not vendored)
+
+`packages/einvoice-commerce/src/de-vat-rates.ts` holds Germany's VAT rates with the periods they apply to
+since 2007-01-01. Each period quotes the norm it rests on word for word, and
+`node tools/rates/verify-de-vat-rates.mjs` checks every quote — with its rate and, for the temporary 2020
+rates, their first and last day — against the consolidated UStG:
+
+- Source: [gesetze-im-internet.de/ustg_1980/xml.zip](https://www.gesetze-im-internet.de/ustg_1980/xml.zip),
+  checked 2026-09-29: the XML was built 2026-08-31 (`builddate` 20260831215512), zip SHA-256
+  `42b98d6252936e8b1bcb616641e7eac5fc081710865d2d6541b80bc579924004`.
+- Licence: the site marks its consolidated texts as not official ("nicht amtlich") and grants no licence to
+  redistribute them, so the file is **not vendored** — the check fetches it. Neither does the build: it stays
+  offline and deterministic.
+- The paragraphs the rates live in, as text with markup removed and whitespace collapsed
+  (`tools/rates/ustg.mjs`). `node tools/rates/watch-ustg.mjs`, run weekly by
+  `.github/workflows/ustg-watch.yml`, compares them with these hashes and opens an issue when either changes:
+  - `§ 12` text SHA-256: `4c3b1424def2d5c254f2dfa0f760e1ca3465c4e6f9b69057a251cf902f09e13b`
+  - `§ 28` text SHA-256: `7c8e83a7b2365b10f00465e9435214052bb46a56ed64659de2a399a7f0aec5d3`
+- What the consolidated text does not state — when a period began, before § 28 — comes from the amending
+  laws: 19 % from 2007-01-01, Haushaltsbegleitgesetz 2006, BGBl. I 2006 S. 1402, Art. 4 ("In § 12 Abs. 1
+  wird die Angabe „16 Prozent" durch die Angabe „19 Prozent" ersetzt", checked at buzer.de on 2026-09-29);
+  16 % and 5 % from 2020-07-01 to 2020-12-31, Zweites Corona-Steuerhilfegesetz, BGBl. I 2020 S. 1512
+  (checked at dejure.org on 2026-09-29), whose text § 28 Abs. 1 and 2 UStG still carries.
+- Not a source: the European Commission's TEDB. Asked on 2026-09-25 (`retrieveVatRates`), it gave 19 % for
+  Germany on 2020-09-01 and had no 16 % record between 2019 and 2021 at all.
+
 ## Vendored artifacts
 
 See [`artifacts/MANIFEST.json`](../artifacts/MANIFEST.json) for the authoritative, machine-readable list.

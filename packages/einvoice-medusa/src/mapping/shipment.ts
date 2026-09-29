@@ -55,6 +55,8 @@ export interface ShipmentLine {
   readonly itemId: string;
   readonly quantity: string;
   readonly allowance: Amount;
+  /** T-199: on a credit note, the rate the invoice it corrects stated for the line — it is credited at it. */
+  readonly invoicedRate?: string;
 }
 
 /** What earlier invoices of the order took of a line. */

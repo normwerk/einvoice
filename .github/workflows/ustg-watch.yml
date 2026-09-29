@@ -1,0 +1,34 @@
+name: UStG watch
+
+# T-200 (P-73): Germany's VAT rates ship with the package (packages/einvoice-commerce/src/de-vat-rates.ts), so a new
+# rate reaches shops only through a release, and the release has to be out before the rate applies. Once a week
+# this compares § 12 and § 28 of the consolidated UStG with the text the table was checked against
+# (docs/sources.md) and opens an issue when either changed. It blocks no build and no release: it runs on its own.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      # The watcher reads the rate table's quotes from the built package.
+      - run: pnpm --filter "@normwerk/einvoice-commerce..." build
+      - run: node tools/rates/watch-ustg.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}

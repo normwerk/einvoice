@@ -574,6 +574,7 @@ function toCommerceLine(
   index: number,
   quantity = String(item.detail?.quantity ?? 1),
   allowance?: Amount,
+  invoicedRate?: string,
 ): CommerceLine {
   return {
     identifier: String(index + 1),
@@ -585,6 +586,7 @@ function toCommerceLine(
     ...unitPrice(item),
     itemName: item.title,
     chargedVatRate: chargedVatRate(item.tax_lines),
+    ...(invoicedRate === undefined ? {} : { invoicedVatRate: invoicedRate }),
     supplyType: resolveLineSupplyType(item),
     allowances: resolveLineAllowances(item, allowance),
   };
@@ -645,7 +647,7 @@ export function mapOrderToCommerceInvoiceInput(
     covered === undefined
       ? wholeOrderLines
       : covered.map(({ item, line }, index) =>
-          toCommerceLine(item, index, line.quantity, line.allowance),
+          toCommerceLine(item, index, line.quantity, line.allowance, line.invoicedRate),
         );
   const includesShipping = shipment?.includesShipping ?? true;
   const documentItems = covered === undefined ? order.items : covered.map(({ item }) => item);

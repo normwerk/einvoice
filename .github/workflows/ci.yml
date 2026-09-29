@@ -38,7 +38,7 @@ jobs:
       # HTTP route/middleware wiring, DB migrations — see each config's own doc comments for why).
       - run: pnpm coverage
 
-      - run: node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/conformance/roundtrip-mustang/*.test.mjs tools/license-scan/*.test.mjs
+      - run: node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/conformance/roundtrip-mustang/*.test.mjs tools/license-scan/*.test.mjs tools/rates/*.test.mjs
 
       # T-003 (plan-v0.1 §3.6, release checklist §10): "запрет copyleft в
       # runtime-зависимостях, allow-list в devDependencies" — fails the

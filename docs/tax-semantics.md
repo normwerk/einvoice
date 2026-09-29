@@ -266,6 +266,16 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   not its shipping above 0 %, or no tax line anywhere — is refused as `NO_VAT_CHARGED`, which names both
   causes: a shop whose tax settings have no German rate, and a Kleinunternehmer. One untaxed line among
   taxed ones is a settings error and keeps its own code.
+- **A validator accepts a rate that was not in force on the day of the supply.** Germany's rates were 16 % and
+  5 % from 2020-07-01 to 2020-12-31 (§ 28 Abs. 1 and 2 UStG) and 19 % and 7 % either side; a supply is taxed
+  at the rate of the day it is made. `buildInvoice` reads the rates of the supply date (BT-72) from a table
+  with the periods since 2007 (`de-vat-rates.ts`), each quoting its norm, checked against the consolidated
+  UStG ([`sources.md`](sources.md)). An order charged at one period's rate and delivered in another is refused
+  (`RATE_NOT_IN_FORCE_ON_SUPPLY_DATE`) rather than invoiced at either. A credit note credits each line at the
+  rate its invoice stated — §17 UStG corrects the supply as it was invoiced — not at the rate the shop's tax
+  lines or today's table give, and states the invoice's delivery date. The table ships with the package: a new
+  rate reaches a shop only with a release, and a weekly check of § 12 and § 28 opens an issue in this
+  repository when either changes.
 - **A validator cannot see what the buyer was charged.** An invoice whose VAT differs from the VAT the shop
   charged validates as long as its own sums add up. The two differ when the shop decided VAT at checkout
   by region alone while the invoice decides it from the buyer's VAT-ID and the destination — Medusa's
