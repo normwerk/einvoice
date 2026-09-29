@@ -1,6 +1,6 @@
 # `@normwerk/einvoice-model`
 
-Generated [EN 16931](https://en.wikipedia.org/wiki/EN_16931) types, code lists, and JSON Schema for
+Generated [EN 16931](https://en.wikipedia.org/wiki/CEN/TC_434) types, code lists, and JSON Schema for
 structured e-invoices — the model layer only: no business logic, no I/O, no XML.
 
 Part of [normwerk/einvoice](https://github.com/normwerk/einvoice), a TypeScript e-invoicing toolkit for

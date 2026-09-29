@@ -2,7 +2,7 @@
 
 MIT-licensed TypeScript core for structured e-invoices ([EN 16931](https://en.wikipedia.org/wiki/CEN/TC_434)), with a thin adapter for [Medusa](https://medusajs.com/) v2: a store run by a German seller issues an XRechnung or ZUGFeRD / Factur-X invoice when an order is fulfilled, and a credit note when it is refunded or cancelled. An adapter for [Vendure](https://www.vendure.io/) is planned.
 
-**Status: pre-release.** Everything below is implemented and tested, but not yet published to npm. See [`docs/README.md`](docs/README.md) for the documentation index; the same documentation is published at [normwerk.dev/einvoice/docs](https://normwerk.dev/einvoice/docs/).
+**Status: pre-release.** Everything under [What it covers](#what-it-covers) is implemented and tested, but not yet published to npm. See [`docs/README.md`](docs/README.md) for the documentation index; the same documentation is published at [normwerk.dev/einvoice/docs](https://normwerk.dev/einvoice/docs/).
 
 ## Contents
 
@@ -41,28 +41,30 @@ anywhere else, and a seller outside Germany, are refused too.
 <!-- supported-countries:end -->
 
 Every document is UN/CEFACT CII XML. When a PDF is configured — the bundled renderer or your own — the XML
-is embedded into a PDF/A-3b hybrid. Documents are stored privately with
-the order and can be downloaded from the order page in Medusa Admin, and by the customer who placed the
+is embedded into a PDF/A-3b hybrid; a PDF of your own that cannot become PDF/A — encrypted, or using a font it
+does not embed — is left out, and the document is issued as XML with a notice. Documents are stored privately
+with the order and can be downloaded from the order page in Medusa Admin, and by the customer who placed the
 order through the Store API.
 
 ### Scenarios
 
-| Scenario                                                                                      | VAT category (BT-118) |
-| --------------------------------------------------------------------------------------------- | --------------------- |
-| Domestic sale at 19% or 7%, or at both rates on one invoice                                   | S                     |
-| Public-sector buyer with a Leitweg-ID                                                         | S                     |
-| Private buyer, including a guest checkout                                                     | S                     |
-| Goods to a business in another EU member state, its VAT-ID verified                           | K                     |
-| Goods exported outside the EU — decided by where the goods go, not by who buys                | G                     |
-| Services to a business in another EU member state, declared per order                         | AE                    |
-| Domestic reverse charge (§13b UStG), declared per order                                       | AE                    |
-| Exempt or zero-rated domestic supply, declared per order                                      | E, Z                  |
-| Distance sale of goods to an EU consumer by an OSS-registered seller, at the destination rate | S                     |
-| Prices entered including VAT — the invoice totals exactly what the buyer was charged          | as the sale           |
-| Shipping charges and promotion discounts, taxed at the rate of the goods they belong to       | as the sale           |
-| Refund or return → credit note referencing the invoice                                        | as invoiced           |
-| Partial refund → credit note for the refunded amount                                          | as invoiced           |
-| Cancellation after invoicing → credit note for what is outstanding                            | as invoiced           |
+| Scenario                                                                                              | VAT category (BT-118) |
+| ----------------------------------------------------------------------------------------------------- | --------------------- |
+| Domestic sale at 19% or 7%, or at both rates on one invoice — the rates in force on the day of supply | S                     |
+| Public-sector buyer with a Leitweg-ID                                                                 | S                     |
+| Private buyer, including a guest checkout                                                             | S                     |
+| Goods to a business in another EU member state, its VAT-ID verified                                   | K                     |
+| Goods exported outside the EU — decided by where the goods go, not by who buys                        | G                     |
+| Services to a business in another EU member state, declared per order                                 | AE                    |
+| Domestic reverse charge (§13b UStG), declared per order                                               | AE                    |
+| Exempt or zero-rated domestic supply, declared per order                                              | E, Z                  |
+| Distance sale of goods to an EU consumer by an OSS-registered seller, at the destination rate         | S                     |
+| Prices entered including VAT — the invoice totals exactly what the buyer was charged                  | as the sale           |
+| Shipping charges and promotion discounts, taxed at the rate of the goods they belong to               | as the sale           |
+| Refund or return → credit note referencing the invoice                                                | as invoiced           |
+| Partial refund → credit note for the refunded amount                                                  | as invoiced           |
+| Cancellation after invoicing → credit note for what is outstanding                                    | as invoiced           |
+| Order shipped in parts → an invoice per shipment, for what that shipment ships                        | as the sale           |
 
 Each scenario is a row of [`docs/tax-semantics.md`](docs/tax-semantics.md), with its legal source, and runs
 as synthetic Medusa orders through the real adapter and the official validator (see
@@ -80,13 +82,17 @@ Where a correct invoice cannot be derived, the plugin refuses and names the reas
 - an order for a territory whose VAT treatment is not its country's — the Canary Islands, Northern Ireland
   for goods, Heligoland and the like, recognised by postcode;
 - business services to a buyer outside the EU, for which there is no settled basis yet;
-- a domestic line that Medusa charged at a rate other than 19% or 7%.
+- a domestic line that Medusa charged at a rate other than the German one in force on the day of supply;
+- an order on which the shop charged no VAT at all — a Kleinunternehmer (§19 UStG) is not supported;
+- the shipment of an exchange's new item or of a warranty replacement, and a credit note for a refund on such
+  an order.
 
 The full list, each with its reason, is in [`docs/tax-semantics.md`](docs/tax-semantics.md). A refused
 document never holds up the order: it shows in the order's "E-Invoices" block in Medusa Admin with its
 reason and a stable code, explained in the [error reference](https://normwerk.dev/einvoice/docs/errors), and
-can be issued again once the cause is fixed. Corrected
-invoices (document type 384) are not produced; corrections are credit notes.
+can be issued again once the cause is fixed. A price changed in Medusa after the invoice was issued is flagged
+on that invoice in Medusa Admin, not corrected silently. Corrected invoices (document type 384) are not
+produced; corrections are credit notes.
 
 ## How correctness is verified
 
