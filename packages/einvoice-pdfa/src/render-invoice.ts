@@ -31,7 +31,7 @@
  */
 import { PDFDocument, PDFFont, PDFPage, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import type { Invoice, InvoiceLine } from "@normwerk/einvoice-model";
+import type { Invoice, InvoiceLine, InvoiceTypeCode } from "@normwerk/einvoice-model";
 import {
   liberationSansBoldBytes,
   liberationSansRegularBytes,
@@ -115,6 +115,55 @@ export function partyAddressLines(party: {
     (line): line is string => line !== undefined && line.trim() !== "",
   );
   return [...street, `${party.postCode} ${party.city}, ${party.countryCode}`];
+}
+
+/**
+ * T-034: the title by document type (BT-3), German then English, so a credit note's PDF never says "invoice"
+ * while its XML says 381. A credit note is "Rechnungskorrektur", never "Gutschrift" — in UStG terms that word
+ * is a self-billed invoice (§14 Abs. 2), see `docs/tax-semantics.md`. A type without a title here is refused
+ * rather than printed under a wrong one.
+ */
+const DOCUMENT_TITLES: Partial<
+  Record<InvoiceTypeCode, readonly [german: string, english: string]>
+> = {
+  "380": ["Rechnung", "Invoice"],
+  "381": ["Rechnungskorrektur", "Credit note"],
+  "384": ["Rechnungskorrektur (berichtigt)", "Corrected invoice"],
+};
+
+/** Types that correct another invoice: their PDF names it (BT-25, BT-26) under the title. */
+const CORRECTING_TYPES: ReadonlySet<InvoiceTypeCode> = new Set(["381", "384"]);
+
+export interface DocumentHeading {
+  readonly title: string;
+  readonly subtitle: string;
+  /** For a correcting document, the invoice it corrects — a German line, then an English one. */
+  readonly references: readonly string[];
+}
+
+/** The document's title and the invoice it corrects, as printed. Exported for tests — the rendered text
+ * itself is not extractable from the subset font. */
+export function documentHeading(
+  invoice: Pick<Invoice, "typeCode" | "precedingInvoiceReferences">,
+): DocumentHeading {
+  const title = DOCUMENT_TITLES[invoice.typeCode];
+  if (title === undefined) {
+    throw new Error(
+      `renderInvoicePdf has no title for document type code ${invoice.typeCode} (BT-3); ` +
+        `it renders 380, 381 and 384`,
+    );
+  }
+  const references = CORRECTING_TYPES.has(invoice.typeCode)
+    ? (invoice.precedingInvoiceReferences ?? []).flatMap((reference) =>
+        reference.issueDate === undefined
+          ? [`zu Rechnung ${reference.invoiceNumber}`, `for invoice ${reference.invoiceNumber}`]
+          : [
+              `zu Rechnung ${reference.invoiceNumber} vom ${reference.issueDate}`,
+              `for invoice ${reference.invoiceNumber} of ${reference.issueDate}`,
+            ],
+      )
+    : [];
+  return { title: title[0], subtitle: title[1], references };
 }
 
 function drawParty(
@@ -220,14 +269,22 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Uint8Array> {
 
   const cursor: Cursor = { page: newPage(doc), y: PAGE_HEIGHT - MARGIN };
 
-  // --- Header: seller name + document title/number/date ---
+  // --- Header: seller name + document title/number/date, and the invoice a correction corrects ---
+  const heading = documentHeading(invoice);
   text(cursor, fonts, invoice.seller.name, MARGIN, { bold: true, size: HEADING_SIZE });
-  text(cursor, fonts, "INVOICE", MARGIN + 300, { bold: true, size: HEADING_SIZE });
-  cursor.y -= LINE_GAP + 6;
+  text(cursor, fonts, heading.title, MARGIN + 300, { bold: true, size: HEADING_SIZE });
+  cursor.y -= LINE_GAP + 2;
+  text(cursor, fonts, heading.subtitle, MARGIN + 300, { color: GREY });
+  cursor.y -= LINE_GAP + 4;
   text(cursor, fonts, `No. ${invoice.number}`, MARGIN + 300);
   cursor.y -= LINE_GAP;
   text(cursor, fonts, `Date ${invoice.issueDate}`, MARGIN + 300);
-  cursor.y -= LINE_GAP * 2;
+  cursor.y -= LINE_GAP;
+  for (const reference of heading.references) {
+    text(cursor, fonts, reference, MARGIN + 300);
+    cursor.y -= LINE_GAP;
+  }
+  cursor.y -= LINE_GAP;
 
   // --- Seller / buyer party blocks, side by side ---
   const partyTopY = cursor.y;

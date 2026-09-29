@@ -68,6 +68,17 @@ Deliberately simple — one visual style, no template system, no text-wrapping e
 fixtures need (v0.1 does not aim to be a general-purpose invoice designer); renders every top-level
 BT/BG group a human reading the PDF would expect (parties, lines, VAT breakdown, totals).
 
+The title follows the document type (BT-3), German then English, so the PDF never contradicts its XML:
+
+| BT-3 | Title                                               | Under the title                                                  |
+| ---- | --------------------------------------------------- | ---------------------------------------------------------------- |
+| 380  | Rechnung / Invoice                                  | —                                                                |
+| 381  | Rechnungskorrektur / Credit note                    | the invoice it corrects: "zu Rechnung RE-… vom …" (BT-25, BT-26) |
+| 384  | Rechnungskorrektur (berichtigt) / Corrected invoice | the invoice it corrects, as for 381                              |
+
+A credit note is never titled "Gutschrift" — see [`tax-semantics.md`](tax-semantics.md). Any other type
+code is refused with an error rather than printed under a wrong title.
+
 While implementing this, a real, previously-undetected determinism bug turned up in `embedInvoiceInPdfA3`
 itself (`index.ts`): `pdf-lib`'s `PDFDocument.load()` defaults to stamping the Info dictionary's `ModDate`
 (and `CreationDate`, once the base PDF has none) with the real `new Date()` at load time — silently

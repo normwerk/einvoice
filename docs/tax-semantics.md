@@ -155,10 +155,11 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
 - **The word "Gutschrift" is ambiguous in German VAT law.** UStG §14 Abs. 2 uses _Gutschrift_
   for a _self-billed invoice_ (UNTDID 1001 code 389, issued by the buyer). A credit note (381) whose
   human-readable title says "Gutschrift" can be misread as self-billing, with §14c exposure. The XML is
-  unambiguous (type code 381); the PDF title is not. `einvoice-pdfa` therefore titles 381 documents
-  "Rechnungskorrektur", never "Gutschrift" — the exact wording is chosen conservatively (BMF-Schreiben 2013
-  does permit "Gutschrift" in an unambiguous context, but common practice avoids it); confirm the final
-  phrasing with your own tax advisor before relying on it.
+  unambiguous (type code 381); the PDF title is not. `einvoice-pdfa`'s `renderInvoicePdf` therefore titles
+  381 documents "Rechnungskorrektur / Credit note", never "Gutschrift", and prints the invoice they correct
+  under the title (a PDF of your own is yours to title) — the exact wording is chosen conservatively
+  (BMF-Schreiben 2013 does permit "Gutschrift" in an unambiguous context, but common practice avoids it);
+  confirm the final phrasing with your own tax advisor before relying on it.
 
 - **Shipping and discounts take the rate of the supply they belong to — a validator cannot tell.**
   Shipping charged by the seller is an ancillary supply that shares the main supply's rate (Art. 78(b) VAT

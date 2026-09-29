@@ -78,15 +78,17 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   (`UnrepresentableCharacterError`). The tests call the
   `en16931-cii` profile only; `serializeCii` does not yet vary its output by profile.
 
-### `einvoice-pdfa` (17 tests)
+### `einvoice-pdfa` (21 tests)
 
 - `src/index.test.ts` — `buildXmpPacket` (the hand-written XMP packet, both ZUGFeRD/Factur-X profiles) and
   `embedInvoiceInPdfA3` (determinism — two calls on the same input give byte-identical output — that
   the Info dictionary is left untouched, ADR-004, and that the XMP stream is valid UTF-8 with a non-ASCII
   title intact).
 - `src/render-invoice.test.ts` — `renderInvoicePdf`: real embedded-font rendering, determinism, every real
-  fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), and each party's address
-  lines above post code and city.
+  fixture rendering without throwing, non-ASCII text (umlauts, ß, —, ½, Ø), each party's address
+  lines above post code and city, and the title by document type — "Rechnung / Invoice", "Rechnungskorrektur
+  / Credit note" (never "Gutschrift") and "Rechnungskorrektur (berichtigt) / Corrected invoice", a
+  correction naming the invoice it corrects, and a type without a title refused.
 
 ### `einvoice-medusa` (269 tests)
 

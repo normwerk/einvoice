@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PDFDict, PDFDocument, PDFName, PDFRawStream, PDFRef, PDFStream } from "pdf-lib";
 import type { Invoice } from "@normwerk/einvoice-model";
-import { partyAddressLines, renderInvoicePdf } from "./render-invoice.js";
+import { documentHeading, partyAddressLines, renderInvoicePdf } from "./render-invoice.js";
 
 // Same fixtures/ location as einvoice-model's fixtures.test.ts and this
 // package's own conformance script (tools/conformance/pdfa-embed-and-validate.mjs).
@@ -102,6 +102,44 @@ describe("renderInvoicePdf", () => {
     expect(partyAddressLines({ city: "Hamburg", postCode: "20095", countryCode: "DE" })).toEqual([
       "20095 Hamburg, DE",
     ]);
+  });
+
+  it("titles an invoice 'Rechnung / Invoice' and prints no reference to another invoice (T-034)", () => {
+    expect(documentHeading(loadFixture("de-b2b-standard"))).toEqual({
+      title: "Rechnung",
+      subtitle: "Invoice",
+      references: [],
+    });
+  });
+
+  it("titles a credit note 'Rechnungskorrektur / Credit note', never 'Gutschrift', with the invoice it corrects (T-034)", () => {
+    expect(documentHeading(loadFixture("de-credit-note"))).toEqual({
+      title: "Rechnungskorrektur",
+      subtitle: "Credit note",
+      references: [
+        "zu Rechnung RE-2026-0001 vom 2026-09-13",
+        "for invoice RE-2026-0001 of 2026-09-13",
+      ],
+    });
+  });
+
+  it("titles a corrected invoice 'Rechnungskorrektur (berichtigt) / Corrected invoice', with the invoice it corrects (T-034)", () => {
+    expect(
+      documentHeading({
+        typeCode: "384",
+        precedingInvoiceReferences: [{ invoiceNumber: "RE-2026-0007" }],
+      }),
+    ).toEqual({
+      title: "Rechnungskorrektur (berichtigt)",
+      subtitle: "Corrected invoice",
+      references: ["zu Rechnung RE-2026-0007", "for invoice RE-2026-0007"],
+    });
+  });
+
+  it("refuses a document type it has no title for rather than print a wrong one (T-034)", async () => {
+    await expect(
+      renderInvoicePdf({ ...loadFixture("de-b2b-standard"), typeCode: "389" }),
+    ).rejects.toThrow(/document type code 389/);
   });
 
   it("paginates onto additional pages once the line items overflow one page", async () => {
