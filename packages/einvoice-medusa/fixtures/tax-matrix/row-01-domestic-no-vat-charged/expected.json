@@ -4,8 +4,8 @@
   "build": {
     "kind": "error",
     "errorClass": "TaxRuleError",
-    "errorCode": "UNSUPPORTED_CHARGED_RATE",
-    "messageIncludes": "Line 2: A domestic line was charged 0% VAT"
+    "errorCode": "NO_VAT_CHARGED",
+    "messageIncludes": "Kleinunternehmer (§19 UStG)"
   },
   "profile": {
     "kind": "ok",

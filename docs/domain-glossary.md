@@ -650,3 +650,9 @@ integrations` itself states the list "is curated from npm," and its own visible 
 - **A partially received return has no `received_at`.** `confirmReturnReceiveWorkflow` sets `received_at`
   (and status `received`) only when everything requested came back; otherwise status `partially_received`,
   `received_at` null.
+- **A Kleinunternehmer's order looks like a missing tax rate.** Medusa charges no VAT in both cases — a tax
+  line at rate 0, or none at all when the country has no tax region — so a per-line refusal ("0 % is not a
+  German rate", "no rate") sends a Kleinunternehmer to their tax settings. `buildInvoice` checks the whole
+  order first: nothing above 0 % on any line or on shipping is `NO_VAT_CHARGED`, which names both causes.
+  Shipping's rate is read for this alone (`CommerceShipping.chargedVatRate`); the invoice's shipping rate
+  still follows the lines.

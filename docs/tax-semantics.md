@@ -259,6 +259,13 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   `amountInclVat`), `buildInvoice` takes each rate group's VAT out of its gross total instead, so the
   invoice totals exactly what was charged. The group's VAT can then differ from its taxable amount × rate
   by a cent, which `BR-CO-17` and `BR-S-09` allow (both accept a difference below 1).
+- **A validator cannot tell a Kleinunternehmer's invoice from any other.** A Kleinunternehmer (§19 UStG)
+  charges no VAT, and need not issue e-invoices at all: an invoice for their sales may always be sent as an
+  ordinary invoice (§34a Satz 4 UStDV). Invoicing their sale as category S would state VAT that is then owed
+  (§14c Abs. 1 UStG); no category of this release fits it. The plugin does not support Kleinunternehmer. A domestic order on which the shop charged no VAT at all — no line and
+  not its shipping above 0 %, or no tax line anywhere — is refused as `NO_VAT_CHARGED`, which names both
+  causes: a shop whose tax settings have no German rate, and a Kleinunternehmer. One untaxed line among
+  taxed ones is a settings error and keeps its own code.
 - **A validator cannot see what the buyer was charged.** An invoice whose VAT differs from the VAT the shop
   charged validates as long as its own sums add up. The two differ when the shop decided VAT at checkout
   by region alone while the invoice decides it from the buyer's VAT-ID and the destination — Medusa's

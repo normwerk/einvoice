@@ -54,6 +54,11 @@ running it repeatedly.
 ✓ src/scenarios/s13-blocked-then-retried.test.ts   — an invoice stating more VAT than was charged: not issued, the order corrected, retried; a refund meanwhile credited on retry
 ✓ src/scenarios/s14-vies-unavailable-retried.test.ts — VIES unavailable: the invoice refused and recorded, the VAT-ID confirmed by hand, retried
 ✓ src/scenarios/s15-mixed-rates.test.ts       — a 7 % / 19 % basket: shipping split per rate, a received return credited at its rate, a goodwill refund and a cancellation credited per rate
+✓ src/scenarios/s16-gross-vat-below-invoice.test.ts — prices including VAT, shipping untaxed in Medusa: issued with a notice that Medusa counts less VAT
+✓ src/scenarios/s17-unsupported-buyer-country.test.ts — a buyer in Italy: the order ships, the invoice is refused with its code, explanation and a support request
+✓ src/scenarios/s18-invoice-per-shipment.test.ts — an order shipped in two parts: an invoice per shipment, returns and cancellations credited on the right one
+✓ src/scenarios/s19-plugin-events.test.ts     — the plugin's events as a shop's own subscriber receives them, and the order link
+✓ src/scenarios/s20-no-vat-charged.test.ts    — a shop that charged no VAT (German tax region at 0 %, or none): refused as NO_VAT_CHARGED, no number taken
 ✓ src/scenarios/idempotency.test.ts          — delivering an event a second time never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot without a required option, or with a seller outside Germany
@@ -67,7 +72,8 @@ business buyer is charged VAT the invoice does not state (S12). The other countr
 French business buyer is charged no VAT, which is what category K and AE invoices show. S13 adds a 0% rate
 for the shipping option in Germany for its own run, S15 a 7% rate for the sweatpants (standing in for a
 book), and S16 the same 0% shipping rate with the region's prices switched to include VAT, and each removes
-it again. The stand's clock is fixed (`EINVOICE_E2E_NOW`, 2026-01-15 by
+it again. S20 sets the German tax region's rate to 0% and then removes the region altogether, and restores it
+as seeded — 19% — after each step and when the file ends. The stand's clock is fixed (`EINVOICE_E2E_NOW`, 2026-01-15 by
 default), so every document carries the same date on every run.
 
 Every container is torn down both before a run starts and after it finishes — pass, fail, or even a

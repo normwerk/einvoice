@@ -116,7 +116,8 @@ original supply.
 | Cell                                             | Row             | Build axis                           | Profile axis                     | What it shows                                                                               |
 | ------------------------------------------------ | --------------- | ------------------------------------ | -------------------------------- | ------------------------------------------------------------------------------------------- |
 | `row-01-domestic-standard` (+ credit note)       | 1 (twin: 10)    | ok, S                                | ok, EN16931                      | Domestic B2B sale at 19%                                                                    |
-| `row-01-domestic-untaxed-line`                   | 1               | error, `TaxRuleError`                | ok, EN16931                      | Medusa charged 0% on a domestic line: refused, not invoiced at 7% or 19%                    |
+| `row-01-domestic-untaxed-line`                   | 1               | error, `TaxRuleError`                | ok, EN16931                      | Medusa charged 0% on one domestic line of two: refused, not invoiced at 7% or 19%           |
+| `row-01-domestic-no-vat-charged`                 | 1               | error, `TaxRuleError`                | ok, EN16931                      | Medusa charged no VAT on any line or on shipping: refused as a shop that charged none       |
 | `row-02-domestic-reduced` (+ credit note)        | 2 (twin: 10)    | ok, S                                | ok, EN16931                      | Domestic B2B sale of a book at 7%                                                           |
 | `row-03-intra-eu-goods` (+ credit note)          | 3               | ok, K                                | ok, EN16931                      | DE → FR goods with a positive VIES check; delivery (BG-13) mapped from the order address    |
 | `row-03-intra-eu-goods-no-vat-id-evidence`       | 3               | error, `TaxRuleError`                | ok, EN16931                      | Same order without VIES evidence: K is refused on an unverified VAT-ID                      |
@@ -142,7 +143,7 @@ original supply.
 | `special-territory-canary-islands`               | — (scope guard) | error, `TaxRuleError`                | ok, EN16931                      | Goods to the Canary Islands (`es`, `35…`) with a positive VIES check: not K — refused       |
 | `special-territory-heligoland`                   | — (scope guard) | error, `TaxRuleError`                | ok, EN16931                      | A German order shipped to Heligoland (`de`, `27498`): outside the German VAT area — refused |
 
-That is 34 directories: 33 runnable cells and one documentation-only entry. The 22 cells whose
+That is 38 directories: 37 runnable cells and one documentation-only entry. The 22 cells whose
 build axis is `ok` form the validated set for `pnpm conformance:tax-matrix`.
 
 Notes on individual cells:
@@ -183,22 +184,23 @@ Notes on individual cells:
 
 ## Refusals by design
 
-Eleven runnable cells expect a build-axis refusal. None of them is a defect; each is the behaviour
+Fifteen runnable cells expect a build-axis refusal. None of them is a defect; each is the behaviour
 `docs/tax-semantics.md` prescribes when the facts needed to pick a category are missing or the
 answer is not settled:
 
-| Cell                                        | Error                         | Why it refuses                                                                                       |
-| ------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `row-03-intra-eu-goods-no-vat-id-evidence`  | `TaxRuleError`                | K needs a positive VIES check or an explicit `intra-eu-confirmed` override                           |
-| `row-01-domestic-untaxed-line`              | `TaxRuleError`                | A domestic line is invoiced at the rate it was charged, and 0% is not a German rate for it           |
-| `row-07-oss-b2c-no-rate-override`           | `TaxRuleError`                | OSS needs the destination country's rate declared                                                    |
-| `row-07-oss-b2c-reduced-line`               | `TaxRuleError`                | A reduced destination rate cannot be declared; only the one declared rate can be invoiced            |
-| `row-07-oss-b2c-service`                    | `TaxRuleError`                | A service moves to the consumer's country only under §3a Abs. 5 UStG, which the order does not show  |
-| `row-12-eu-b2b-service` (+ credit note)     | `TaxRuleError`                | Category AE, but no official artifact example confirms a validator accepts it; needs a declared fact |
-| `row-13-non-eu-b2b-service` (+ credit note) | `TaxRuleError`                | Category contested between AE, O and G; no override exists                                           |
-| `mixed-basket-cross-border`                 | `MixedSupplyCrossBorderError` | Goods and services cross-border need two categories; one document carries one                        |
-| `reject-seller-not-de`                      | `TaxRuleError`                | Only a German seller is covered                                                                      |
-| `special-territory-*` (three cells)         | `TaxRuleError`                | The country code misstates the VAT area: a special territory, recognised by postcode                 |
+| Cell                                        | Error                         | Why it refuses                                                                                            |
+| ------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `row-03-intra-eu-goods-no-vat-id-evidence`  | `TaxRuleError`                | K needs a positive VIES check or an explicit `intra-eu-confirmed` override                                |
+| `row-01-domestic-untaxed-line`              | `TaxRuleError`                | A domestic line is invoiced at the rate it was charged, and 0% is not a German rate for it                |
+| `row-01-domestic-no-vat-charged`            | `TaxRuleError`                | Nothing charged VAT: a shop missing a German rate, or a Kleinunternehmer, whom the release does not serve |
+| `row-07-oss-b2c-no-rate-override`           | `TaxRuleError`                | OSS needs the destination country's rate declared                                                         |
+| `row-07-oss-b2c-reduced-line`               | `TaxRuleError`                | A reduced destination rate cannot be declared; only the one declared rate can be invoiced                 |
+| `row-07-oss-b2c-service`                    | `TaxRuleError`                | A service moves to the consumer's country only under §3a Abs. 5 UStG, which the order does not show       |
+| `row-12-eu-b2b-service` (+ credit note)     | `TaxRuleError`                | Category AE, but no official artifact example confirms a validator accepts it; needs a declared fact      |
+| `row-13-non-eu-b2b-service` (+ credit note) | `TaxRuleError`                | Category contested between AE, O and G; no override exists                                                |
+| `mixed-basket-cross-border`                 | `MixedSupplyCrossBorderError` | Goods and services cross-border need two categories; one document carries one                             |
+| `reject-seller-not-de`                      | `TaxRuleError`                | Only a German seller is covered                                                                           |
+| `special-territory-*` (three cells)         | `TaxRuleError`                | The country code misstates the VAT area: a special territory, recognised by postcode                      |
 
 On the profile axis, only row 13 refuses: a US buyer is outside the EU/EEA, not Switzerland or the
 UK, and not a clearance-model country, so `selectProfile` throws the generic "not yet supported"

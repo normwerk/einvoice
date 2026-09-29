@@ -73,7 +73,7 @@ export const commerceInvoiceInputJsonSchema = {
       }
     },
     "shipping": {
-      "$ref": "#/definitions/CommerceCharge"
+      "$ref": "#/definitions/CommerceShipping"
     },
     "discounts": {
       "type": "array",
@@ -874,6 +874,24 @@ export const commerceInvoiceInputJsonSchema = {
         "amount",
         "reason"
       ],
+      "additionalProperties": false
+    },
+    "CommerceShipping": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Amount"
+        },
+        "amountInclVat": {
+          "$ref": "#/definitions/Amount"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "chargedVatRate": {
+          "$ref": "#/definitions/Amount"
+        }
+      },
       "additionalProperties": false
     },
     "CommerceCharge": {

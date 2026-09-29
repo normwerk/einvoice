@@ -18,7 +18,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/errors.test.ts` — `EinvoiceError`: a stable code and the link to its explanation, anchored in lower
   case with hyphens.
 
-### `einvoice-commerce` (156 tests)
+### `einvoice-commerce` (162 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -36,7 +36,10 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   category is decided (goods placed where they go, a service where its buyer is, Northern Ireland for goods
   only), a credit note following the decision of the invoice it corrects (K although VIES says invalid today,
   19 % although the address moved abroad and OSS was switched on, the document itself still checked, refused
-  on an invoice), and defensive behavior against a malformed non-TypeScript caller (ADR-003).
+  on an invoice), a domestic invoice on which the shop charged no VAT at all refused as `NO_VAT_CHARGED`
+  (every line and the shipping at 0 %, or no rate recorded and none classified; one untaxed line among
+  taxed ones, or taxed shipping, keeps the line's own code; a credit note not checked), and defensive
+  behavior against a malformed non-TypeScript caller (ADR-003).
 - `src/tax-rules.test.ts` — `decideVatCategory`, at least one test per `docs/tax-semantics.md` row — the
   actual VAT category decision table, in code form — plus the refusals around it (VIES evidence for another
   VAT-ID, a German buyer VAT-ID for row 3, the exempt/zero-rated overrides outside Germany, OSS for services,
@@ -90,14 +93,14 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   / Credit note" (never "Gutschrift") and "Rechnungskorrektur (berichtigt) / Corrected invoice", a
   correction naming the invoice it corrects, and a type without a title refused.
 
-### `einvoice-medusa` (269 tests)
+### `einvoice-medusa` (272 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
   [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) (buyer name/address fallback chains —
   a guest buyer named from the billing address, not the email —
   tax-inclusive prices, discounts and shipping passed on VAT-inclusive, the rate Medusa charged passed on
-  as it is, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
+  as it is — on shipping the highest over its methods, B2G buyer reference resolution, `MissingBuyerCountryError`, shipping
   methods as one document-level charge and promotions as line allowances; one fulfillment's lines, units and
   discount shares, its date as BT-72, the shipping only on the invoice that carries it, split by the whole
   order's rates), `orderPaidInFull` (captured less refunded against the order's total) and
@@ -112,7 +115,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   names the amounts and which way Medusa's VAT differs; `chargedForShipment` — one fulfillment's units at
   Medusa's per-unit amounts and the shipping it carries, the same after a return, nothing when every unit
   came back.
-- `src/tax-matrix/tax-matrix.test.ts` (73 tests) — the tax-scenario fixture matrix: every
+- `src/tax-matrix/tax-matrix.test.ts` (75 tests) — the tax-scenario fixture matrix: every
   `packages/einvoice-medusa/fixtures/tax-matrix/*` cell driven through the real, unmocked
   `mapOrderToCommerceInvoiceInput` → `buildInvoice`/`selectProfile` (two independent axes, not the
   subscribers' own early-exit chaining — see `src/tax-matrix/types.ts`'s doc comment for why), asserted
@@ -248,7 +251,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 22 files / 34 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 23 files / 36 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID; the VIES answer kept with the invoice), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -273,7 +276,9 @@ refused with `REFUND_NEEDS_MANUAL_CREDIT`), S19 (the plugin's events as a shop's
 app receives them: `einvoice.document_issued` for an invoice — ids, number and fulfillment only — and for a
 refund's credit note, `einvoice.issuance_blocked` for a blocked invoice with its refusal's id and code; the
 document read with the order through the read-only link; a redelivery inside the app announcing nothing a
-second time), idempotency (an event
+second time), S20 (a shop that charged no VAT — its German tax region at 0 %, or none at all: the invoice
+refused with `NO_VAT_CHARGED` naming §19 UStG and §34a UStDV, the refusal and `einvoice.issuance_blocked`
+visible, and no number taken — ordinary orders before and after get consecutive numbers), idempotency (an event
 delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option; a seller
 outside Germany),

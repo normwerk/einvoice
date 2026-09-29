@@ -437,6 +437,37 @@ function decideOnTodaysFacts(
   return decideVatCategory(input.taxContext, options.vatIdEvidence);
 }
 
+/**
+ * T-203: refuses a domestic invoice on which the shop charged no VAT at all — no line of the order and not its
+ * shipping carries a rate above 0 %, and no line is classified. That is a shop without a German rate in its
+ * tax settings, or a Kleinunternehmer (§19 UStG): out of scope, since §34a Satz 4 UStDV lets them always send
+ * an ordinary invoice instead. Each line's own refusal (0 %, no rate) would send them to the tax settings
+ * alone. One untaxed line among taxed ones is a settings error and keeps its own code; so is an order whose
+ * shipping alone was taxed. A credit note follows the invoice it corrects and is not checked here.
+ */
+function assertVatCharged(decision: TaxDecision, input: CommerceInvoiceInput): void {
+  if (decision.ruleId !== "tax-semantics#1" || input.document.kind !== "invoice") return;
+  // Anything but a plain zero counts as a rate here, an invalid one too: resolveLineRate refuses that itself.
+  const carriesVat = (rate: string | undefined): boolean =>
+    rate !== undefined && !/^0+(\.0+)?$/.test(rate.trim());
+  const orderLines = input.chargeSplitLines ?? input.lines;
+  if (
+    orderLines.length === 0 ||
+    orderLines.some((line) => line.taxRateKind !== undefined || carriesVat(line.chargedVatRate)) ||
+    carriesVat(input.shipping?.chargedVatRate)
+  ) {
+    return;
+  }
+  throw new TaxRuleError(
+    "NO_VAT_CHARGED",
+    "The shop charged no VAT on this domestic order: no line and no shipping carries a rate above 0 %. " +
+      "Either the shop's tax settings have no German VAT rate for this sale, or you are a Kleinunternehmer " +
+      "(§19 UStG) — who may always send an ordinary invoice instead of an e-invoice (§34a Satz 4 UStDV) " +
+      "and whom this release does not issue invoices for. Refusing rather than issuing an invoice without VAT.",
+    "tax-semantics#kleinunternehmer",
+  );
+}
+
 /** `resolveLineRate` for one line, with a refusal naming the line it is about. */
 function lineRate(
   decision: TaxDecision,
@@ -565,6 +596,7 @@ export function buildInvoice(
     throw new MissingBuyerVatIdForCrossBorderServiceError();
   }
   assertTaxFactsMatchDocument(regimeDecision, input);
+  assertVatCharged(regimeDecision, input);
 
   // P-61: every price and amount is either net or VAT-inclusive (exactly one of the two fields).
   const computeLine = (line: CommerceLine, index: number) => {

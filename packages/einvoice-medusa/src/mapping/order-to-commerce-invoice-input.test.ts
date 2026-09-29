@@ -510,6 +510,25 @@ describe("mapOrderToCommerceInvoiceInput — shipping and discounts (P-39)", () 
     });
   });
 
+  it("passes on the rate Medusa charged on shipping — the highest over several methods (T-203)", () => {
+    const order = baseOrder({
+      shipping_methods: [
+        { name: "Standard", subtotal: 5, discount_subtotal: 0, tax_lines: [{ rate: 0 }] },
+        { name: "Express", subtotal: 3, discount_subtotal: 0, tax_lines: [{ rate: 19 }] },
+      ],
+    });
+    expect(mapOrderToCommerceInvoiceInput(order, baseOptions()).shipping?.chargedVatRate).toBe(
+      "19",
+    );
+    const untaxed = baseOrder({
+      shipping_methods: [{ name: "Standard", subtotal: 5, discount_subtotal: 0, tax_lines: [] }],
+    });
+    expect(mapOrderToCommerceInvoiceInput(untaxed, baseOptions()).shipping).toEqual({
+      amount: "5.00",
+      reason: "Versand / Shipping: Standard",
+    });
+  });
+
   it("omits shipping entirely when it is free", () => {
     const order = baseOrder({
       shipping_methods: [{ name: "Free Shipping", subtotal: 0, discount_subtotal: 0 }],

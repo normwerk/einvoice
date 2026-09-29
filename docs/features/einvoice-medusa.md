@@ -188,6 +188,9 @@ The end-to-end suite has a subscriber of its own receive the events (S19).
 
 ## What this deliberately does not do
 
+- No invoices for a Kleinunternehmer (§19 UStG): they may always send an ordinary invoice instead of an
+  e-invoice (§34a Satz 4 UStDV). An order on which the shop charged no VAT at all is refused as
+  `NO_VAT_CHARGED` ([`docs/tax-semantics.md`](../tax-semantics.md)); the order itself ships as usual.
 - No outbox: an event lost between writing the document and sending the event is not sent later.
 - No migration path preserves the old `xml`/`pdf` columns' content — the same "pre-release, no real
   deployment history to preserve" reasoning an earlier migration replacement already used (see

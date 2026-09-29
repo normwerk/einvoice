@@ -11,6 +11,8 @@ work.
 - Medusa 2.12–2.15, or 2.18 or a later 2.x release — the releases the [end-to-end suite](e2e.md) passes
   on. On any other release the plugin refuses to start (`UnsupportedMedusaVersionError`); see the
   [compatibility table](../packages/einvoice-medusa/README.md#compatibility) for why 2.16 and 2.17 are out.
+- A shop that charges German VAT. A Kleinunternehmer (§19 UStG) need not issue e-invoices (§34a Satz 4
+  UStDV) and is not supported: an order on which no VAT was charged is refused (`NO_VAT_CHARGED`).
 - A Medusa v2 project with a real Postgres database. If you don't have one yet:
   ```bash
   npx create-medusa-app@latest my-store --db-url "postgres://user:pass@localhost:5432/my_store_db"

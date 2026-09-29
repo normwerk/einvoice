@@ -59,6 +59,11 @@ export type TaxRuleCode =
   | "CHARGED_RATE_MISMATCH"
   /** A domestic line has neither a rate classification nor a charged rate, so its rate cannot be resolved. */
   | "LINE_RATE_UNKNOWN"
+  /** No line and no shipping of a domestic order carries VAT: the shop charged none. Either its tax
+   * settings have no German VAT rate for the sale, or the seller is a Kleinunternehmer (§19 UStG). A
+   * Kleinunternehmer may always send an ordinary invoice instead of an e-invoice (§34a Satz 4 UStDV); this
+   * release does not issue invoices for them. */
+  | "NO_VAT_CHARGED"
   /** Shipping or a document-level discount cannot be split across the invoice's VAT rates: the lines add up
    * to zero at every rate. */
   | "CHARGE_SPLIT_IMPOSSIBLE"

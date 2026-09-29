@@ -347,6 +347,78 @@ describe("buildInvoice — shipping/discounts take the rate of the supply they b
   });
 });
 
+describe("buildInvoice — a domestic order that carries no VAT at all: the shop charged none (T-203)", () => {
+  const untaxed = (chargedVatRate: string | undefined) => ({
+    quantity: "1",
+    unitCode: "C62",
+    netPrice: "10.00",
+    itemName: "Mug",
+    chargedVatRate,
+  });
+  const codeOf = (input: CommerceInvoiceInput): string | undefined => {
+    try {
+      buildInvoice(input);
+      return undefined;
+    } catch (error) {
+      return (error as { code?: string }).code;
+    }
+  };
+
+  it("refuses an order charged 0 % on every line and on shipping, pointing at §19 UStG and §34a UStDV", () => {
+    const input = domesticInput({
+      lines: [untaxed("0"), untaxed("0.0")],
+      shipping: { amount: "4.90", chargedVatRate: "0" },
+    });
+    expect(codeOf(input)).toBe("NO_VAT_CHARGED");
+    expect(() => buildInvoice(input)).toThrow(/Kleinunternehmer \(§19 UStG\).*§34a Satz 4 UStDV/);
+  });
+
+  it("refuses an order with no tax lines at all — no rate charged, none classified", () => {
+    expect(codeOf(domesticInput({ lines: [untaxed(undefined)] }))).toBe("NO_VAT_CHARGED");
+  });
+
+  it("looks at the whole order's lines, not only the shipment's: a taxed line elsewhere keeps the old code", () => {
+    const input = domesticInput({
+      lines: [untaxed("0")],
+      chargeSplitLines: [untaxed("0"), { ...untaxed("19"), itemName: "Shirt" }],
+    });
+    expect(codeOf(input)).toBe("UNSUPPORTED_CHARGED_RATE");
+  });
+
+  it("keeps the old code for a 0 % line among taxed ones, or when only shipping was taxed — a settings error", () => {
+    expect(codeOf(domesticInput({ lines: [untaxed("19"), untaxed("0")] }))).toBe(
+      "UNSUPPORTED_CHARGED_RATE",
+    );
+    expect(
+      codeOf(
+        domesticInput({
+          lines: [untaxed("0")],
+          shipping: { amount: "4.90", chargedVatRate: "19" },
+        }),
+      ),
+    ).toBe("UNSUPPORTED_CHARGED_RATE");
+  });
+
+  it("issues an order whose lines are classified although no rate was recorded", () => {
+    const input = domesticInput({ lines: [{ ...untaxed(undefined), taxRateKind: "standard" }] });
+    expect(buildInvoice(input).invoice.totals.totalVatAmount).toBe("1.90");
+  });
+
+  it("does not apply to a credit note, which follows the invoice it corrects", () => {
+    const input = domesticInput({
+      document: {
+        kind: "credit-note",
+        number: "GS-2026-0001",
+        issueDate: "2026-09-20",
+        currency: "EUR",
+        correctedInvoice: { number: "RE-2026-0001", issueDate: "2026-09-14" },
+      },
+      lines: [untaxed("0")],
+    });
+    expect(codeOf(input)).toBe("UNSUPPORTED_CHARGED_RATE");
+  });
+});
+
 describe("buildInvoice — intra-EU supply (row 3), needs vatIdEvidence", () => {
   const intraEuInput = domesticInput({
     buyer: {

@@ -115,6 +115,8 @@ export const ORDER_QUERY_FIELDS = [
   "shipping_methods.discount_subtotal",
   // P-63: the VAT Medusa charged on each shipping method — names the cause of a notice.
   "shipping_methods.tax_total",
+  // T-203: the rate charged on it — none on shipping and none on the lines is a shop that charged no VAT.
+  "shipping_methods.tax_lines.rate",
   // P-67: the fulfillment an invoice is for — the lines and quantities it shipped, and its date (BT-72).
   "fulfillments.id",
   "fulfillments.created_at",
@@ -199,6 +201,7 @@ export interface MedusaOrderShippingMethod {
   readonly discount_subtotal?: number | string | null;
   /** P-63: the VAT Medusa charged on it — at one rate, even in an order with two. */
   readonly tax_total?: number | string | null;
+  readonly tax_lines?: readonly { readonly rate: number | string }[] | null;
 }
 
 export interface MedusaOrderForInvoice {
@@ -305,9 +308,10 @@ function resolveBuyerReference(order: MedusaOrderForInvoice): string | undefined
  * acceptable, is `buildInvoice`'s decision. This file used to snap the rate to the nearer of Germany's two,
  * which turned a line Medusa taxed at 0% into a 7% line on the invoice.
  */
-function chargedVatRate(item: MedusaOrderLineItem): Amount | undefined {
-  const taxLines = item.tax_lines ?? [];
-  if (taxLines.length === 0) {
+function chargedVatRate(
+  taxLines: readonly { readonly rate: number | string }[] | null | undefined,
+): Amount | undefined {
+  if (taxLines === null || taxLines === undefined || taxLines.length === 0) {
     return undefined;
   }
   const sum = taxLines.reduce((total, line) => total + Number(line.rate), 0);
@@ -382,10 +386,13 @@ function resolveLineAllowances(
 /** P-39: every shipping method as one document-level charge (BG-21): Medusa's net amount after its own
  * shipping discounts. Omitted when shipping is free. Its VAT rate is `buildInvoice`'s decision, not this
  * file's (P-40: the rate of the supply it belongs to). */
-function resolveShipping(
-  order: MedusaOrderForInvoice,
-):
-  | { readonly amount?: Amount; readonly amountInclVat?: Amount; readonly reason: string }
+function resolveShipping(order: MedusaOrderForInvoice):
+  | {
+      readonly amount?: Amount;
+      readonly amountInclVat?: Amount;
+      readonly reason: string;
+      readonly chargedVatRate?: Amount;
+    }
   | undefined {
   const methods = order.shipping_methods ?? [];
   // P-61: tax-inclusive methods are charged as their `total`; if every method is, the charge is passed on
@@ -409,7 +416,15 @@ function resolveShipping(
     .filter((name): name is string => typeof name === "string" && name !== "");
   const reason =
     names.length > 0 ? `Versand / Shipping: ${names.join(", ")}` : "Versand / Shipping";
-  return inclusive ? { amountInclVat: amount, reason } : { amount, reason };
+  // T-203: the highest rate charged over the methods — a fact for buildInvoice, not the invoice's rate.
+  const rates = methods
+    .map((method) => chargedVatRate(method.tax_lines))
+    .filter((rate): rate is Amount => rate !== undefined);
+  const charged =
+    rates.length === 0
+      ? {}
+      : { chargedVatRate: rates.reduce((a, b) => (Number(b) > Number(a) ? b : a)) };
+  return inclusive ? { amountInclVat: amount, reason, ...charged } : { amount, reason, ...charged };
 }
 
 function resolveBuyerAddress(
@@ -569,7 +584,7 @@ function toCommerceLine(
     unitCode: "C62",
     ...unitPrice(item),
     itemName: item.title,
-    chargedVatRate: chargedVatRate(item),
+    chargedVatRate: chargedVatRate(item.tax_lines),
     supplyType: resolveLineSupplyType(item),
     allowances: resolveLineAllowances(item, allowance),
   };

@@ -8,6 +8,7 @@ export type {
   BuildResult,
   BuildWarning,
   CommerceCharge,
+  CommerceShipping,
   CommerceInvoiceInput,
   CommerceInvoiceInputSchemaVersion,
   CommerceLine,

@@ -43,7 +43,7 @@ export interface CommerceInvoiceInput {
   readonly seller: CommerceParty;
   readonly buyer: CommerceParty;
   readonly lines: readonly CommerceLine[];
-  readonly shipping?: CommerceCharge | undefined;
+  readonly shipping?: CommerceShipping | undefined;
   readonly discounts?: readonly CommerceCharge[] | undefined;
   /**
    * P-67: when the document invoices part of a supply — one shipment of an order — and carries charges that
@@ -211,6 +211,17 @@ export interface CommerceCharge {
   /** P-61: the amount including VAT — see `CommerceLine.priceInclVat`. */
   readonly amountInclVat?: Amount | undefined;
   readonly reason?: string | undefined;
+}
+
+/** The shipping charge, with the rate the shop charged on it. */
+export interface CommerceShipping extends CommerceCharge {
+  /**
+   * T-203: the VAT rate the shop charged on shipping, as a percentage, when the platform records one — the
+   * highest, over several shipping methods. Read only to tell an order on which the shop charged no VAT at
+   * all (`NO_VAT_CHARGED`) from one whose settings miss a rate: the invoice's shipping takes the rate of the
+   * supply it belongs to, never this one.
+   */
+  readonly chargedVatRate?: Amount | undefined;
 }
 
 export interface TaxContext {
