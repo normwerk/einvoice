@@ -2,8 +2,9 @@ name: UStG watch
 
 # T-200 (P-73): Germany's VAT rates ship with the package (packages/einvoice-commerce/src/de-vat-rates.ts), so a new
 # rate reaches shops only through a release, and the release has to be out before the rate applies. Once a week
-# this compares § 12 and § 28 of the consolidated UStG with the text the table was checked against
-# (docs/sources.md) and opens an issue when either changed. It blocks no build and no release: it runs on its own.
+# this compares § 12 and § 28 of every UStG version rechtsinformationen.bund.de lists with the text the table was
+# checked against (docs/sources.md) and opens an issue when either changed. It blocks no build and no release: it
+# runs on its own. T-205: the source is that portal because GitHub's runners cannot reach gesetze-im-internet.de.
 on:
   schedule:
     - cron: "17 5 * * 1"

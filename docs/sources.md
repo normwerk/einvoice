@@ -47,23 +47,28 @@ needing FeRD's own schema files.
 The binding is therefore reconstructed from free derivative artifacts, with no need to purchase the paid
 standards for the v0.1 scope.
 
-## Germany's VAT rates — the consolidated UStG (fetched, not vendored)
+## Germany's VAT rates — the UStG (fetched, not vendored)
 
 `packages/einvoice-commerce/src/de-vat-rates.ts` holds Germany's VAT rates with the periods they apply to
 since 2007-01-01. Each period quotes the norm it rests on word for word, and
 `node tools/rates/verify-de-vat-rates.mjs` checks every quote — with its rate and, for the temporary 2020
-rates, their first and last day — against the consolidated UStG:
+rates, their first and last day — against the UStG, in every version the source lists:
 
-- Source: [gesetze-im-internet.de/ustg_1980/xml.zip](https://www.gesetze-im-internet.de/ustg_1980/xml.zip),
-  checked 2026-09-29: the XML was built 2026-08-31 (`builddate` 20260831215512), zip SHA-256
-  `42b98d6252936e8b1bcb616641e7eac5fc081710865d2d6541b80bc579924004`.
-- Licence: the site marks its consolidated texts as not official ("nicht amtlich") and grants no licence to
-  redistribute them, so the file is **not vendored** — the check fetches it. Neither does the build: it stays
-  offline and deterministic.
-- The paragraphs the rates live in, as text with markup removed and whitespace collapsed
-  (`tools/rates/ustg.mjs`). `node tools/rates/watch-ustg.mjs`, run weekly by
-  `.github/workflows/ustg-watch.yml`, compares them with these hashes and opens an issue when either changes:
-  - `§ 12` text SHA-256: `4c3b1424def2d5c254f2dfa0f760e1ca3465c4e6f9b69057a251cf902f09e13b`
+- Source: the federal legal information portal of the Federal Ministry of Justice, through its open API
+  ([docs.rechtsinformationen.bund.de](https://docs.rechtsinformationen.bund.de/)): the UStG as the work
+  `eli/bund/bgbl-1/1979/s1953`, each version as LegalDocML.de XML. Checked 2026-09-29: one version listed,
+  `eli/bund/bgbl-1/1979/s1953/2026-09-01/1/deu`, in force. The portal calls itself a trial service whose API
+  may change; it allows building applications on it, at up to 600 requests a minute.
+- Why not gesetze-im-internet.de, which the check first used: GitHub's hosted runners cannot connect to it
+  (checked 2026-09-29, a connection timeout on ports 80 and 443 from a runner in Microsoft's network), so the
+  weekly watch could not run there. Its text of § 28 is the portal's word for word; its § 12 adds an
+  editorial note at the end ("Zur Anwendung vgl. § 28") and differs in one space.
+- Not vendored: the check fetches the text, and neither does the build — it stays offline and deterministic.
+- The paragraphs the rates live in, as text without their number and heading, with markup removed and
+  whitespace collapsed (`tools/rates/ustg.mjs`). `node tools/rates/watch-ustg.mjs`, run weekly by
+  `.github/workflows/ustg-watch.yml`, compares them in every listed version — one enacted for later too — with
+  these hashes and opens an issue when either changes:
+  - `§ 12` text SHA-256: `bb53b3f23fde49b8daf1183b60c7624d4de79d1abcb75d81007c87751fb4b2aa`
   - `§ 28` text SHA-256: `7c8e83a7b2365b10f00465e9435214052bb46a56ed64659de2a399a7f0aec5d3`
 - What the consolidated text does not state — when a period began, before § 28 — comes from the amending
   laws: 19 % from 2007-01-01, Haushaltsbegleitgesetz 2006, BGBl. I 2006 S. 1402, Art. 4 ("In § 12 Abs. 1

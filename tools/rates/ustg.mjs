@@ -1,15 +1,16 @@
 /**
- * T-199/T-200: the consolidated German VAT Act (UStG) as gesetze-im-internet.de publishes it — one XML file in
- * a zip, not vendored (the site calls its texts "nicht amtlich" and grants no licence to redistribute them;
- * `docs/sources.md`). Fetched when a check runs, never at build time.
+ * T-199/T-200/T-205: the German VAT Act (UStG) as the federal legal information portal
+ * (rechtsinformationen.bund.de, run by the Federal Ministry of Justice) publishes it — each version in force
+ * or enacted, as LegalDocML.de XML, through its open API. Not vendored (`docs/sources.md`): fetched when a
+ * check runs, never at build time. It replaced gesetze-im-internet.de, which GitHub's runners cannot reach.
  */
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 
-export const USTG_XML_ZIP_URL = "https://www.gesetze-im-internet.de/ustg_1980/xml.zip";
+export const RIS_API = "https://testphase.rechtsinformationen.bund.de";
+
+/** The UStG as a work — every version of it is an expression under this identifier. */
+export const USTG_WORK_ELI = "eli/bund/bgbl-1/1979/s1953";
 
 /** The paragraphs Germany's VAT rates live in: § 12 (the rates) and § 28 (temporary versions of them). */
 export const RATE_NORMS = ["§ 12", "§ 28"];
@@ -18,25 +19,38 @@ export function sha256(data) {
   return createHash("sha256").update(data).digest("hex");
 }
 
-/** Downloads the zip and returns the XML inside it, with the zip's hash. */
-export async function fetchUstgXml(url = USTG_XML_ZIP_URL) {
+async function get(url, as) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`GET ${url} -> ${response.status}`);
-  const zip = Buffer.from(await response.arrayBuffer());
-  const dir = mkdtempSync(join(tmpdir(), "ustg-"));
-  const zipPath = join(dir, "xml.zip");
-  writeFileSync(zipPath, zip);
-  const xml = execFileSync("unzip", ["-p", zipPath, "*.xml"], {
-    encoding: "utf-8",
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return { xml, zipSha256: sha256(zip) };
+  return as === "json" ? response.json() : response.text();
 }
 
-/** The XML of a file given on the command line (`--xml`), or the published one. */
-export async function loadUstgXml(xmlPath) {
-  if (xmlPath !== undefined) return { xml: readFileSync(xmlPath, "utf-8"), zipSha256: undefined };
-  return fetchUstgXml();
+/**
+ * Every version of the UStG the portal lists — the one in force and any enacted for later — each with its
+ * XML. `{ eli, legalForce, xml }`, `eli` the expression's identifier.
+ */
+export async function fetchUstgExpressions() {
+  const list = await get(`${RIS_API}/v1/legislation?eli=${USTG_WORK_ELI}&size=100`, "json");
+  const expressions = [];
+  for (const { item } of list.member ?? []) {
+    const encoding = (item.encoding ?? []).find((e) => e.encodingFormat === "application/xml");
+    if (encoding === undefined) throw new Error(`${item.legislationIdentifier}: no XML to read`);
+    expressions.push({
+      eli: item.legislationIdentifier,
+      legalForce: item.legislationLegalForce,
+      xml: await get(`${RIS_API}${encoding.contentUrl}`, "text"),
+    });
+  }
+  if (expressions.length === 0) throw new Error(`${RIS_API} lists no version of ${USTG_WORK_ELI}`);
+  return expressions;
+}
+
+/** The XML of a file given on the command line (`--xml`), or every version the portal lists. */
+export async function loadUstgExpressions(xmlPath) {
+  if (xmlPath !== undefined) {
+    return [{ eli: xmlPath, legalForce: undefined, xml: readFileSync(xmlPath, "utf-8") }];
+  }
+  return fetchUstgExpressions();
 }
 
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
@@ -52,22 +66,23 @@ export function plainText(fragment) {
     .trim();
 }
 
-/** The text of each paragraph asked for (`"§ 12"`), keyed by it; a paragraph the XML lacks is absent. */
+/**
+ * The text of each paragraph asked for (`"§ 12"`), keyed by it — without its number and heading; a paragraph
+ * the XML lacks is absent. LegalDocML.de gives a paragraph as an `article`, its number in `num`.
+ */
 export function extractNorms(xml, paragraphs = RATE_NORMS) {
   const texts = new Map();
-  for (const norm of xml.match(/<norm[\s>][\s\S]*?<\/norm>/g) ?? []) {
-    const label = /<enbez>([^<]*)<\/enbez>/.exec(norm)?.[1]?.trim();
-    const text = /<textdaten>([\s\S]*)<\/textdaten>/.exec(norm)?.[1];
-    if (label !== undefined && paragraphs.includes(label) && text !== undefined) {
-      texts.set(label, plainText(text));
-    }
+  for (const article of xml.match(/<(?:\w+:)?article\b[\s\S]*?<\/(?:\w+:)?article>/g) ?? []) {
+    const num = /<(?:\w+:)?num\b[^>]*>([\s\S]*?)<\/(?:\w+:)?num>/.exec(article)?.[1];
+    const label = num === undefined ? undefined : plainText(num);
+    if (label === undefined || !paragraphs.includes(label)) continue;
+    const body = article
+      .replace(/^<[^>]+>/, "")
+      .replace(/<(?:\w+:)?num\b[\s\S]*?<\/(?:\w+:)?num>/, "")
+      .replace(/<(?:\w+:)?heading\b[\s\S]*?<\/(?:\w+:)?heading>/, "");
+    texts.set(label, plainText(body));
   }
   return texts;
-}
-
-/** The date the XML was built, as the site states it (`builddate`, `YYYYMMDDhhmmss`). */
-export function buildDate(xml) {
-  return /<dokumente[^>]*\sbuilddate="(\d+)"/.exec(xml)?.[1];
 }
 
 const MONTHS = [

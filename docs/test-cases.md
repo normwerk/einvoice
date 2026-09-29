@@ -255,7 +255,7 @@ Run together: `node --test tools/codegen/model/*.test.mjs tools/conformance/orac
   expression normalization (plain string, `(X AND Y)`, `(X OR Y)`, the legacy `licenses` array form), and
   that the runtime/dev allow-lists actually reject a real copyleft license and accept the two dev-only
   exceptions named in `AGENTS.md` §5.1 (`WTFPL`, `EUPL-1.2`).
-- `tools/rates/ustg.test.mjs`, `watch-ustg.test.mjs` — reading § 12 and § 28 out of the UStG XML, the rate
+- `tools/rates/ustg.test.mjs`, `watch-ustg.test.mjs` — reading § 12 and § 28 out of the UStG's LegalDocML.de XML, the rate
   table's quotes checked against them (a changed rate, a quote without its rate or a temporary rate without
   its days fails), and the weekly watcher on a synthetic XML: unchanged, one line and no call to GitHub; § 12
   changed, an issue naming it with the quotes that no longer hold and the new text (a stand-in `gh`).

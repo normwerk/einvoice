@@ -665,6 +665,11 @@ integrations` itself states the list "is curated from npm," and its own visible 
 - **The EU's TEDB does not know Germany's 2020 rates.** Asked for Germany on 2020-09-01 (`retrieveVatRates`),
   it answers 19 %, and has no 16 % record between 2019 and 2021 at all. The periods come from the UStG itself:
   § 28 Abs. 1 and 2 still carry the 16 % and 5 % of 2020-07-01 to 2020-12-31 in the consolidated text.
+- **gesetze-im-internet.de does not answer GitHub's runners.** A connection to it from a hosted runner times
+  out, on port 443 and on 80, while it answers elsewhere in a quarter of a second. The rate check reads the UStG
+  from the federal legal information portal's API instead (`rechtsinformationen.bund.de`, LegalDocML.de): the
+  same § 28 word for word, and a § 12 without gesetze-im-internet.de's editorial note "Zur Anwendung vgl.
+  § 28" — so the two sources' hashes of § 12 differ.
 - **A credit note's BT-72 is its invoice's.** A credit note corrects the supply its invoice was issued for,
   so it states that delivery date, read back from the invoice's CII, and that day's rates apply to it — not
   the day the credit note is issued.

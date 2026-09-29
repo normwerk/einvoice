@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 /**
- * T-200 (P-73): watches the consolidated UStG for a change to § 12 or § 28 — the paragraphs Germany's VAT rates
- * live in. The rate table ships with the package (`de-vat-rates.ts`), so a new rate reaches a shop only through
+ * T-200 (P-73), T-205: watches the UStG for a change to § 12 or § 28 — the paragraphs Germany's VAT rates
+ * live in — in every version the federal legal information portal lists: the one in force, and one enacted for
+ * later, which is the earliest warning there is. The rate table ships with the package (`de-vat-rates.ts`), so a new rate reaches a shop only through
  * a release, and that release has to be out before the rate applies (in 2020, less than a month after it was
  * announced). Run weekly by `.github/workflows/ustg-watch.yml`.
  *
- * Compares each paragraph's text hash with the one `docs/sources.md` records. Unchanged: prints one line and
- * exits 0. Changed: opens an issue in this repository — unless an open one already names the same new hashes —
- * saying which paragraph changed, which quotes of the rate table no longer hold, and the paragraph's new text.
+ * Compares each paragraph's text hash with the one `docs/sources.md` records. Unchanged: prints one line per
+ * version and exits 0. Changed: opens an issue in this repository — unless an open one already names the same
+ * new hashes — saying which version and paragraph changed, which quotes of the rate table no longer hold, and
+ * the paragraph's new text.
  * The old text is not kept (not vendored, `docs/sources.md`), so the issue shows the new one. Never fails the
  * build or a release; a fetch error fails only this job.
  *
  *   node tools/rates/watch-ustg.mjs [--xml <file>] [--sources <file>] [--gh <command>] [--dry-run]
  *
- * `--xml` reads a file instead of fetching, `--sources` reads the recorded hashes from another file than
+ * `--xml` reads a LegalDocML.de file instead of fetching, `--sources` reads the recorded hashes from another file than
  * `docs/sources.md`, `--gh` names the GitHub CLI to call — the last two are for tests. `--dry-run` prints the
  * issue instead of opening it. Requires `pnpm --filter @normwerk/einvoice-commerce build`.
  */
@@ -22,7 +24,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { RATE_NORMS, buildDate, checkQuotes, extractNorms, loadUstgXml, sha256 } from "./ustg.mjs";
+import { RATE_NORMS, checkQuotes, extractNorms, loadUstgExpressions, sha256 } from "./ustg.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -49,29 +51,37 @@ async function main() {
     if (!recorded.has(paragraph))
       throw new Error(`${sourcesPath} records no hash for ${paragraph}`);
   }
-  const { xml } = await loadUstgXml(argument("--xml"));
-  const norms = extractNorms(xml);
-  const changed = RATE_NORMS.filter(
-    (paragraph) =>
-      !norms.has(paragraph) || sha256(norms.get(paragraph)) !== recorded.get(paragraph),
-  );
-  if (changed.length === 0) {
-    console.log(`UStG ${RATE_NORMS.join(" and ")} unchanged (built ${buildDate(xml) ?? "?"}).`);
-    return;
-  }
-
   const { DE_VAT_RATE_PERIODS } = await import(
     resolve(REPO_ROOT, "packages/einvoice-commerce/dist/index.js")
   );
-  const failures = checkQuotes(DE_VAT_RATE_PERIODS, norms);
+  for (const expression of await loadUstgExpressions(argument("--xml"))) {
+    const norms = extractNorms(expression.xml);
+    const changed = RATE_NORMS.filter(
+      (paragraph) =>
+        !norms.has(paragraph) || sha256(norms.get(paragraph)) !== recorded.get(paragraph),
+    );
+    if (changed.length === 0) {
+      console.log(`UStG ${RATE_NORMS.join(" and ")} unchanged in ${expression.eli}.`);
+      continue;
+    }
+    report(expression, norms, changed, recorded, checkQuotes(DE_VAT_RATE_PERIODS, norms), {
+      gh,
+      dryRun,
+    });
+  }
+}
+
+/** Opens the issue for one version of the UStG whose § 12 or § 28 changed — or prints it (`--dry-run`). */
+function report(expression, norms, changed, recorded, failures, { gh, dryRun }) {
   const newHashes = changed.map((paragraph) =>
     norms.has(paragraph) ? sha256(norms.get(paragraph)).slice(0, 12) : "gone",
   );
   const title = `UStG ${changed.join(" and ")} changed (${newHashes.join(", ")}) — check Germany's VAT rate table`;
   const body = [
-    `The consolidated UStG at gesetze-im-internet.de (built ${buildDate(xml) ?? "?"}) no longer matches the text ` +
-      "this repository's VAT rate table was checked against (`docs/sources.md`). A new rate reaches shops only " +
-      "through a release, which has to be out before the rate applies.",
+    `The UStG version \`${expression.eli}\`${expression.legalForce ? ` (${expression.legalForce})` : ""}, as ` +
+      "rechtsinformationen.bund.de publishes it, no longer matches the text this repository's VAT rate table " +
+      "was checked against (`docs/sources.md`). A new rate reaches shops only through a release, which has to be " +
+      "out before the rate applies.",
     "",
     ...changed.map(
       (paragraph) =>

@@ -36,7 +36,7 @@ const PERIODS = [
   },
 ];
 
-test("extractNorms: the watched paragraphs' text, markup removed, whitespace collapsed", () => {
+test("extractNorms: the watched paragraphs' text without number and heading, markup removed, whitespace collapsed", () => {
   const norms = extractNorms(ustgXml());
   assert.deepEqual([...norms.keys()], ["§ 12", "§ 28"]);
   assert.equal(norms.get("§ 12"), S12);

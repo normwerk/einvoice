@@ -3,8 +3,8 @@
  * the day it is made, so an invoice reads the rate for its supply date (BT-72) rather than today's.
  *
  * Kept by hand. Every period quotes the norm it rests on word for word, and `tools/rates/verify-de-vat-rates.mjs`
- * checks each quote — with its rate and, for a temporary rate, its dates — against the consolidated UStG
- * published at gesetze-im-internet.de (`docs/sources.md`). That check fetches the text; the build does not, so
+ * checks each quote — with its rate and, for a temporary rate, its dates — against the UStG as the federal
+ * legal information portal publishes it (`docs/sources.md`). That check fetches the text; the build does not, so
  * it stays offline and deterministic (AGENTS.md §10). The start of the 19 % period, 2007-01-01, is not in the
  * consolidated text; it is the amending law's (BGBl. I 2006 S. 1402, Art. 4).
  *

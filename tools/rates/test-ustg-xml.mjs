@@ -1,12 +1,16 @@
 /**
- * A synthetic UStG XML in the shape gesetze-im-internet.de publishes, for the tests of `ustg.mjs` and
- * `watch-ustg.mjs` — two paragraphs with the wording the rate table quotes, and one it does not watch.
+ * A synthetic UStG XML in the shape rechtsinformationen.bund.de publishes (LegalDocML.de), for the tests of
+ * `ustg.mjs` and `watch-ustg.mjs` — two paragraphs with the wording the rate table quotes, and one it does not
+ * watch.
  */
-/** The shape gesetze-im-internet.de's XML gives a norm: its number in `enbez`, its text in `textdaten`. */
-export function norm(paragraph, text) {
+/** The shape LegalDocML.de gives a paragraph: an `article`, its number in `num`, a heading, then its text. */
+export function article(paragraph, heading, text) {
+  const id = `art-z${paragraph.replace(/\D/g, "")}`;
   return (
-    `<norm builddate="20260831215512"><metadaten><jurabk>UStG 1980</jurabk><enbez>${paragraph}</enbez>` +
-    `</metadaten><textdaten><text format="XML"><Content><P>${text}</P></Content></text></textdaten></norm>`
+    `<akn:article eId="${id}"><akn:num eId="${id}_bezeichnung-n1">${paragraph}</akn:num>` +
+    `<akn:heading eId="${id}_überschrift-n1">${heading}</akn:heading><akn:paragraph eId="${id}_abs-z1">` +
+    `<akn:content><akn:p>${text}<akn:marker refersTo="satzende"/></akn:p></akn:content></akn:paragraph>` +
+    "</akn:article>"
   );
 }
 
@@ -21,10 +25,11 @@ export const S28 =
 
 export function ustgXml(s12 = S12, s28 = S28) {
   return (
-    `<?xml version="1.0" encoding="UTF-8" ?><dokumente builddate="20260831215512" doknr="BJNR119530979">` +
-    norm("§ 12", s12) +
-    norm("§ 28", s28) +
-    norm("§ 29", "(1) Nicht beobachtet.") +
-    "</dokumente>"
+    '<?xml version="1.0" encoding="UTF-8"?><akn:akomaNtoso xmlns:akn="http://Inhaltsdaten.LegalDocML.de/1.8.2/">' +
+    "<akn:act><akn:body>" +
+    article("§ 12", "Steuersätze", s12) +
+    article("§ 28", "Zeitlich begrenzte Fassungen einzelner Gesetzesvorschriften", s28) +
+    article("§ 29", "Umstellung langfristiger Verträge", "(1) Nicht beobachtet.") +
+    "</akn:body></akn:act></akn:akomaNtoso>"
   );
 }
