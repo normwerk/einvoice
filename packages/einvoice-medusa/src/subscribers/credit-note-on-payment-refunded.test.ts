@@ -200,6 +200,8 @@ function makeContainer(options: {
   payment?: Record<string, unknown> | undefined;
   orders?: readonly unknown[];
   returns?: readonly unknown[];
+  exchanges?: readonly unknown[];
+  claims?: readonly unknown[];
 }): { container: MedusaContainer; graph: ReturnType<typeof vi.fn> } {
   const payment = options.payment ?? {
     id: "pay_01",
@@ -217,7 +219,11 @@ function makeContainer(options: {
           ? [collection]
           : entity === "return"
             ? (options.returns ?? [])
-            : orders,
+            : entity === "order_exchange"
+              ? (options.exchanges ?? [])
+              : entity === "order_claim"
+                ? (options.claims ?? [])
+                : orders,
   }));
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, options.einvoiceService],
@@ -444,6 +450,42 @@ describe("creditNoteOnPaymentRefunded", () => {
       expect(input.lines.map((line) => line.invoicedVatRate)).toEqual(["16"]);
       expect(input.delivery?.actualDeliveryDate).toBe("2020-08-01");
     }
+  });
+
+  it("refuses a credit note for a refund on an order with an exchange — it settles the exchange (T-201)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const exchange = {
+      id: "exchange_01",
+      canceled_at: null,
+      additional_items: [{ item_id: "item_9" }],
+    };
+    const { container } = makeContainer({ einvoiceService, exchanges: [exchange] });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "credit_note",
+        idempotencyKey: "refund_01",
+        code: "REFUND_ON_EXCHANGE",
+      }),
+    );
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
+  });
+
+  it("credits a refund on an order whose claim replaced nothing — money back for a defect (T-201)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const claim = {
+      id: "claim_01",
+      canceled_at: null,
+      additional_items: [{ item_id: "item_1", is_additional_item: false }],
+    };
+    const { container } = makeContainer({ einvoiceService, claims: [claim] });
+
+    await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
+
+    expect(einvoiceService.recordRefusal).not.toHaveBeenCalled();
+    expect(mocks.buildInvoice).toHaveBeenCalled();
   });
 
   it("cleans up the just-uploaded files when recordDocumentIfAbsent loses the concurrency race", async () => {

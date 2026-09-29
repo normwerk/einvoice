@@ -201,6 +201,8 @@ export interface InvoicedLineValue {
   readonly gross: string;
   /** P-67: the line discount for these units, in the line's price basis. */
   readonly allowance?: string;
+  /** T-201: the line's unit price as Medusa had it, in its price basis — what an order edit is compared with. */
+  readonly unitPrice?: string;
 }
 
 /**
@@ -210,7 +212,11 @@ export interface InvoicedLineValue {
  * invoiced for it, and the order's next invoice takes what is left of the discount.
  */
 export function invoicedLineValues(
-  items: readonly { readonly itemId: string; readonly allowance?: string }[],
+  items: readonly {
+    readonly itemId: string;
+    readonly allowance?: string;
+    readonly unitPrice?: string;
+  }[],
   lines: readonly {
     readonly quantity: string;
     readonly netAmount: string;
@@ -229,6 +235,7 @@ export function invoicedLineValues(
         quantity: line.quantity,
         gross: fromCents(gross),
         ...(item.allowance === undefined ? {} : { allowance: item.allowance }),
+        ...(item.unitPrice === undefined ? {} : { unitPrice: item.unitPrice }),
       },
     ];
   });

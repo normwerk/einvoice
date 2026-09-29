@@ -44,6 +44,11 @@
  * otherwise; `tax_decisions` — the rule each document followed (`[{ ruleId, categoryCode, reasoning, … }]`,
  * `TaxDecision` of `@normwerk/einvoice-commerce`). See `mapping/tax-evidence.ts`.
  *
+ * T-201: `price_notices` — on an invoice, the prices an order edit changed after it was issued
+ * (`[{ code, itemId, invoicedUnitPrice, newUnitPrice, direction }]`, `mapping/price-change.ts`), worked out
+ * anew each time an edit is confirmed; `null` until one is. `line_values` also hold each line's unit price as
+ * Medusa had it (`unitPrice`), which they are compared with.
+ *
  * No migration path preserves the old `xml`/`pdf` columns' existing content — the same "pre-release, no
  * real deployment history to preserve" reasoning T-072 already used for its own migration replacement
  * (`docs/domain-glossary.md`), not a new precedent.
@@ -66,6 +71,7 @@ const EinvoiceDocument = model
     corrected_document_id: model.text().nullable(),
     vat_id_evidence: model.json().nullable(),
     tax_decisions: model.json().nullable(),
+    price_notices: model.json().nullable(),
   })
   .indexes([{ on: ["type", "idempotency_key"], unique: true }]);
 

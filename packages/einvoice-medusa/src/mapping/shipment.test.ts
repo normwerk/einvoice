@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   shipmentLines,
   ShipmentLineUnknownError,
+  ShipmentItemWithoutLineError,
   ShipmentQuantityUnknownError,
   type MedusaFulfillment,
   type MedusaOrderChange,
@@ -103,7 +104,6 @@ describe("shipmentLines (P-67)", () => {
       items: [
         { line_item_id: "item_1", quantity: 1 },
         { line_item_id: "item_1", quantity: 4 },
-        { line_item_id: null, quantity: 1 },
       ],
     };
     const changes: readonly MedusaOrderChange[] = [
@@ -134,6 +134,17 @@ describe("shipmentLines (P-67)", () => {
     expect(shipmentLines([set], fulfillment, changes, [])).toEqual([
       { itemId: "item_1", quantity: "1", allowance: "0.00" },
     ]);
+  });
+
+  it("refuses an item that names no order line instead of leaving it off the invoice (T-201)", () => {
+    const fulfillment = {
+      id: "ful_1",
+      items: [
+        { line_item_id: "item_1", quantity: 1 },
+        { line_item_id: null, quantity: 1 },
+      ],
+    };
+    expect(() => linesOf([LINE], fulfillment, [])).toThrow(ShipmentItemWithoutLineError);
   });
 
   it("refuses a shipped line the order did not record units for (T-202)", () => {

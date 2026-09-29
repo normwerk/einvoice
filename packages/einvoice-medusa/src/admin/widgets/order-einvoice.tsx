@@ -49,6 +49,13 @@ interface EinvoiceDocumentSummary {
     readonly checkedAt: string;
     readonly consultationNumber: string | null;
   } | null;
+  /** T-201: prices an order edit changed after the invoice was issued. */
+  readonly priceNotices: readonly {
+    readonly code: string;
+    readonly message: string;
+    readonly details: Readonly<Record<string, unknown>>;
+    readonly docsUrl: string;
+  }[];
 }
 
 interface EinvoiceRefusalSummary {
@@ -264,6 +271,17 @@ const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminO
                     </Text>
                   </div>
                 )}
+                {document.priceNotices.map((priceNotice) => (
+                  <div key={String(priceNotice.details["itemId"])} className="flex flex-col gap-1">
+                    <Badge size="2xsmall" color="orange" className="self-start">
+                      Price changed
+                    </Badge>
+                    <Text size="small" className="text-ui-fg-subtle">
+                      {priceNotice.message}{" "}
+                      <CodeLink code={priceNotice.code} docsUrl={priceNotice.docsUrl} />
+                    </Text>
+                  </div>
+                ))}
               </div>
             ))}
           </div>

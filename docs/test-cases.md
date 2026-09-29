@@ -101,7 +101,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   / Credit note" (never "Gutschrift") and "Rechnungskorrektur (berichtigt) / Corrected invoice", a
   correction naming the invoice it corrects, and a type without a title refused.
 
-### `einvoice-medusa` (275 tests)
+### `einvoice-medusa` (291 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -165,7 +165,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   invoices a refund credited on the one holding the returned goods, or refused when it names none; the
   decision and VIES answer stored with the invoice followed without a second VIES check, and an invoice
   without a stored decision decided again; an invoice issued at 16 % credited at 16 % and dated by its supply,
-  in full and in part, though the order's tax lines say 19 %.
+  in full and in part, though the order's tax lines say 19 %; a refund on an order with an exchange refused,
+  one on an order whose claim replaced nothing credited.
 - `src/subscribers/credit-note-on-fulfillment-canceled.test.ts` — a cancelled fulfillment's invoice restated
   with its own lines, a fulfillment never invoiced leaving nothing to credit and its refusal dropped, and the
   credit note issued once however often the event comes.
@@ -177,7 +178,18 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   discount, the shipment that completes a line taking what is left to the cent, a tax-inclusive discount,
   Medusa's discount scaled back to the ordered quantity after a return, a set's units taken from the order's
   record of the fulfillment rather than from its parts (a table and four chairs is one set), a shipped line
-  without that record refused, and a line the order does not have refused.
+  without that record refused, an item naming no order line refused, and a line the order does not have
+  refused.
+- `src/mapping/replacement.test.ts` — exchanges and warranty replacements: an exchange's new item and a
+  claim's replacement known, not the item claimed for; a cancelled exchange or claim ignored; the shipment of
+  either refused, a shipment mixing one in too; a refund refused on an order with an exchange or a claim with
+  a replacement, not on a claim for money back.
+- `src/mapping/price-change.test.ts` — a price an order edit changed after the invoice: lowered and raised
+  noted against the price the invoice stated, the last edit of a line taken, none when it went back, an edit
+  before the invoice, another action or a quantity-only update ignored, and what to do either way.
+- `src/subscribers/price-notice-on-order-edit-confirmed.test.ts` — the order-edit subscriber: the confirmed
+  edits read back, a lowered price noted, a notice taken away when the price went back, nothing on an order
+  without an invoice.
 - `src/subscribers/credit-note-on-order-canceled.test.ts` — the cancellation subscriber: no credit note
   without an invoice, the whole invoice or only its outstanding remainder credited, per invoice, an invoice
   of a cancelled fulfillment left to that cancellation, and the order's refused invoices dropped.
@@ -189,7 +201,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   each dated the day it shipped, through the real core), an order paid in full stated as paid, a cancelled
   fulfillment not invoiced, a missing one refused, `buildInvoice` warnings logged without the
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
-  number, one stating less issued with its notice, a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown, and the VIES answer an intra-EU invoice rests on kept with the document together with its rule, and carried by no event.
+  number, one stating less issued with its notice, a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown, the VIES answer an intra-EU invoice rests on kept with the document together with its rule, and carried by no event, and the shipment of an exchange's new item refused without a number and announced.
 - `src/mapping/tax-evidence.test.ts` — `taxEvidenceToKeep`: a document of category K keeps the VIES answer
   it rests on, even "unavailable" when the number was confirmed another way; any other document keeps its
   decision and no VIES answer.
@@ -202,7 +214,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   request filled in with the country only.
 - `src/api/einvoice-http.test.ts` — the admin/store routes' shared helpers: `listEinvoiceDocumentSummaries`, `sendEinvoiceFile` and `customerOwnsOrder` (a customer can only reach documents of their own orders), and `listAdminEinvoiceStatus` (notices and refusals with their retry route and the link to their code's
   explanation, a support request for an unsupported buyer country, each document's rule and the VIES answer
-  of an intra-EU supply, admin only — the store listing carries no notice), and `einvoiceSupportStatus` (what the release supports and the configured seller country).
+  of an intra-EU supply, a price changed after the invoice named by its line's title, admin only — the store
+  listing carries no notice), and `einvoiceSupportStatus` (what the release supports and the configured seller country).
 - `src/api/admin/orders/[id]/einvoice/refusals/[refusalId]/retry/route.test.ts` — the retry route: 404 for
   another order's refusal, the invoice issued, a retry still blocked saying why, 500 for a failure after
   the checks, and a credit note retried by redelivering its refund or cancellation — issued, refused again,
@@ -266,7 +279,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 24 files / 37 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 25 files / 40 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID; the VIES answer kept with the invoice), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -294,7 +307,11 @@ document read with the order through the read-only link; a redelivery inside the
 second time), S20 (a shop that charged no VAT — its German tax region at 0 %, or none at all: the invoice
 refused with `NO_VAT_CHARGED` naming §19 UStG and §34a UStDV, the refusal and `einvoice.issuance_blocked`
 visible, and no number taken — ordinary orders before and after get consecutive numbers), S21 (a set of two
-inventory items, a table and four chairs: invoiced as one set at the order's total, KoSIT-green),
+inventory items, a table and four chairs: invoiced as one set at the order's total, KoSIT-green), S22
+(exchanges, warranty replacements and prices edited after the invoice, through the admin API: an exchange
+S → L — the new item's shipment refused with `SHIPMENT_OF_EXCHANGE`, a refund on the order with
+`REFUND_ON_EXCHANGE`, both announced; a claim with a replacement — its shipment refused with
+`SHIPMENT_OF_CLAIM_REPLACEMENT`; a price lowered by an order edit — "Price changed" on the invoice),
 idempotency (an event
 delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option; a seller

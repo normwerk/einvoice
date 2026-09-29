@@ -668,3 +668,11 @@ integrations` itself states the list "is curated from npm," and its own visible 
 - **A credit note's BT-72 is its invoice's.** A credit note corrects the supply its invoice was issued for,
   so it states that delivery date, read back from the invoice's CII, and that day's rates apply to it — not
   the day the credit note is issued.
+- **Medusa does not mark a replacement on the line.** An exchange's new item is an `order_exchange_item` row
+  (`item_id` the order line); a claim's replacement an `order_claim_item` row with `is_additional_item = true`
+  — the claimed item shares the table without the flag. Neither `order_line_item` nor `order_item` carries an
+  exchange or claim id, and the order has no relation to either: read `order_exchange` / `order_claim` through
+  Query by `order_id`, with `additional_items.*`.
+- **An order edit may change a shipped line's price.** `ITEM_UPDATE` with `unit_price` (`item-update.js`) only
+  refuses a quantity below what was fulfilled. `order-edit.confirmed` carries `{ order_id, actions }`; the
+  confirmed edits are also readable as `order_change` with `change_type: "edit"`, `status: "confirmed"`.

@@ -52,6 +52,7 @@ import {
   type PluginErrorCode,
 } from "../../errors.js";
 import type { InvoiceNotice } from "../../mapping/charged-reconciliation.js";
+import type { PriceNotice } from "../../mapping/price-change.js";
 
 export interface EinvoiceModuleOptions {
   /**
@@ -259,6 +260,9 @@ export interface EinvoiceDocumentRecord {
   readonly vat_id_evidence: VatIdEvidence | null;
   /** T-192: the rule the document followed. `null` on a document issued before this was kept. */
   readonly tax_decisions: readonly TaxDecision[] | null;
+  /** T-201: on an invoice, prices an order edit changed after it was issued — `null` until an edit is confirmed. */
+  readonly price_notices: readonly PriceNotice[] | null;
+  readonly created_at?: string | Date;
 }
 
 /**
@@ -273,6 +277,8 @@ export interface InvoicedLine {
   readonly gross: string;
   /** P-67: the line discount for these units, in the line's price basis. */
   readonly allowance?: string;
+  /** T-201: the line's unit price as Medusa had it when the invoice was issued, in its price basis. */
+  readonly unitPrice?: string;
 }
 
 /** P-65: the part of a received return a credit note paid for, at one rate. */
@@ -509,6 +515,17 @@ export default class EinvoiceModuleService extends MedusaService({
   }
 
   /** P-63: the document was issued — its refusal, if one was recorded, no longer applies. */
+  /** T-201: replaces an invoice's price notices — worked out anew each time an order edit is confirmed. */
+  async setPriceNotices(documentId: string, notices: readonly PriceNotice[]): Promise<void> {
+    await this.updateEinvoiceDocuments({
+      id: documentId,
+      price_notices: (notices.length === 0 ? null : notices) as unknown as Record<
+        string,
+        unknown
+      > | null,
+    });
+  }
+
   async clearRefusal(type: EinvoiceDocumentType, idempotencyKey: string): Promise<void> {
     const refusals = (await this.listEinvoiceRefusals({
       type,

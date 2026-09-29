@@ -34,6 +34,21 @@ export type PluginErrorCode =
   /** A fulfillment ships an order line the order no longer states a price for — every unit of it came back
    * before the invoice was issued. Issue this invoice outside the plugin. */
   | "SHIPMENT_LINE_UNKNOWN"
+  /** A fulfillment ships an item that names no order line, so the invoice cannot state it. Issue this invoice
+   * outside the plugin. */
+  | "SHIPMENT_ITEM_WITHOUT_LINE"
+  /** A fulfillment ships the new item of an exchange. The returned item has to be reversed with it, which the
+   * plugin does not do: invoice the new item, and credit the returned one, outside the plugin. */
+  | "SHIPMENT_OF_EXCHANGE"
+  /** A fulfillment ships a replacement from a claim. A warranty replacement needs no invoice, and VAT stated on
+   * one would be owed (§14c Abs. 1 UStG). If the replacement is sold, invoice it outside the plugin. */
+  | "SHIPMENT_OF_CLAIM_REPLACEMENT"
+  /** A refund on an order with an exchange settles the exchange rather than reducing a price: no credit note.
+   * Credit any part that does reduce a price outside the plugin. */
+  | "REFUND_ON_EXCHANGE"
+  /** A refund on an order with a claim with a replacement — the postage of a warranty case, for one — does not
+   * reduce a price: no credit note. Credit any part that does outside the plugin. */
+  | "REFUND_ON_CLAIM_REPLACEMENT"
   /** The order does not record how many units of a line a fulfillment shipped. Medusa records it with every
    * fulfillment it creates for an order; issue this invoice outside the plugin. */
   | "SHIPMENT_QUANTITY_UNKNOWN"

@@ -29,6 +29,7 @@ Everything stays in the shop's own database and File Module; nothing is sent any
 | `einvoice_document`                 | Per document: its type, order, number, file ids, the notice of a difference with what Medusa charged, what each line was invoiced at, the invoice a credit note corrects | None                                                           |
 | `einvoice_document.tax_decisions`   | The rule of [`docs/tax-semantics.md`](../tax-semantics.md) the document followed, its VAT category and the reasoning                                                     | The reasoning of an intra-EU supply names the buyer's VAT-ID   |
 | `einvoice_document.vat_id_evidence` | Only on a document of category K: the answer of your `vatIdVerifier` the exemption rests on — VAT-ID, status, date, VIES's consultation number                           | The buyer's VAT-ID, already on the invoice itself              |
+| `einvoice_document.price_notices`   | Only on an invoice whose price an order edit changed after it was issued: per line, the price it stated, the price now, and which way                                    | None                                                           |
 | `einvoice_refusal`                  | A document that was not issued: its code and the amounts or the message explaining it                                                                                    | The message may name the buyer's VAT-ID or country             |
 | `einvoice_counter`                  | The last number of each series                                                                                                                                           | None                                                           |
 
@@ -188,6 +189,33 @@ A document's public fields are `EinvoiceDocumentDTO`: `id`, `type`, `order_id`, 
 are the plugin's own and may change.
 
 The end-to-end suite has a subscriber of its own receive the events (S19).
+
+## Exchanges, warranty replacements and prices edited after the invoice
+
+Medusa ships the new item of an exchange and the replacement of a warranty claim as ordinary order lines, at
+the catalogue price it puts on them. An invoice for them would be wrong either way: a warranty replacement
+needs none, and VAT stated on one is owed (§14c Abs. 1 UStG); an exchange's new item needs the returned one
+reversed with it. The plugin does neither automatically — it refuses, visibly, and leaves the documents to you
+(`src/mapping/replacement.ts`):
+
+- **The shipment of an exchange's new item** gets no invoice (`SHIPMENT_OF_EXCHANGE`); nor does a shipment
+  that mixes it with the order's own lines. Invoice the new item, and credit the returned one, outside the
+  plugin.
+- **The shipment of a warranty replacement** gets no invoice (`SHIPMENT_OF_CLAIM_REPLACEMENT`). A replacement
+  under warranty needs none; if you sell it, invoice it outside the plugin.
+- **A refund on an order with an exchange, or with a claim with a replacement**, gets no credit note
+  (`REFUND_ON_EXCHANGE`, `REFUND_ON_CLAIM_REPLACEMENT`): it settles the exchange or refunds the postage of a
+  warranty case (§439 Abs. 2 BGB) rather than reducing a price. If part of it does reduce a price, credit that
+  outside the plugin. A claim without a replacement — money back for a defect — is credited as any refund.
+- **A price an order edit changes after the invoice** is noted on that invoice ("Price changed",
+  `PRICE_CHANGED_AFTER_INVOICE`, `src/subscribers/price-notice-on-order-edit-confirmed.ts`): lowered, refunding
+  the difference issues a credit note on the invoice; raised, the difference is not invoiced — issue an
+  additional invoice outside the plugin.
+
+The exchanges and claims are read through Query (`order_exchange`, `order_claim`, by `order_id`); a cancelled
+one counts for nothing. Each refusal is recorded and announced like any other (`einvoice.issuance_blocked`).
+A fulfillment item that names no order line is refused too (`SHIPMENT_ITEM_WITHOUT_LINE`) rather than left off
+the invoice.
 
 ## What this deliberately does not do
 

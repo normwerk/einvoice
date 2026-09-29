@@ -214,6 +214,42 @@ describe("listAdminEinvoiceStatus (P-63)", () => {
     expect(older?.vatIdEvidence).toBeNull();
   });
 
+  it("shows a price an order edit changed after the invoice, naming the line by its title (T-201)", async () => {
+    const notice = {
+      code: "PRICE_CHANGED_AFTER_INVOICE",
+      itemId: "item_1",
+      invoicedUnitPrice: "20.00",
+      newUnitPrice: "15.00",
+      direction: "lowered",
+    };
+    // makeRequest resolves every key to this one object — the Query service included.
+    const req = makeRequest({
+      listEinvoiceDocuments: vi.fn(async () => [
+        {
+          id: "doc_1",
+          type: "invoice" as const,
+          document_number: "RE-2026-0001",
+          pdf_file_id: null,
+          notice: null,
+          price_notices: [notice],
+        },
+      ]),
+      listEinvoiceRefusals: vi.fn(async () => []),
+      graph: vi.fn(async () => ({ data: [{ items: [{ id: "item_1", title: "T-Shirt" }] }] })),
+    });
+    const [document] = (await listAdminEinvoiceStatus(req, "order_01")).documents;
+    expect(document?.priceNotices).toEqual([
+      {
+        code: "PRICE_CHANGED_AFTER_INVOICE",
+        message:
+          'The unit price of "T-Shirt" was lowered from 20.00 to 15.00 after this invoice was issued. ' +
+          "Refunding the difference issues a credit note on this invoice.",
+        details: notice,
+        docsUrl: "https://normwerk.dev/einvoice/docs/errors#price-changed-after-invoice",
+      },
+    ]);
+  });
+
   it("offers a support request for a buyer country the release does not support (T-077)", async () => {
     const req = makeRequest({
       listEinvoiceDocuments: vi.fn(async () => []),

@@ -276,6 +276,16 @@ Concrete gaps found while building this table, each traceable to a rule (or the 
   lines or today's table give, and states the invoice's delivery date. The table ships with the package: a new
   rate reaches a shop only with a release, and a weekly check of § 12 and § 28 opens an issue in this
   repository when either changes.
+- **A validator cannot tell a replacement from a sale.** Medusa ships an exchange's new item and a warranty
+  claim's replacement as ordinary order lines at the catalogue price. An invoice for a warranty replacement
+  states VAT that is then owed (§14c Abs. 1 UStG) for a supply that needs no invoice; an invoice for an
+  exchange's new item without the returned one reversed double-counts the supply. The plugin refuses both
+  shipments, and a credit note for a refund on such an order — the refund settles the exchange or the postage
+  of a warranty case (§439 Abs. 2 BGB), not a price reduction. See
+  [`features/einvoice-medusa.md`](features/einvoice-medusa.md#exchanges-warranty-replacements-and-prices-edited-after-the-invoice).
+- **A validator cannot see a price edited after the invoice.** An order edit can change a shipped line's price;
+  the invoice keeps the one it stated. The plugin notes the change on the invoice — a lowered price is credited
+  when the difference is refunded, a raised one needs an additional invoice outside the plugin.
 - **A validator cannot see what the buyer was charged.** An invoice whose VAT differs from the VAT the shop
   charged validates as long as its own sums add up. The two differ when the shop decided VAT at checkout
   by region alone while the invoice decides it from the buyer's VAT-ID and the destination — Medusa's

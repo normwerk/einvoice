@@ -13,6 +13,8 @@ work.
   [compatibility table](../packages/einvoice-medusa/README.md#compatibility) for why 2.16 and 2.17 are out.
 - A shop that charges German VAT. A Kleinunternehmer (§19 UStG) need not issue e-invoices (§34a Satz 4
   UStDV) and is not supported: an order on which no VAT was charged is refused (`NO_VAT_CHARGED`).
+- Exchanges and warranty replacements are yours to document: the plugin refuses their shipments visibly
+  ([what it does instead](features/einvoice-medusa.md#exchanges-warranty-replacements-and-prices-edited-after-the-invoice)).
 - A Medusa v2 project with a real Postgres database. If you don't have one yet:
   ```bash
   npx create-medusa-app@latest my-store --db-url "postgres://user:pass@localhost:5432/my_store_db"

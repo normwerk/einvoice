@@ -181,7 +181,12 @@ function fulfillmentRecords(orders: readonly unknown[]): readonly MedusaOrderCha
 
 function makeContainer(einvoiceService: EinvoiceModuleService): MedusaContainer {
   const graph = vi.fn(async ({ entity }: { entity: string }) => ({
-    data: entity === "order_change" ? fulfillmentRecords([ORDER]) : [ORDER],
+    data:
+      entity === "order_change"
+        ? fulfillmentRecords([ORDER])
+        : entity === "order_exchange" || entity === "order_claim"
+          ? []
+          : [ORDER],
   }));
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, einvoiceService],

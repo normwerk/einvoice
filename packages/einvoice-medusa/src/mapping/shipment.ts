@@ -95,6 +95,17 @@ export class ShipmentQuantityUnknownError extends PluginError {
   }
 }
 
+export class ShipmentItemWithoutLineError extends PluginError {
+  constructor(readonly fulfillmentId: string) {
+    super(
+      "SHIPMENT_ITEM_WITHOUT_LINE",
+      `Fulfillment ${fulfillmentId} ships an item that names no order line, so the invoice cannot state it. ` +
+        "Issue this invoice outside the plugin.",
+    );
+    this.name = "ShipmentItemWithoutLineError";
+  }
+}
+
 /** The units of each order line the fulfillment shipped: its lines, with the units the order recorded. */
 function unitsShipped(
   fulfillment: MedusaFulfillment,
@@ -112,7 +123,9 @@ function unitsShipped(
   const shipped = new Map<string, number>();
   for (const entry of fulfillment.items ?? []) {
     const lineItemId = entry.line_item_id;
-    if (typeof lineItemId !== "string" || Number(entry.quantity ?? 0) <= 0) continue;
+    if (Number(entry.quantity ?? 0) <= 0) continue;
+    // T-201: an item the invoice cannot tie to an order line is refused, not left off the invoice.
+    if (typeof lineItemId !== "string") throw new ShipmentItemWithoutLineError(fulfillment.id);
     const quantity = recorded.get(lineItemId);
     if (quantity === undefined) {
       throw new ShipmentQuantityUnknownError(fulfillment.id, lineItemId);

@@ -20,6 +20,7 @@ import {
   type InvoiceNotice,
 } from "../mapping/charged-reconciliation.js";
 import { describeRefusal } from "../refusals.js";
+import { describePriceNotice } from "../mapping/price-change.js";
 import { ERROR_REFERENCE_URL, errorDocsUrl, supportRequestUrl } from "../errors.js";
 
 export interface EinvoiceDocumentSummary {
@@ -87,6 +88,8 @@ export interface AdminEinvoiceDocumentSummary extends EinvoiceDocumentSummary {
   readonly taxDecisions: readonly AdminTaxDecisionSummary[];
   /** T-192: on a document of category K, the VIES answer its exemption rests on — `null` otherwise. */
   readonly vatIdEvidence: AdminVatIdEvidenceSummary | null;
+  /** T-201: on an invoice, the prices an order edit changed after it was issued. */
+  readonly priceNotices: readonly EinvoiceStatusSummary[];
 }
 
 export interface AdminEinvoiceRefusalSummary extends EinvoiceStatusSummary {
@@ -133,6 +136,18 @@ export async function listAdminEinvoiceStatus(
     { order_id: orderId },
     { order: { created_at: "DESC" } },
   )) as unknown as EinvoiceRefusalRecord[];
+  // T-201: a price notice names its line by the title it has in the order.
+  const records = documents as unknown as EinvoiceDocumentRecord[];
+  const titles = new Map<string, string>();
+  if (records.some((record) => (record.price_notices ?? []).length > 0)) {
+    const { data: orders } = await req.scope
+      .resolve(ContainerRegistrationKeys.QUERY)
+      .graph({ entity: "order", filters: { id: orderId }, fields: ["items.id", "items.title"] });
+    const items =
+      (orders[0] as { readonly items?: readonly { id: string; title?: string | null }[] })?.items ??
+      [];
+    for (const item of items) if (item.title) titles.set(item.id, item.title);
+  }
   return {
     documents: documents.map((document) => {
       const notice = document.notice as unknown as InvoiceNotice | null;
@@ -167,6 +182,12 @@ export async function listAdminEinvoiceStatus(
                 checkedAt: evidence.checkedAt,
                 consultationNumber: evidence.consultationNumber ?? null,
               },
+        priceNotices: (record.price_notices ?? []).map((priceNotice) => ({
+          code: priceNotice.code,
+          message: describePriceNotice(priceNotice, titles.get(priceNotice.itemId)),
+          details: { ...priceNotice },
+          docsUrl: errorDocsUrl(priceNotice.code),
+        })),
       };
     }),
     refusals: refusals.map((refusal) => ({

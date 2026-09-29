@@ -84,6 +84,17 @@ export interface EinvoiceDocumentDTO {
         readonly reasoning: string;
       }[]
     | null;
+  /** On an invoice, the prices an order edit changed after it was issued, per line: the unit price the
+   * invoice stated and the one Medusa has now, in the line's price basis. `null` until an edit changes one. */
+  readonly price_notices:
+    | readonly {
+        readonly code: "PRICE_CHANGED_AFTER_INVOICE";
+        readonly itemId: string;
+        readonly invoicedUnitPrice: string;
+        readonly newUnitPrice: string;
+        readonly direction: "lowered" | "raised";
+      }[]
+    | null;
 }
 
 async function emit(

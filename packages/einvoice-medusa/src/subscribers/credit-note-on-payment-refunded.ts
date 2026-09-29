@@ -65,6 +65,8 @@ import {
   returnedItemIdsToCredit,
 } from "../mapping/credit-note.js";
 import { hasUnshippedPart } from "../mapping/shipment.js";
+import { assertRefundNotOnReplacement } from "../mapping/replacement.js";
+import { loadExchangesAndClaims } from "../order-replacements.js";
 import { recordRefusalOfError } from "../refusals.js";
 import { PluginError } from "../errors.js";
 import {
@@ -237,6 +239,19 @@ export default async function creditNoteOnPaymentRefunded({
         einvoiceService,
         { type: "credit_note", orderId: order.id, idempotencyKey: refund.id, trigger },
         new MissingOriginalInvoiceError(order.id),
+      );
+      continue;
+    }
+    // T-201: a refund on an order with an exchange or a replacement is not a price reduction to credit.
+    const { exchanges, claims } = await loadExchangesAndClaims(container, order.id);
+    try {
+      assertRefundNotOnReplacement(order.id, exchanges, claims);
+    } catch (error) {
+      await recordRefusalOfError(
+        container,
+        einvoiceService,
+        { type: "credit_note", orderId: order.id, idempotencyKey: refund.id, trigger },
+        error,
       );
       continue;
     }

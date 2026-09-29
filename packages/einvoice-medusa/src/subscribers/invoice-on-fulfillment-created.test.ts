@@ -159,9 +159,17 @@ function fulfillmentRecords(orders: readonly unknown[]): readonly MedusaOrderCha
 function makeContainer(
   einvoiceService: EinvoiceModuleService,
   orders: readonly unknown[] = [ORDER],
+  rows: { readonly exchanges?: readonly unknown[]; readonly claims?: readonly unknown[] } = {},
 ): { container: MedusaContainer; graph: ReturnType<typeof vi.fn> } {
   const graph = vi.fn(async ({ entity }: { entity: string }) => ({
-    data: entity === "order_change" ? fulfillmentRecords(orders) : orders,
+    data:
+      entity === "order_change"
+        ? fulfillmentRecords(orders)
+        : entity === "order_exchange"
+          ? (rows.exchanges ?? [])
+          : entity === "order_claim"
+            ? (rows.claims ?? [])
+            : orders,
   }));
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, einvoiceService],
@@ -391,6 +399,34 @@ describe("invoiceOnFulfillmentCreated", () => {
     expect(mocks.storeEinvoiceFiles).not.toHaveBeenCalled();
     const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
     expect(logged).toContain("Not issued: needs a positive VIES check [VAT_ID_UNVERIFIED]");
+  });
+
+  it("refuses the shipment of an exchange's new item, takes no number and announces it (T-201)", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const exchange = {
+      id: "exchange_01",
+      canceled_at: null,
+      additional_items: [{ item_id: "item_01" }],
+    };
+    const { container } = makeContainer(einvoiceService, [ORDER], { exchanges: [exchange] });
+
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+
+    expect(einvoiceService.recordRefusal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "invoice",
+        idempotencyKey: "ful_01",
+        code: "SHIPMENT_OF_EXCHANGE",
+      }),
+    );
+    expect(mocks.buildInvoice).not.toHaveBeenCalled();
+    expect(mocks.nextNumber).not.toHaveBeenCalled();
+    expect(mocks.eventBus.emit).toHaveBeenCalledWith({
+      name: "einvoice.issuance_blocked",
+      data: expect.objectContaining({ code: "SHIPMENT_OF_EXCHANGE", type: "invoice" }),
+    });
   });
 
   it("reports buildInvoice's warnings without the invoice payload (P-39)", async () => {

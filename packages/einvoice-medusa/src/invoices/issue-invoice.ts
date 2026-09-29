@@ -76,6 +76,8 @@ import {
   reconcileWithCharged,
   type InvoiceNotice,
 } from "../mapping/charged-reconciliation.js";
+import { assertNoReplacementShipped, replacementLines } from "../mapping/replacement.js";
+import { loadExchangesAndClaims } from "../order-replacements.js";
 import {
   shipmentLines,
   type LineInvoicedBefore,
@@ -180,6 +182,9 @@ export async function issueInvoiceForFulfillment(
         `Order ${order.id} has no fulfillment ${fulfillmentId} to invoice.`,
       );
     }
+    // T-201: a replacement — an exchange's new item, a claim's replacement — is not invoiced.
+    const { exchanges, claims } = await loadExchangesAndClaims(container, order.id);
+    assertNoReplacementShipped(fulfillment, replacementLines(exchanges, claims));
     // P-67: what the order's other invoices already took — units, discount, and the shipping.
     const others = standingInvoices(
       order,
@@ -344,7 +349,16 @@ export async function issueInvoiceForFulfillment(
     notice,
     // P-65: what each order line was invoiced at — a later return is credited at that; P-67: and its share
     // of the line's discount.
-    lineValues: invoicedLineValues(shipment.lines, buildResult.invoice.lines),
+    // T-201: and the unit price Medusa had for it, which a later order edit is compared with.
+    lineValues: invoicedLineValues(
+      shipment.lines.map((line) => {
+        const price = order.items.find((item) => item.id === line.itemId)?.unit_price;
+        return price === undefined || price === null
+          ? line
+          : { ...line, unitPrice: Number(price).toFixed(4) };
+      }),
+      buildResult.invoice.lines,
+    ),
     includesShipping: shipment.includesShipping,
     // T-192: the VIES answer a K invoice rests on, and the rule it followed.
     ...taxEvidenceToKeep(buildResult),
