@@ -10,7 +10,14 @@
  * the units the buyer still has (`@medusajs/utils` `getLineItemTotals`: quantity less received and
  * dismissed returns — the same on 2.12 and 2.19), so it is scaled back to the ordered quantity here.
  *
- * Pure: the order, the fulfillment and what earlier invoices took come in; the caller stores the result.
+ * T-202: the units come from the order's own record of the fulfillment, not from the fulfillment's items. For a
+ * variant with stock managed, Medusa creates a fulfillment item per inventory item, each with its units times
+ * the variant's `required_quantity` (`@medusajs/core-flows` `create-fulfillment.js`, `prepareFulfillmentData`):
+ * a table-and-four-chairs set ships as 1 + 4 units of one line. The order records the line's own units in a
+ * `FULFILL_ITEM` action with the fulfillment's id (`@medusajs/order` `registerFulfillment`).
+ *
+ * Pure: the order, the fulfillment, the order's changes and what earlier invoices took come in; the caller
+ * stores the result.
  */
 import type { Amount } from "@normwerk/einvoice-model" with {
   "resolution-mode": "import",
@@ -27,6 +34,17 @@ export interface MedusaFulfillment {
     | readonly {
         readonly line_item_id?: string | null;
         readonly quantity?: number | string | null;
+      }[]
+    | null;
+}
+
+/** T-202: an order change as Query reads it (`order_change`): the actions Medusa recorded on the order. */
+export interface MedusaOrderChange {
+  readonly actions?:
+    | readonly {
+        readonly action?: string | null;
+        readonly reference_id?: string | null;
+        readonly details?: Readonly<Record<string, unknown>> | null;
       }[]
     | null;
 }
@@ -59,6 +77,47 @@ export class ShipmentLineUnknownError extends PluginError {
     );
     this.name = "ShipmentLineUnknownError";
   }
+}
+
+export class ShipmentQuantityUnknownError extends PluginError {
+  constructor(
+    readonly fulfillmentId: string,
+    readonly lineItemId: string,
+  ) {
+    super(
+      "SHIPMENT_QUANTITY_UNKNOWN",
+      `The order does not record how many units of line item ${lineItemId} fulfillment ${fulfillmentId} ` +
+        "shipped, so the invoice cannot state its quantity. Issue this invoice outside the plugin.",
+    );
+    this.name = "ShipmentQuantityUnknownError";
+  }
+}
+
+/** The units of each order line the fulfillment shipped: its lines, with the units the order recorded. */
+function unitsShipped(
+  fulfillment: MedusaFulfillment,
+  changes: readonly MedusaOrderChange[],
+): ReadonlyMap<string, number> {
+  const recorded = new Map<string, number>();
+  for (const action of changes.flatMap((change) => change.actions ?? [])) {
+    if (action.action !== "FULFILL_ITEM" || action.reference_id !== fulfillment.id) continue;
+    const lineItemId = action.details?.["reference_id"];
+    const quantity = Number(action.details?.["quantity"] ?? 0);
+    if (typeof lineItemId === "string" && quantity > 0) {
+      recorded.set(lineItemId, (recorded.get(lineItemId) ?? 0) + quantity);
+    }
+  }
+  const shipped = new Map<string, number>();
+  for (const entry of fulfillment.items ?? []) {
+    const lineItemId = entry.line_item_id;
+    if (typeof lineItemId !== "string" || Number(entry.quantity ?? 0) <= 0) continue;
+    const quantity = recorded.get(lineItemId);
+    if (quantity === undefined) {
+      throw new ShipmentQuantityUnknownError(fulfillment.id, lineItemId);
+    }
+    shipped.set(lineItemId, quantity);
+  }
+  return shipped;
 }
 
 function cents(value: number | string | null | undefined): number {
@@ -97,15 +156,10 @@ export function hasUnshippedPart(items: readonly MedusaOrderLineItem[]): boolean
 export function shipmentLines(
   items: readonly MedusaOrderLineItem[],
   fulfillment: MedusaFulfillment,
+  changes: readonly MedusaOrderChange[],
   invoicedBefore: readonly LineInvoicedBefore[],
 ): readonly ShipmentLine[] {
-  const shipped = new Map<string, number>();
-  for (const entry of fulfillment.items ?? []) {
-    const quantity = Number(entry.quantity ?? 0);
-    if (typeof entry.line_item_id !== "string" || quantity <= 0) continue;
-    shipped.set(entry.line_item_id, (shipped.get(entry.line_item_id) ?? 0) + quantity);
-  }
-  return [...shipped.entries()].map(([itemId, quantity]) => {
+  return [...unitsShipped(fulfillment, changes).entries()].map(([itemId, quantity]) => {
     const item = items.find((candidate) => candidate.id === itemId);
     const full = item === undefined ? undefined : fullLineAllowanceCents(item);
     if (item === undefined || full === undefined) {

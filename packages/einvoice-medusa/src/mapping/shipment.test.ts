@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { shipmentLines, ShipmentLineUnknownError } from "./shipment.js";
+import {
+  shipmentLines,
+  ShipmentLineUnknownError,
+  ShipmentQuantityUnknownError,
+  type MedusaFulfillment,
+  type MedusaOrderChange,
+} from "./shipment.js";
 import type { MedusaOrderLineItem } from "./order-to-commerce-invoice-input.js";
 
 /** Three units at 10.00 net with a promotion of 1.00 on the line. */
@@ -13,25 +19,47 @@ const LINE: MedusaOrderLineItem = {
   discount_total: 1.19,
 };
 
+/** The order's record of an ordinary fulfillment: each line's units as the fulfillment lists them. */
+function recorded(fulfillment: MedusaFulfillment): readonly MedusaOrderChange[] {
+  return [
+    {
+      actions: (fulfillment.items ?? []).map((item) => ({
+        action: "FULFILL_ITEM",
+        reference_id: fulfillment.id,
+        details: { reference_id: item.line_item_id, quantity: item.quantity },
+      })),
+    },
+  ];
+}
+
+/** `shipmentLines` for an ordinary fulfillment, recorded as it lists its lines. */
+function linesOf(
+  items: readonly MedusaOrderLineItem[],
+  fulfillment: MedusaFulfillment,
+  invoicedBefore: Parameters<typeof shipmentLines>[3],
+): ReturnType<typeof shipmentLines> {
+  return shipmentLines(items, fulfillment, recorded(fulfillment), invoicedBefore);
+}
+
 describe("shipmentLines (P-67)", () => {
   it("invoices what the fulfillment shipped, with its share of the line discount", () => {
     expect(
-      shipmentLines([LINE], { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 1 }] }, []),
+      linesOf([LINE], { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 1 }] }, []),
     ).toEqual([{ itemId: "item_1", quantity: "1", allowance: "0.33" }]);
   });
 
   it("gives the shipment that completes a line what is left of its discount, to the cent", () => {
-    const first = shipmentLines(
+    const first = linesOf(
       [LINE],
       { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 1 }] },
       [],
     );
-    const second = shipmentLines(
+    const second = linesOf(
       [LINE],
       { id: "ful_2", items: [{ line_item_id: "item_1", quantity: 1 }] },
       first,
     );
-    const third = shipmentLines(
+    const third = linesOf(
       [LINE],
       { id: "ful_3", items: [{ line_item_id: "item_1", quantity: 1 }] },
       [...first, ...second],
@@ -46,11 +74,8 @@ describe("shipmentLines (P-67)", () => {
   it("takes a tax-inclusive line's discount including VAT", () => {
     const gross = { ...LINE, is_tax_inclusive: true };
     expect(
-      shipmentLines(
-        [gross],
-        { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 3 }] },
-        [],
-      )[0]?.allowance,
+      linesOf([gross], { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 3 }] }, [])[0]
+        ?.allowance,
     ).toBe("1.19");
   });
 
@@ -62,7 +87,7 @@ describe("shipmentLines (P-67)", () => {
       discount_subtotal: 0.67,
     };
     expect(
-      shipmentLines(
+      linesOf(
         [afterReturn],
         { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 1 }] },
         [],
@@ -70,26 +95,55 @@ describe("shipmentLines (P-67)", () => {
     ).toBe("0.34");
   });
 
-  it("adds up the units of a line the fulfillment lists twice, and skips empty entries", () => {
-    expect(
-      shipmentLines(
-        [LINE],
-        {
-          id: "ful_1",
-          items: [
-            { line_item_id: "item_1", quantity: 1 },
-            { line_item_id: "item_1", quantity: 2 },
-            { line_item_id: null, quantity: 1 },
-          ],
-        },
-        [],
-      ),
-    ).toEqual([{ itemId: "item_1", quantity: "3", allowance: "1.00" }]);
+  it("takes a set's units from the order's record, not from its parts: a table and four chairs is one set (T-202)", () => {
+    // Stock managed: Medusa ships a fulfillment item per inventory item, units times required_quantity.
+    const set: MedusaOrderLineItem = { ...LINE, detail: { quantity: 1 }, discount_subtotal: 0 };
+    const fulfillment: MedusaFulfillment = {
+      id: "ful_1",
+      items: [
+        { line_item_id: "item_1", quantity: 1 },
+        { line_item_id: "item_1", quantity: 4 },
+        { line_item_id: null, quantity: 1 },
+      ],
+    };
+    const changes: readonly MedusaOrderChange[] = [
+      {
+        actions: [
+          {
+            action: "SHIP_ITEM",
+            reference_id: "ful_1",
+            details: { reference_id: "item_1", quantity: 1 },
+          },
+        ],
+      },
+      {
+        actions: [
+          {
+            action: "FULFILL_ITEM",
+            reference_id: "ful_0",
+            details: { reference_id: "item_1", quantity: 2 },
+          },
+          {
+            action: "FULFILL_ITEM",
+            reference_id: "ful_1",
+            details: { reference_id: "item_1", quantity: 1 },
+          },
+        ],
+      },
+    ];
+    expect(shipmentLines([set], fulfillment, changes, [])).toEqual([
+      { itemId: "item_1", quantity: "1", allowance: "0.00" },
+    ]);
+  });
+
+  it("refuses a shipped line the order did not record units for (T-202)", () => {
+    const fulfillment = { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 1 }] };
+    expect(() => shipmentLines([LINE], fulfillment, [], [])).toThrow(ShipmentQuantityUnknownError);
   });
 
   it("refuses a line the order does not have, or whose every unit came back", () => {
     expect(() =>
-      shipmentLines([LINE], { id: "ful_1", items: [{ line_item_id: "item_9", quantity: 1 }] }, []),
+      linesOf([LINE], { id: "ful_1", items: [{ line_item_id: "item_9", quantity: 1 }] }, []),
     ).toThrow(ShipmentLineUnknownError);
     const allBack = {
       ...LINE,
@@ -97,11 +151,7 @@ describe("shipmentLines (P-67)", () => {
       discount_subtotal: 0,
     };
     expect(
-      shipmentLines(
-        [allBack],
-        { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 1 }] },
-        [],
-      ),
+      linesOf([allBack], { id: "ful_1", items: [{ line_item_id: "item_1", quantity: 1 }] }, []),
     ).toEqual([{ itemId: "item_1", quantity: "1", allowance: "0.00" }]);
   });
 });

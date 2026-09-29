@@ -76,7 +76,11 @@ import {
   reconcileWithCharged,
   type InvoiceNotice,
 } from "../mapping/charged-reconciliation.js";
-import { shipmentLines, type LineInvoicedBefore } from "../mapping/shipment.js";
+import {
+  shipmentLines,
+  type LineInvoicedBefore,
+  type MedusaOrderChange,
+} from "../mapping/shipment.js";
 import { taxEvidenceToKeep } from "../mapping/tax-evidence.js";
 import { PluginError } from "../errors.js";
 import { emitDocumentIssued, emitIssuanceBlocked } from "../events.js";
@@ -191,8 +195,19 @@ export async function issueInvoiceForFulfillment(
         allowance: line.allowance ?? "0.00",
       })),
     );
+    // T-202: the units each line shipped, as the order recorded them with the fulfillment.
+    const { data: changes } = await query.graph({
+      entity: "order_change",
+      filters: { order_id: order.id },
+      fields: ["actions.action", "actions.reference_id", "actions.details"],
+    });
     const shipment: ShipmentScope = {
-      lines: shipmentLines(order.items, fulfillment, invoicedBefore),
+      lines: shipmentLines(
+        order.items,
+        fulfillment,
+        changes as unknown as MedusaOrderChange[],
+        invoicedBefore,
+      ),
       includesShipping: !others.some((invoice) => invoice.includes_shipping),
       deliveryDate: issueDateInSellerTimeZone(
         einvoiceService.options.seller.countryCode,

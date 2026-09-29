@@ -199,3 +199,10 @@ export function deliveryDate(xml: string): string {
   );
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
 }
+
+/** T-202: every line's invoiced quantity (BT-129) — `ram:BilledQuantity`. */
+export function lineQuantities(xml: string): readonly number[] {
+  return [...xml.matchAll(/<ram:BilledQuantity[^>]*>([^<]+)<\/ram:BilledQuantity>/g)].map((match) =>
+    Number(match[1]),
+  );
+}

@@ -72,8 +72,9 @@ the code alone.
 ## One invoice per fulfillment
 
 Each fulfillment is invoiced on its own (`src/invoices/issue-invoice.ts`, `src/mapping/shipment.ts`): the
-lines and units it shipped, dated the day it shipped, the order's shipping on the first invoice still
-standing, and each line's discount shared out by units. Beside the XML, an invoice's row keeps what each
+lines and units it shipped — the units as the order recorded them with the fulfillment, so a set of several
+inventory items is one set, not the sum of its parts — dated the day it shipped, the order's shipping on the
+first invoice still standing, and each line's discount shared out by units. Beside the XML, an invoice's row keeps what each
 line was invoiced at and its discount share (`line_values`) and whether it carries the shipping
 (`includes_shipping`) — what the order's next invoice reads to take the rest. A credit note's row names the
 invoice it corrects (`corrected_document_id`). Cancelling a fulfillment credits its invoice

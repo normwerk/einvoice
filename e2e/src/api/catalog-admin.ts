@@ -107,3 +107,67 @@ export async function productIdOfVariant(admin: AdminSession, variantId: string)
   }
   return product.id;
 }
+
+/**
+ * T-202: a set — a variant with stock managed that draws on two inventory items, one table and four chairs
+ * (`required_quantity` 4), both stocked at the stand's location. Medusa ships such a line as one fulfillment
+ * item per inventory item. Returns the variant id.
+ */
+export async function createSetProduct(
+  admin: AdminSession,
+  input: {
+    readonly title: string;
+    readonly sku: string;
+    readonly priceEur: number;
+    readonly salesChannelId: string;
+    readonly stockLocationId: string;
+    readonly shippingOptionId: string;
+  },
+): Promise<string> {
+  const { shipping_options: options } = await adminGetJson<{
+    readonly shipping_options: readonly { readonly shipping_profile_id: string }[];
+  }>(admin, `/admin/shipping-options?id=${input.shippingOptionId}&fields=shipping_profile_id`);
+  const shippingProfileId = options[0]?.shipping_profile_id;
+  if (shippingProfileId === undefined) {
+    throw new Error(`createSetProduct: no shipping option ${input.shippingOptionId}`);
+  }
+  const parts = [
+    { sku: `${input.sku}-TABLE`, title: "Tisch", requiredQuantity: 1 },
+    { sku: `${input.sku}-CHAIR`, title: "Stuhl", requiredQuantity: 4 },
+  ];
+  const inventoryItems: { inventory_item_id: string; required_quantity: number }[] = [];
+  for (const part of parts) {
+    const { inventory_item: item } = await adminPostJson<{
+      readonly inventory_item: { readonly id: string };
+    }>(admin, "/admin/inventory-items", { sku: part.sku, title: part.title });
+    await adminPostJson(admin, `/admin/inventory-items/${item.id}/location-levels`, {
+      location_id: input.stockLocationId,
+      stocked_quantity: 1000,
+    });
+    inventoryItems.push({ inventory_item_id: item.id, required_quantity: part.requiredQuantity });
+  }
+  const { product } = await adminPostJson<{
+    readonly product: { readonly variants: readonly { readonly id: string }[] };
+  }>(admin, "/admin/products", {
+    title: input.title,
+    status: "published",
+    shipping_profile_id: shippingProfileId,
+    options: [{ title: "Ausführung", values: ["Standard"] }],
+    variants: [
+      {
+        title: "Standard",
+        sku: input.sku,
+        manage_inventory: true,
+        prices: [{ currency_code: "eur", amount: input.priceEur }],
+        options: { Ausführung: "Standard" },
+        inventory_items: inventoryItems,
+      },
+    ],
+    sales_channels: [{ id: input.salesChannelId }],
+  });
+  const variantId = product.variants[0]?.id;
+  if (variantId === undefined) {
+    throw new Error(`createSetProduct: ${input.sku} was created without a variant`);
+  }
+  return variantId;
+}

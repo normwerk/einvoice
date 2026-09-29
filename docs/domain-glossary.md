@@ -656,3 +656,9 @@ integrations` itself states the list "is curated from npm," and its own visible 
   order first: nothing above 0 % on any line or on shipping is `NO_VAT_CHARGED`, which names both causes.
   Shipping's rate is read for this alone (`CommerceShipping.chargedVatRate`); the invoice's shipping rate
   still follows the lines.
+- **A fulfillment item is an inventory item, not an order line.** For a variant with stock managed, Medusa
+  creates one fulfillment item per inventory item of the variant, with the line's units times its
+  `required_quantity` (`prepareFulfillmentData`, `@medusajs/core-flows`): a set of a table and four chairs
+  ships as 1 + 4 units of one `line_item_id`. The line's own units are in the order's record of the
+  fulfillment — a `FULFILL_ITEM` action, `reference_id` the fulfillment's id, `details.reference_id` the line
+  (`registerFulfillment`, `@medusajs/order`), read through Query as `order_change.actions`.

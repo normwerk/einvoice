@@ -3,6 +3,7 @@ import type { MedusaContainer, SubscriberArgs } from "@medusajs/framework";
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
+import type { MedusaFulfillment, MedusaOrderChange } from "../mapping/shipment.js";
 
 // This file unit-tests `invoiceOnFulfillmentCreated`'s own orchestration (idempotency, the
 // order-not-found guard, the PDF-embed conditional, and the
@@ -141,11 +142,27 @@ function makeEinvoiceService(
   } as unknown as EinvoiceModuleService;
 }
 
+/** T-202: the order's record of each fulfillment (`order_change`) — every line's units as it lists them. */
+function fulfillmentRecords(orders: readonly unknown[]): readonly MedusaOrderChange[] {
+  return (orders as readonly { fulfillments?: readonly MedusaFulfillment[] | null }[]).flatMap(
+    (order) =>
+      (order.fulfillments ?? []).map((fulfillment) => ({
+        actions: (fulfillment.items ?? []).map((item) => ({
+          action: "FULFILL_ITEM",
+          reference_id: fulfillment.id,
+          details: { reference_id: item.line_item_id, quantity: item.quantity },
+        })),
+      })),
+  );
+}
+
 function makeContainer(
   einvoiceService: EinvoiceModuleService,
   orders: readonly unknown[] = [ORDER],
 ): { container: MedusaContainer; graph: ReturnType<typeof vi.fn> } {
-  const graph = vi.fn(async () => ({ data: orders }));
+  const graph = vi.fn(async ({ entity }: { entity: string }) => ({
+    data: entity === "order_change" ? fulfillmentRecords(orders) : orders,
+  }));
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, einvoiceService],
     [ContainerRegistrationKeys.QUERY, { graph }],

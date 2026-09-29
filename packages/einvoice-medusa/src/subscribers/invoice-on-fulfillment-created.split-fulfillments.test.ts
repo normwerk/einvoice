@@ -16,6 +16,7 @@ import type { MedusaContainer, SubscriberArgs } from "@medusajs/framework";
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
+import type { MedusaFulfillment, MedusaOrderChange } from "../mapping/shipment.js";
 
 const mocks = vi.hoisted(() => ({
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
@@ -164,8 +165,24 @@ function makeEinvoiceService(): EinvoiceModuleService {
   } as unknown as EinvoiceModuleService;
 }
 
+/** T-202: the order's record of each fulfillment (`order_change`) — every line's units as it lists them. */
+function fulfillmentRecords(orders: readonly unknown[]): readonly MedusaOrderChange[] {
+  return (orders as readonly { fulfillments?: readonly MedusaFulfillment[] | null }[]).flatMap(
+    (order) =>
+      (order.fulfillments ?? []).map((fulfillment) => ({
+        actions: (fulfillment.items ?? []).map((item) => ({
+          action: "FULFILL_ITEM",
+          reference_id: fulfillment.id,
+          details: { reference_id: item.line_item_id, quantity: item.quantity },
+        })),
+      })),
+  );
+}
+
 function makeContainer(einvoiceService: EinvoiceModuleService): MedusaContainer {
-  const graph = vi.fn(async () => ({ data: [ORDER] }));
+  const graph = vi.fn(async ({ entity }: { entity: string }) => ({
+    data: entity === "order_change" ? fulfillmentRecords([ORDER]) : [ORDER],
+  }));
   const registry = new Map<unknown, unknown>([
     [EINVOICE_MODULE, einvoiceService],
     [ContainerRegistrationKeys.QUERY, { graph }],

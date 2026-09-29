@@ -59,6 +59,7 @@ running it repeatedly.
 ✓ src/scenarios/s18-invoice-per-shipment.test.ts — an order shipped in two parts: an invoice per shipment, returns and cancellations credited on the right one
 ✓ src/scenarios/s19-plugin-events.test.ts     — the plugin's events as a shop's own subscriber receives them, and the order link
 ✓ src/scenarios/s20-no-vat-charged.test.ts    — a shop that charged no VAT (German tax region at 0 %, or none): refused as NO_VAT_CHARGED, no number taken
+✓ src/scenarios/s21-set-quantity.test.ts      — a set of two inventory items (a table and four chairs) invoiced as one set
 ✓ src/scenarios/idempotency.test.ts          — delivering an event a second time never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot without a required option, or with a seller outside Germany

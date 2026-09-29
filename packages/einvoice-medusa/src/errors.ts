@@ -34,6 +34,9 @@ export type PluginErrorCode =
   /** A fulfillment ships an order line the order no longer states a price for — every unit of it came back
    * before the invoice was issued. Issue this invoice outside the plugin. */
   | "SHIPMENT_LINE_UNKNOWN"
+  /** The order does not record how many units of a line a fulfillment shipped. Medusa records it with every
+   * fulfillment it creates for an order; issue this invoice outside the plugin. */
+  | "SHIPMENT_QUANTITY_UNKNOWN"
   /** A refund the plugin cannot tie to one invoice: the order was invoiced per shipment, or part of it is
    * paid but not shipped yet, and the refund names no goods that came back. A refund for goods never
    * shipped needs no credit note; for anything else, issue the credit note outside the plugin. */
