@@ -86,7 +86,7 @@ export interface SpecialVatTerritory {
   readonly goodsOnly: boolean;
 }
 
-interface SpecialVatTerritoryRule {
+export interface SpecialVatTerritoryRule {
   readonly country: CountryCode;
   /** Tested against the postcode without spaces, in upper case, and — for numeric postcodes — without a
    * leading country prefix such as `AX-` or `E-`. Absent: the whole country code is the territory. */
@@ -123,7 +123,7 @@ const NORTHERN_IRELAND: SpecialVatTerritory = {
  * Italian waters of Lake Lugano. A territory with its own ISO code (AX, GP, RE, …) is already outside the EU
  * set and treated as a third country.
  */
-const SPECIAL_VAT_TERRITORY_RULES: readonly SpecialVatTerritoryRule[] = [
+export const SPECIAL_VAT_TERRITORY_RULES: readonly SpecialVatTerritoryRule[] = [
   { country: "DE", postcode: /^27498$/, numeric: true, territory: outside("Heligoland") },
   {
     country: "DE",

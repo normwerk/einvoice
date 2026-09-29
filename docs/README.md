@@ -74,6 +74,8 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
   not generated.
 - [`docs/tax-semantics.md`](tax-semantics.md) — the VAT rules applied, one scenario per row with legal
   sources; what the validators do not catch. Not tax advice.
+- [`docs/supported-countries.md`](supported-countries.md) — the seller, buyers and territories this release
+  supports and refuses, generated from `packages/einvoice-commerce/src/supported-jurisdictions.ts`.
 - [`docs/test-cases.md`](test-cases.md) — test catalog by suite.
 - [`docs/manual-testing.md`](manual-testing.md) — scenarios that cannot be automated.
 - [`docs/e2e.md`](e2e.md) — `pnpm e2e`: a real Medusa v2 store, installed from a disposable registry, run

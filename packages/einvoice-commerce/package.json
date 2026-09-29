@@ -1,7 +1,7 @@
 {
   "name": "@normwerk/einvoice-commerce",
   "version": "0.1.0",
-  "description": "Order/refund to EN 16931 tax semantics. Platform-agnostic: no Medusa or Vendure types.",
+  "description": "Order/refund to EN 16931 tax semantics for a seller in Germany. Buyers in Germany (B2B, B2C, public sector), the EU/EEA except Italy and Poland, Switzerland and the UK. Platform-agnostic: no Medusa or Vendure types.",
   "type": "module",
   "license": "MIT",
   "author": "normwerk",
