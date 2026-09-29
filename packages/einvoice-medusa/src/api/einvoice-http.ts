@@ -21,6 +21,7 @@ import {
 } from "../mapping/charged-reconciliation.js";
 import { describeRefusal } from "../refusals.js";
 import { describePriceNotice } from "../mapping/price-change.js";
+import { describePdfNotice } from "../pdf.js";
 import { ERROR_REFERENCE_URL, errorDocsUrl, supportRequestUrl } from "../errors.js";
 
 export interface EinvoiceDocumentSummary {
@@ -90,6 +91,8 @@ export interface AdminEinvoiceDocumentSummary extends EinvoiceDocumentSummary {
   readonly vatIdEvidence: AdminVatIdEvidenceSummary | null;
   /** T-201: on an invoice, the prices an order edit changed after it was issued. */
   readonly priceNotices: readonly EinvoiceStatusSummary[];
+  /** T-033: issued as XML alone because the PDF could not become PDF/A — `null` otherwise. */
+  readonly pdfNotice: EinvoiceStatusSummary | null;
 }
 
 export interface AdminEinvoiceRefusalSummary extends EinvoiceStatusSummary {
@@ -181,6 +184,15 @@ export async function listAdminEinvoiceStatus(
                 status: evidence.status,
                 checkedAt: evidence.checkedAt,
                 consultationNumber: evidence.consultationNumber ?? null,
+              },
+        pdfNotice:
+          record.pdf_notice === null || record.pdf_notice === undefined
+            ? null
+            : {
+                code: record.pdf_notice.code,
+                message: describePdfNotice(record.pdf_notice),
+                details: { ...record.pdf_notice },
+                docsUrl: errorDocsUrl(record.pdf_notice.code),
               },
         priceNotices: (record.price_notices ?? []).map((priceNotice) => ({
           code: priceNotice.code,

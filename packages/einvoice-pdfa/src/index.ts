@@ -30,6 +30,8 @@ export type { ZugferdProfileName, ZugferdProfile } from "./profiles.js";
 // `embedInvoiceInPdfA3` instead of nothing — not a hypothetical convenience, `einvoice-medusa`'s own
 // standalone e2e proof (T-073) uses exactly this as the "merchant's own PDF renderer".
 export { renderInvoicePdf } from "./render-invoice.js";
+// T-033: whether a PDF someone else rendered can be embedded as PDF/A-3 as it is.
+export { checkPdfAEligibility, type PdfAEligibility } from "./preflight.js";
 
 export interface EmbedInvoiceOptions {
   /** Which ZUGFeRD/Factur-X profile's XMP metadata and attachment filename to use. */

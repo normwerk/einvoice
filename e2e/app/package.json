@@ -26,7 +26,8 @@
     "@normwerk/einvoice-model": "*",
     "@normwerk/einvoice-commerce": "*",
     "@normwerk/einvoice-cii": "*",
-    "@normwerk/einvoice-pdfa": "*"
+    "@normwerk/einvoice-pdfa": "*",
+    "pdf-lib": "1.17.1"
   },
   "devDependencies": {
     "@medusajs/test-utils": "2.21.0",

@@ -53,6 +53,7 @@ import {
 } from "../../errors.js";
 import type { InvoiceNotice } from "../../mapping/charged-reconciliation.js";
 import type { PriceNotice } from "../../mapping/price-change.js";
+import type { PdfNotice } from "../../pdf.js";
 
 export interface EinvoiceModuleOptions {
   /**
@@ -89,8 +90,9 @@ export interface EinvoiceModuleOptions {
    * (`embedInvoiceInPdfA3`). Use your own invoice template, another plugin, or `renderInvoicePdf` from
    * `@normwerk/einvoice-pdfa`. Returning `undefined` — or omitting the option — produces XML only.
    *
-   * The PDF is embedded as it is: `embedInvoiceInPdfA3` does not repair
-   * a PDF that isn't PDF/A-eligible, such as one whose fonts are not embedded (see `render-invoice.ts`).
+   * The PDF is embedded as it is — nothing repairs it — so it is checked first (`checkPdfAEligibility`):
+   * T-033: an encrypted PDF, or one with a font it does not embed, cannot become PDF/A. The document is then
+   * issued as XML alone and carries a notice saying why (`PDF_ENCRYPTED`, `PDF_FONT_NOT_EMBEDDED`, `pdf.ts`).
    */
   readonly standalone?: {
     readonly basePdf?: (
@@ -262,6 +264,8 @@ export interface EinvoiceDocumentRecord {
   readonly tax_decisions: readonly TaxDecision[] | null;
   /** T-201: on an invoice, prices an order edit changed after it was issued — `null` until an edit is confirmed. */
   readonly price_notices: readonly PriceNotice[] | null;
+  /** T-033: issued as XML alone because `standalone.basePdf`'s PDF cannot become PDF/A — `null` otherwise. */
+  readonly pdf_notice: PdfNotice | null;
   readonly created_at?: string | Date;
 }
 
@@ -302,6 +306,7 @@ export interface RecordDocumentInput {
   readonly correctedDocumentId?: string | null;
   readonly vatIdEvidence?: VatIdEvidence | null;
   readonly taxDecisions?: readonly TaxDecision[] | null;
+  readonly pdfNotice?: PdfNotice | null;
 }
 
 /** P-63: a document the plugin did not issue (`einvoice-refusal.ts`). */
@@ -446,6 +451,7 @@ export default class EinvoiceModuleService extends MedusaService({
         corrected_document_id: input.correctedDocumentId ?? null,
         vat_id_evidence: (input.vatIdEvidence ?? null) as unknown as Record<string, unknown> | null,
         tax_decisions: (input.taxDecisions ?? null) as unknown as Record<string, unknown> | null,
+        pdf_notice: (input.pdfNotice ?? null) as unknown as Record<string, unknown> | null,
       })) as unknown as EinvoiceDocumentRecord;
       return { document: created, created: true };
     } catch (error) {

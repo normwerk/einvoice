@@ -125,7 +125,10 @@ standalone: {
 `invoice` here is the fully built EN 16931 `Invoice` — the exact same data the XML carries, so the PDF and
 XML can never disagree on numbers. `renderInvoicePdf` is a real, font-embedded, PDF/A-eligible layout that
 ships with `@normwerk/einvoice-pdfa`; use your own renderer instead if you have one (same option, any
-function returning `Uint8Array | undefined`).
+function returning `Uint8Array | undefined`). Your PDF has to embed its fonts and must not be encrypted —
+PDF/A requires both, and nothing repairs it afterwards. If it does not, the document is issued as XML alone,
+and the admin shows "XML only" with the reason (`PDF_FONT_NOT_EMBEDDED` names the font); see
+[`pdfa.md`](pdfa.md#a-pdf-rendered-elsewhere-checked-not-repaired).
 
 ## 6. Another plugin that issues invoices
 

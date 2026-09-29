@@ -49,6 +49,9 @@
  * anew each time an edit is confirmed; `null` until one is. `line_values` also hold each line's unit price as
  * Medusa had it (`unitPrice`), which they are compared with.
  *
+ * T-033: `pdf_notice` — on a document issued as XML alone because the PDF from `standalone.basePdf` could
+ * not become PDF/A (`{ code, fontName? }`, `pdf.ts`); `null` otherwise.
+ *
  * No migration path preserves the old `xml`/`pdf` columns' existing content — the same "pre-release, no
  * real deployment history to preserve" reasoning T-072 already used for its own migration replacement
  * (`docs/domain-glossary.md`), not a new precedent.
@@ -72,6 +75,7 @@ const EinvoiceDocument = model
     vat_id_evidence: model.json().nullable(),
     tax_decisions: model.json().nullable(),
     price_notices: model.json().nullable(),
+    pdf_notice: model.json().nullable(),
   })
   .indexes([{ on: ["type", "idempotency_key"], unique: true }]);
 

@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   logger: { warn: vi.fn(), info: vi.fn() },
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   embedInvoiceInPdfA3: vi.fn(async () => ({ pdfBytes: new Uint8Array([1, 2, 3]) })),
+  checkPdfAEligibility: vi.fn(async () => ({ eligible: true })),
   storeEinvoiceFiles: vi.fn(async () => ({
     xmlFileId: "file_xml",
     pdfFileId: null as string | null,
@@ -56,6 +57,7 @@ vi.mock("@normwerk/einvoice-cii", () => ({
 
 vi.mock("@normwerk/einvoice-pdfa", () => ({
   embedInvoiceInPdfA3: mocks.embedInvoiceInPdfA3,
+  checkPdfAEligibility: mocks.checkPdfAEligibility,
 }));
 
 vi.mock("../storage.js", async (importOriginal) => {

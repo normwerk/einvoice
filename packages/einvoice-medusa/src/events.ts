@@ -95,6 +95,12 @@ export interface EinvoiceDocumentDTO {
         readonly direction: "lowered" | "raised";
       }[]
     | null;
+  /** Issued as XML alone because the PDF from `standalone.basePdf` could not become PDF/A: why, and for a
+   * font it does not embed, the font's name. `null` otherwise. */
+  readonly pdf_notice: {
+    readonly code: "PDF_FONT_NOT_EMBEDDED" | "PDF_ENCRYPTED";
+    readonly fontName?: string;
+  } | null;
 }
 
 async function emit(

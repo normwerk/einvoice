@@ -15,7 +15,7 @@ const vatIdVerifier = validVatId
       new Map<string, "valid" | "unavailable">([
         [validVatId, "valid"],
         ...(unavailableVatId ? [[unavailableVatId, "unavailable"] as const] : []),
-      ])
+      ]),
     )
   : undefined;
 
@@ -102,6 +102,16 @@ module.exports = defineConfig({
         // XML-only so the suite doesn't double every scenario's runtime for a path S1 already exercises.
         standalone: {
           basePdf: async (invoice) => {
+            // T-033 (S23): a buyer of this name gets a PDF with a font referenced by name only — Helvetica,
+            // not embedded — the way many PDF generators render by default. It cannot become PDF/A.
+            if (invoice.buyer.name === "Standardschrift GmbH") {
+              const { PDFDocument, StandardFonts } = await import("pdf-lib");
+              const doc = await PDFDocument.create();
+              doc.addPage().drawText(`Rechnung ${invoice.number}`, {
+                font: await doc.embedFont(StandardFonts.Helvetica),
+              });
+              return doc.save();
+            }
             const { renderInvoicePdf } = await import("@normwerk/einvoice-pdfa");
             return renderInvoicePdf(invoice);
           },

@@ -27,6 +27,11 @@ const mocks = vi.hoisted(() => ({
   })),
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   embedInvoiceInPdfA3: vi.fn(async () => ({ pdfBytes: new Uint8Array([1, 2, 3]) })),
+  checkPdfAEligibility: vi.fn(
+    async (): Promise<{ eligible: boolean; reason?: string; fontName?: string }> => ({
+      eligible: true,
+    }),
+  ),
   storeEinvoiceFiles: vi.fn(async () => ({
     xmlFileId: "file_xml",
     pdfFileId: null as string | null,
@@ -53,6 +58,7 @@ vi.mock("@normwerk/einvoice-cii", () => ({
 
 vi.mock("@normwerk/einvoice-pdfa", () => ({
   embedInvoiceInPdfA3: mocks.embedInvoiceInPdfA3,
+  checkPdfAEligibility: mocks.checkPdfAEligibility,
 }));
 
 vi.mock("../storage.js", async (importOriginal) => {
@@ -353,6 +359,38 @@ describe("invoiceOnFulfillmentCreated", () => {
       container,
       expect.objectContaining({ pdfBytes: new Uint8Array([1, 2, 3]) }),
     );
+  });
+
+  it("issues XML alone, with a notice naming the font, for a PDF that cannot become PDF/A (T-033)", async () => {
+    mocks.checkPdfAEligibility.mockResolvedValueOnce({
+      eligible: false,
+      reason: "font-not-embedded",
+      fontName: "Helvetica",
+    });
+    const basePdf = vi.fn(async () => new Uint8Array([9, 9, 9]));
+    const einvoiceService = makeEinvoiceService({
+      options: { seller: SELLER, payment: PAYMENT, standalone: { basePdf } },
+    });
+    const { container } = makeContainer(einvoiceService);
+    mocks.storeEinvoiceFiles.mockResolvedValue({ xmlFileId: "file_xml", pdfFileId: null });
+
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+
+    expect(mocks.embedInvoiceInPdfA3).not.toHaveBeenCalled();
+    expect(mocks.storeEinvoiceFiles).toHaveBeenCalledWith(
+      container,
+      expect.objectContaining({ pdfBytes: undefined }),
+    );
+    expect(einvoiceService.recordDocumentIfAbsent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentNumber: "RE-2026-0001",
+        pdfNotice: { code: "PDF_FONT_NOT_EMBEDDED", fontName: "Helvetica" },
+      }),
+    );
+    const logged = mocks.logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(logged).toContain("[PDF_FONT_NOT_EMBEDDED]");
   });
 
   it("cleans up the just-uploaded files when recordDocumentIfAbsent loses the concurrency race", async () => {

@@ -44,6 +44,7 @@ import {
   type MedusaReturnForCredit,
   type PartialCreditNoteLine,
 } from "../mapping/credit-note.js";
+import { describePdfNotice, documentPdf } from "../pdf.js";
 import { taxEvidenceToKeep } from "../mapping/tax-evidence.js";
 import type { CoveredReturn, InvoicedLine } from "../modules/einvoice/service.js";
 
@@ -368,14 +369,16 @@ export async function issueCreditNote({
   const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
   const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });
 
-  let finalPdfBytes: Uint8Array | undefined;
-  if (basePdfBytes !== undefined) {
-    const pdfa = await import("@normwerk/einvoice-pdfa");
-    const { pdfBytes } = await pdfa.embedInvoiceInPdfA3(basePdfBytes, xml, {
-      profile,
-      title: documentNumber,
-    });
-    finalPdfBytes = pdfBytes;
+  // T-033: a PDF that cannot become PDF/A is left out; the document is issued as XML with a notice why.
+  const { pdfBytes: finalPdfBytes, pdfNotice } = await documentPdf(basePdfBytes, xml, {
+    profile,
+    title: documentNumber,
+  });
+  if (pdfNotice !== null) {
+    logger.warn(
+      `einvoice: order ${order.id}: credit note ${documentNumber} — ${describePdfNotice(pdfNotice)} ` +
+        `[${pdfNotice.code}]`,
+    );
   }
 
   const stored = await storeEinvoiceFiles(container, {
@@ -391,6 +394,7 @@ export async function issueCreditNote({
     documentNumber,
     xmlFileId: stored.xmlFileId,
     pdfFileId: stored.pdfFileId,
+    pdfNotice,
     coveredReturns: coveredReturns.length > 0 ? coveredReturns : null,
     correctedDocumentId: basis.invoice.id,
     // T-192: the VIES answer a K credit note rests on, and the rule it followed.

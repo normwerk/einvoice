@@ -61,6 +61,7 @@ running it repeatedly.
 ✓ src/scenarios/s20-no-vat-charged.test.ts    — a shop that charged no VAT (German tax region at 0 %, or none): refused as NO_VAT_CHARGED, no number taken
 ✓ src/scenarios/s21-set-quantity.test.ts      — a set of two inventory items (a table and four chairs) invoiced as one set
 ✓ src/scenarios/s22-exchange-claim-price-edit.test.ts — an exchange's and a replacement's shipment refused, a refund on an exchange refused, a price edited after the invoice noted
+✓ src/scenarios/s23-base-pdf-not-pdfa.test.ts — a shop PDF with a font it does not embed: the invoice issued as XML alone, with a notice
 ✓ src/scenarios/idempotency.test.ts          — delivering an event a second time never creates a duplicate document
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot without a required option, or with a seller outside Germany

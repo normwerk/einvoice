@@ -113,11 +113,21 @@ confirmed deterministic across a real 1.5s gap, not by timing luck.
   `status="valid"`. For `EN16931` this is consistent rather than a mismatch: XRechnung is a CIUS of
   EN 16931, so a document that conforms to it also conforms to EN 16931.
 
-## What this does _not_ solve yet
+## A PDF rendered elsewhere: checked, not repaired
 
-Fixing an _arbitrary caller-supplied_ PDF whose fonts aren't embedded — the Ghostscript font re-embedding
-fallback the internal spike already showed works, for a PDF this package didn't itself generate — is a
-further `einvoice-pdfa` continuation, not implemented here. `embedInvoiceInPdfA3` still assumes its input
-PDF is already PDF/A-eligible in that sense; `renderInvoicePdf` closes that gap only for the PDF this
-package renders itself, not for a foreign PDF handed to it (e.g. from a PDF-generation plugin elsewhere in
-a host platform, or one passed in through the Medusa adapter's `standalone.basePdf` option).
+`embedInvoiceInPdfA3` adds the attachment, XMP and OutputIntent, and repairs nothing. A PDF rendered elsewhere
+— your own template, another plugin, anything passed through the Medusa adapter's `standalone.basePdf` — is
+checked first with `checkPdfAEligibility(pdfBytes)` (`preflight.ts`, `pdf-lib` alone) for the two defects
+PDF/A does not allow and that embedding cannot fix:
+
+| Your PDF                                                                     | `checkPdfAEligibility`                                       | What the Medusa adapter does                                                                         |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Every font embedded (`FontFile`, `FontFile2` or `FontFile3`), not encrypted  | `{ eligible: true }`                                         | Embeds the XML: a PDF/A-3 ZUGFeRD / Factur-X hybrid                                                  |
+| A font referenced by name only — typically a standard font such as Helvetica | `{ eligible: false, reason: "font-not-embedded", fontName }` | Issues the XML alone and marks the document "XML only" with `PDF_FONT_NOT_EMBEDDED`, naming the font |
+| Encrypted                                                                    | `{ eligible: false, reason: "encrypted" }`                   | Issues the XML alone and marks the document "XML only" with `PDF_ENCRYPTED`                          |
+
+The XML is the e-invoice either way — the PDF is its human-readable companion. To get the hybrid back, embed
+the fonts where the PDF is rendered, or use `renderInvoicePdf`. Re-embedding fonts after the fact takes a font
+renderer such as Ghostscript (`-dPDFA=3`), which re-embeds a standard font with a metric-compatible one; it is
+AGPL-licensed and never runs inside these packages — only as a separate process of your own, before the PDF
+reaches the plugin.

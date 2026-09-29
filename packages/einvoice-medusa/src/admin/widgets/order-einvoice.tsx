@@ -49,6 +49,12 @@ interface EinvoiceDocumentSummary {
     readonly checkedAt: string;
     readonly consultationNumber: string | null;
   } | null;
+  /** T-033: issued as XML alone — the PDF could not become PDF/A. */
+  readonly pdfNotice: {
+    readonly code: string;
+    readonly message: string;
+    readonly docsUrl: string;
+  } | null;
   /** T-201: prices an order edit changed after the invoice was issued. */
   readonly priceNotices: readonly {
     readonly code: string;
@@ -268,6 +274,20 @@ const OrderEinvoiceWidget = ({ data: order }: DetailWidgetProps<HttpTypes.AdminO
                     <Text size="small" className="text-ui-fg-subtle">
                       {document.notice.message}{" "}
                       <CodeLink code={document.notice.code} docsUrl={document.notice.docsUrl} />
+                    </Text>
+                  </div>
+                )}
+                {document.pdfNotice !== null && (
+                  <div className="flex flex-col gap-1">
+                    <Badge size="2xsmall" color="orange" className="self-start">
+                      XML only
+                    </Badge>
+                    <Text size="small" className="text-ui-fg-subtle">
+                      {document.pdfNotice.message}{" "}
+                      <CodeLink
+                        code={document.pdfNotice.code}
+                        docsUrl={document.pdfNotice.docsUrl}
+                      />
                     </Text>
                   </div>
                 )}

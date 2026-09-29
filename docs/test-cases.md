@@ -89,7 +89,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   (`UnrepresentableCharacterError`). The tests call the
   `en16931-cii` profile only; `serializeCii` does not yet vary its output by profile.
 
-### `einvoice-pdfa` (21 tests)
+### `einvoice-pdfa` (24 tests)
 
 - `src/index.test.ts` — `buildXmpPacket` (the hand-written XMP packet, both ZUGFeRD/Factur-X profiles) and
   `embedInvoiceInPdfA3` (determinism — two calls on the same input give byte-identical output — that
@@ -100,8 +100,10 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   lines above post code and city, and the title by document type — "Rechnung / Invoice", "Rechnungskorrektur
   / Credit note" (never "Gutschrift") and "Rechnungskorrektur (berichtigt) / Corrected invoice", a
   correction naming the invoice it corrects, and a type without a title refused.
+- `src/preflight.test.ts` — `checkPdfAEligibility`: the package's own rendering passes, a font referenced by
+  name only (Helvetica) is named, an encrypted PDF is refused.
 
-### `einvoice-medusa` (291 tests)
+### `einvoice-medusa` (296 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -180,6 +182,9 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   record of the fulfillment rather than from its parts (a table and four chairs is one set), a shipped line
   without that record refused, an item naming no order line refused, and a line the order does not have
   refused.
+- `src/pdf.test.ts` — `documentPdf`: the XML embedded into a PDF that can become PDF/A; XML alone, with a
+  notice naming the font, for a PDF with a font it does not embed, and for an encrypted one; no notice when
+  there is no PDF at all.
 - `src/mapping/replacement.test.ts` — exchanges and warranty replacements: an exchange's new item and a
   claim's replacement known, not the item claimed for; a cancelled exchange or claim ignored; the shipment of
   either refused, a shipment mixing one in too; a refund refused on an order with an exchange or a claim with
@@ -201,7 +206,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   each dated the day it shipped, through the real core), an order paid in full stated as paid, a cancelled
   fulfillment not invoiced, a missing one refused, `buildInvoice` warnings logged without the
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
-  number, one stating less issued with its notice, a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown, the VIES answer an intra-EU invoice rests on kept with the document together with its rule, and carried by no event, and the shipment of an exchange's new item refused without a number and announced.
+  number, one stating less issued with its notice, a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown, the VIES answer an intra-EU invoice rests on kept with the document together with its rule, and carried by no event, the shipment of an exchange's new item refused without a number and announced, and a PDF that cannot
+  become PDF/A left out — XML alone, the notice naming the font.
 - `src/mapping/tax-evidence.test.ts` — `taxEvidenceToKeep`: a document of category K keeps the VIES answer
   it rests on, even "unavailable" when the number was confirmed another way; any other document keeps its
   decision and no VIES answer.
@@ -279,7 +285,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 25 files / 40 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 26 files / 41 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID; the VIES answer kept with the invoice), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -311,8 +317,9 @@ inventory items, a table and four chairs: invoiced as one set at the order's tot
 (exchanges, warranty replacements and prices edited after the invoice, through the admin API: an exchange
 S → L — the new item's shipment refused with `SHIPMENT_OF_EXCHANGE`, a refund on the order with
 `REFUND_ON_EXCHANGE`, both announced; a claim with a replacement — its shipment refused with
-`SHIPMENT_OF_CLAIM_REPLACEMENT`; a price lowered by an order edit — "Price changed" on the invoice),
-idempotency (an event
+`SHIPMENT_OF_CLAIM_REPLACEMENT`; a price lowered by an order edit — "Price changed" on the invoice), S23
+(the shop's PDF uses Helvetica without embedding it: the invoice issued as XML alone, KoSIT-green, and the
+admin shows `PDF_FONT_NOT_EMBEDDED` naming the font), idempotency (an event
 delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option; a seller
 outside Germany),
