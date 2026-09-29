@@ -95,9 +95,17 @@ changes to any core Medusa table).
 
 ## 4. Try it
 
-Start the dev server (`npx medusa develop`), then fulfill any real order (admin dashboard, or
-`POST /admin/orders/:id/fulfillments`). Within about a second, open that order's page: a new "E-Invoices"
-side-panel section lists the invoice, with XML (and PDF, once you've done step 5) download links.
+Start the dev server (`npx medusa develop`) and give Germany its VAT rate in Medusa first. The demo data
+`create-medusa-app` seeds creates tax regions without a rate, so its orders charge 0% VAT — and the plugin
+refuses an order on which no VAT was charged (`NO_VAT_CHARGED`). In Medusa Admin, **Settings → Tax Regions
+→ Germany**: the region shows "No default rate"; in its **…** menu choose **Create default tax rate** and
+enter a name (e.g. `Umsatzsteuer 19 %`), **Tax rate** `19` and a **Tax code** (e.g. `DE19`), then **Save**.
+Products sold at 7% get an override of their own under **Overrides → Create**. Medusa fixes an order's tax
+when the order is placed, so place the order after this.
+
+Then fulfill any real order (admin dashboard, or `POST /admin/orders/:id/fulfillments`). Within about a
+second, open that order's page: a new "E-Invoices" section lists the invoice, with XML (and PDF, once you've
+done step 5) download links.
 Refund a captured payment and a credit note appears the same way, for the refunded amount; cancel a
 fulfillment, or the whole order, and a credit note reverses what is still outstanding on its invoice.
 
@@ -197,10 +205,11 @@ shipping is split across the two rates in proportion to the lines' net amounts, 
 less VAT than Medusa charged and is issued with a notice naming shipping as the cause. Before issuing an invoice, the plugin compares
 its VAT and total with what Medusa charged (see [When the invoice and Medusa disagree](#when-the-invoice-and-medusa-disagree)).
 
-On a domestic order, each line is invoiced at the rate Medusa charged on it, which has to be 19% or 7%. A
-line Medusa charged at any other rate — 0% included, which is what a tax region without a default rate
-charges — is refused with an error naming the line, instead of being invoiced at a rate the buyer did not
-pay. Set up the German tax region with its rates before the first order.
+On a domestic order, each line is invoiced at the rate Medusa charged on it, which has to be Germany's rate in
+force on the day of supply — 19% or 7% today. A line Medusa charged at any other rate — 0% included, which is
+what a tax region without a default rate charges — is refused with an error naming the line, instead of
+being invoiced at a rate the buyer did not pay; an order with no VAT charged at all is refused as a whole
+(step 4 sets the rates up).
 
 Tax-inclusive prices (Medusa's price preferences with "Tax inclusive" on) are invoiced as the gross
 amounts Medusa charged: the VAT of each rate is taken out of that rate's gross total, and the net amounts on
@@ -350,7 +359,8 @@ This exact sequence was run against a real, freshly scaffolded `create-medusa-ap
 Postgres), start to finish, and timed: **environment setup (steps 1–3) took under 10 minutes**, and a
 fulfilled order produced a real, KoSIT-validated invoice within seconds of step 4. `@normwerk/einvoice-*`
 aren't published to npm yet — this run substituted `yalc` for step 1's `npm install`, `medusa-config.ts`
-was edited exactly as shown, and every other step ran unmodified. Once these packages are published to npm
+was edited exactly as shown, and every other step ran unmodified. The tax-rate paragraph of step 4 was added
+later: the starter's seed script creates its tax regions without a rate, which the plugin now refuses. Once these packages are published to npm
 for real, this quickstart should be re-run once against the actual npm registry
 before being called final — a `yalc`-substituted install is a faithful stand-in for module resolution, but
 not for npm's own package resolution/version constraints.

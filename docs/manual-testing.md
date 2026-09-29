@@ -58,7 +58,7 @@ section appears in the side column with one row per document; each row's downloa
 `Content-Disposition: attachment` response opened via `target="_blank"` reports as an aborted navigation in
 a sandboxed preview browser, which is expected, not a failure of the route itself).
 
-The same page for the two states the check against what Medusa charged adds (not yet verified in a browser):
+The same page for the two states the check against what Medusa charged adds:
 an invoice issued with a notice shows an orange "Refund due" or "VAT differs from Medusa" badge and the
 explanation under its row; an invoice not issued shows a red "Invoice not issued" badge, the explanation
 and a **Retry** button, which issues `POST .../einvoice/refusals/:refusalId/retry` and reloads the list. To
@@ -66,23 +66,42 @@ reach both on a local stand: a Spanish delivery to a business buyer with a verif
 charging Spanish VAT (the notice), and an order whose shipping option carries a 0% tax rate override (the
 refusal) — the same setup as the end-to-end scenarios S12 and S13.
 
-The rule and the VIES answer (not yet verified in a browser): under each document, a small line "VAT
+The rule and the VIES answer: under each document, a small line "VAT
 category S · tax-semantics#1" (the reasoning on hover); under an intra-EU invoice (end-to-end scenario S2)
 also "VIES: FR… valid on <date> · consultation …".
 
-Codes and support (not yet verified in a browser): every notice's and refusal's code, in brackets after the
+Codes and support: every notice's and refusal's code, in brackets after the
 explanation, opens its anchor on the error reference; a refusal for a buyer in Italy (end-to-end scenario
 S17) also shows "Ask for support of this country", which opens a new GitHub issue with the title and body
 filled in and nothing sent. **Settings → Store** shows an "E-Invoicing" block below the store details: the
 seller country, one line on what the release supports (from `GET /admin/einvoice/support`), and a link to
 the error reference.
 
-Exchanges, prices and the PDF (not yet verified in a browser): a refused exchange or replacement shipment
+Exchanges, prices and the PDF: a refused exchange or replacement shipment
 shows the red "Invoice not issued" badge with its code (`SHIPMENT_OF_EXCHANGE`, `SHIPMENT_OF_CLAIM_REPLACEMENT`
 — end-to-end scenario S22); an invoice whose price an order edit changed shows an orange "Price changed" badge
 naming the line by its title and what to do; an invoice issued without its PDF shows an orange "XML only"
 badge naming the font (`PDF_FONT_NOT_EMBEDDED` — S23) and no PDF download icon. A credit note's PDF from
-`renderInvoicePdf` is titled "Rechnungskorrektur / Credit note" and names the invoice it corrects.
+`renderInvoicePdf` is titled "Rechnungskorrektur" over "Credit note" and names the invoice it corrects
+("zu Rechnung RE-… vom …", "for invoice RE-… of …").
+
+All of the above was last checked on 2026-09-29, Medusa 2.21.0, on the orders the end-to-end scenarios leave
+behind — every badge, line, code link and the Retry request as described. How to repeat it:
+
+1. `EINVOICE_E2E_KEEP_STAND=1 pnpm e2e` — the stand stays up with every scenario's orders.
+2. The stand's Medusa serves no dashboard (`admin: { disable: true }` in `e2e/app/medusa-config.ts`), so
+   start a second one from a copy of its container, on the stand's network (`einvoice-e2e_default`), with the
+   same database: `docker export einvoice-e2e-medusa-1 | docker import - <image>` (a `docker commit` copy
+   published no port here). In it: set `admin: { disable: false }`, add
+   `cookieOptions: { secure: false }` to `projectConfig` (the dashboard is served over plain HTTP, and a
+   secure session cookie is never sent back), run `medusa build`, link `.medusa/server/public` to `public`,
+   and run `medusa start` with `NODE_ENV=staging` on a port of its own. `medusa develop` does not do here:
+   its dashboard fails to load the `virtual:medusa/i18n` module.
+3. Log in with the stand's admin (`e2e/src/harness/env.ts`). The orders are named after their scenario in
+   the customer's e-mail (`s12-buyer@…`, `s23-buyer@…`).
+
+The credit note's PDF was checked by its text: `renderInvoicePdf` embeds its fonts with a Unicode map, so the
+title and the reference lines can be read out of the file.
 
 No screenshot of this is committed to the repository — the environment this was built in has no accessible
 display for a real screenshot (`screencapture` genuinely fails with "could not create image from display",
