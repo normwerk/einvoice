@@ -271,7 +271,7 @@ completeness since it's as much a "test suite" as the vitest ones above, just on
 | L1+L2 | Same, starting from a synthetic Medusa order through the real adapter; 3× per run for determinism                                                                                                                                                                                          | `pnpm conformance:tax-matrix`     | 22/22 (cells with a validated build-axis outcome), `packages/einvoice-medusa/fixtures/tax-matrix/` |
 | L3    | Real veraPDF `--flavour 3b` + Mustang `validate` (PDF/A-3b, XMP conformance), both ZUGFeRD profiles                                                                                                                                                                                        | `pnpm conformance:pdfa`           | 28/28 (14 fixtures × `XRECHNUNG`, `EN16931`)                                                       |
 | L4    | Differential oracle vs. `@e-invoice-eu/core`                                                                                                                                                                                                                                               | `pnpm conformance:oracle-eu`      | 14 (2 byte-identical, 12 classified, 0 unreviewed)                                                 |
-| L4    | Differential oracle vs. `@stackforge-eu/factur-x`                                                                                                                                                                                                                                          | `pnpm conformance:oracle-facturx` | 14 (13 classified, 1 unmappable, 0 unreviewed)                                                     |
+| L4    | Differential oracle vs. `@stackforge-eu/factur-x`                                                                                                                                                                                                                                          | `pnpm conformance:oracle-facturx` | 14 (2 byte-identical, 11 classified, 1 unmappable, 0 unreviewed)                                   |
 | L5    | Mustang (a second, independent implementation) validates each fixture's CII XML with its arithmetic check, then parses it into its own model and writes it out as UBL; the totals, VAT breakdown and each line's quantity and net amount in that UBL are compared with the fixture's model | `pnpm conformance:roundtrip`      | 14/14                                                                                              |
 
 `AGENTS.md` §8 governs what each level actually proves and what it's forbidden to claim — none of the above
@@ -329,16 +329,21 @@ Spanish one 21%.
 
 ## CI wiring
 
-`.github/workflows/ci.yml` runs, across six jobs: the full vitest suite, the `node --test` tooling suite,
-`pnpm license-scan`, two codegen-determinism checks (`einvoice-model`, `einvoice-pdfa`'s ICC/font
-generation) and two L4-oracle-report-is-up-to-date checks (all four "must give a zero diff on a clean tree"
-gates, ADR-002), a Docker smoke test against a vendored KoSIT test document, and the four fixture-based
-conformance jobs above (`conformance-fixtures`, `conformance-commerce`, `conformance-tax-matrix`,
-`conformance-pdfa`). Every job listed here has
-also been run and passed locally, on the same commands CI itself invokes, not merely written and assumed
-correct.
+`.github/workflows/ci.yml` runs, across six jobs: typecheck, lint, the full vitest suite with its coverage
+floors, the `node --test` tooling suite, `pnpm license-scan`, three codegen gates that must give a zero diff
+on a clean tree (`einvoice-model`, `einvoice-pdfa`'s ICC profile and fonts, and the whole `pnpm codegen`,
+which includes the mapping reference and the supported-countries page), two L4-oracle-report-is-up-to-date
+checks, a Docker smoke test against a vendored KoSIT test document, and the four fixture-based conformance
+jobs above (`conformance-fixtures`, `conformance-commerce`, `conformance-tax-matrix`, `conformance-pdfa`).
+Every job listed here has also been run and passed locally, on the same commands CI itself invokes, not
+merely written and assumed correct.
 
 `.github/workflows/e2e.yml` runs the end-to-end suite above separately — nightly and on
 `workflow_dispatch`, not on every push/PR, since a full Docker Compose stand boot is minutes of work per
 run and the integration surface it covers changes slowly. Run and passed locally against the same command
 (`pnpm e2e`).
+
+`.github/workflows/release.yml`, on a `vX.Y.Z` tag, runs build, typecheck, lint, the unit tests, the licence
+scan and every conformance level before anything is published, and attaches the conformance report to the
+GitHub release. `.github/workflows/ustg-watch.yml` checks weekly whether § 12 or § 28 UStG changed against
+the text the rate table was checked against (see [`docs/sources.md`](sources.md)).
