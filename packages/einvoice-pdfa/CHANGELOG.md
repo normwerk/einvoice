@@ -4,10 +4,11 @@
 
 ### Minor Changes
 
-- First public release (v0.1.0): EN 16931/XRechnung 3.0/ZUGFeRD e-invoicing for Germany's B2B mandate, with a
-  Medusa v2 plugin adapter (`@normwerk/einvoice-medusa`) — order/refund → KoSIT-validated XRechnung CII XML,
-  optional PDF/A-3 (ZUGFeRD/Factur-X hybrid), idempotent event handling, File Module storage, admin widget,
-  and Store API endpoint.
+- First release. `embedInvoiceInPdfA3` embeds the CII XML into a PDF as a PDF/A-3b ZUGFeRD / Factur-X
+  hybrid — output intent, XMP metadata and the XML attachment. `checkPdfAEligibility` tells beforehand
+  whether a PDF can become PDF/A: an encrypted PDF, or one using a font it does not embed, cannot, and is
+  not repaired. `renderInvoicePdf` draws a plain A4 invoice or credit note, fonts embedded, for a shop with
+  no PDF of its own. Checked by veraPDF and Mustang.
 
 ### Patch Changes
 

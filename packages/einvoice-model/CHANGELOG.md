@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- First public release (v0.1.0): EN 16931/XRechnung 3.0/ZUGFeRD e-invoicing for Germany's B2B mandate, with a
-  Medusa v2 plugin adapter (`@normwerk/einvoice-medusa`) — order/refund → KoSIT-validated XRechnung CII XML,
-  optional PDF/A-3 (ZUGFeRD/Factur-X hybrid), idempotent event handling, File Module storage, admin widget,
-  and Store API endpoint.
+- First release. The EN 16931 semantic model as TypeScript types — invoices and credit notes, every field
+  citing its business term (BT/BG) — generated from the official CEN artifacts, with the code lists their
+  rules check, a JSON Schema and `validateModel`. `EinvoiceError` gives every refusal across the packages a
+  stable code that links to its explanation.
