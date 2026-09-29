@@ -77,6 +77,13 @@ filled in and nothing sent. **Settings → Store** shows an "E-Invoicing" block 
 seller country, one line on what the release supports (from `GET /admin/einvoice/support`), and a link to
 the error reference.
 
+Exchanges, prices and the PDF (not yet verified in a browser): a refused exchange or replacement shipment
+shows the red "Invoice not issued" badge with its code (`SHIPMENT_OF_EXCHANGE`, `SHIPMENT_OF_CLAIM_REPLACEMENT`
+— end-to-end scenario S22); an invoice whose price an order edit changed shows an orange "Price changed" badge
+naming the line by its title and what to do; an invoice issued without its PDF shows an orange "XML only"
+badge naming the font (`PDF_FONT_NOT_EMBEDDED` — S23) and no PDF download icon. A credit note's PDF from
+`renderInvoicePdf` is titled "Rechnungskorrektur / Credit note" and names the invoice it corrects.
+
 No screenshot of this is committed to the repository — the environment this was built in has no accessible
 display for a real screenshot (`screencapture` genuinely fails with "could not create image from display",
 confirmed, not assumed) and the preview browser tool used has no "save frame to file" capability either.

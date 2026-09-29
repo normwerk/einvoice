@@ -676,3 +676,8 @@ integrations` itself states the list "is curated from npm," and its own visible 
 - **An order edit may change a shipped line's price.** `ITEM_UPDATE` with `unit_price` (`item-update.js`) only
   refuses a quantity below what was fulfilled. `order-edit.confirmed` carries `{ order_id, actions }`; the
   confirmed edits are also readable as `order_change` with `change_type: "edit"`, `status: "confirmed"`.
+- **An exchange's or claim's new item is reserved only with an outbound shipping method.** Confirming the
+  request reserves stock for it only when the exchange or claim has one (`confirm-exchange-request.js`,
+  `confirm-claim-request.js`); without it, fulfilling the new item fails with "No stock reservation found".
+- **Confirming an exchange cancels a payment that is only authorized.** Capture the order's payment first if
+  a refund is to follow (checked on 2.21.0, end-to-end scenario S22).
