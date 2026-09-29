@@ -1,0 +1,45 @@
+name: Bug
+description: A document that is wrong, a refusal that should not happen, or anything else that does not work.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use synthetic data only. Never paste a real invoice, a customer's name, address, VAT-ID or bank
+        details. A vulnerability goes to the security policy, not to an issue.
+  - type: input
+    id: versions
+    attributes:
+      label: Package versions
+      description: The `@normwerk/*` packages you run and their versions.
+      placeholder: "@normwerk/einvoice-medusa 0.1.0, …"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Medusa and Node.js versions
+      placeholder: "Medusa 2.21.1, Node.js 22.12.0"
+  - type: input
+    id: code
+    attributes:
+      label: Error code
+      description: If a document was refused, the code shown for it in the order's "E-Invoices" block.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The order, refund or configuration that leads to it, with synthetic data.
+  - type: checkboxes
+    id: data
+    attributes:
+      label: Data
+      options:
+        - label: This issue contains no real invoice and no real personal data.
+          required: true

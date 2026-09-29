@@ -1,0 +1,38 @@
+name: Country or document profile
+description: Ask for a country, a buyer's document profile or a delivery network that is not supported yet.
+labels: ["country-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        What is covered today, and what is planned, is in the README's country roadmap. Requests like this
+        one decide what comes next.
+  - type: input
+    id: seller
+    attributes:
+      label: Where the seller is established
+      placeholder: "Germany"
+    validations:
+      required: true
+  - type: input
+    id: buyer
+    attributes:
+      label: Where the buyers are, and who they are
+      description: Businesses, public-sector buyers or consumers.
+    validations:
+      required: true
+  - type: input
+    id: format
+    attributes:
+      label: Document or network the buyer expects
+      placeholder: "Peppol BIS Billing 3.0, XRechnung, Factur-X, …"
+  - type: input
+    id: deadline
+    attributes:
+      label: When you need it
+      description: A mandate date, or your own deadline.
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Your platform, if it is not Medusa, or what you do today instead.

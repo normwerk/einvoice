@@ -14,6 +14,7 @@ MIT-licensed TypeScript core for structured e-invoices ([EN 16931](https://en.wi
 - [Country roadmap](#country-roadmap)
 - [Other planned work](#other-planned-work)
 - [Development](#development)
+- [Contributing and maintenance](#contributing-and-maintenance)
 - [License](#license)
 - [Commercial support](#commercial-support)
 
@@ -202,6 +203,18 @@ pnpm conformance validate <file.xml|file.pdf>
 ```
 
 See [`docs/README.md`](docs/README.md) for more.
+
+## Contributing and maintenance
+
+How to report a bug, ask for a country and open a pull request: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Vulnerabilities are reported privately, as [`SECURITY.md`](SECURITY.md) describes. Everyone taking part
+follows the [code of conduct](CODE_OF_CONDUCT.md).
+
+Issues and pull requests get a first answer within three business days, and the plugin's
+[compatibility table](packages/einvoice-medusa/README.md#compatibility) is kept current with Medusa
+releases. If the project is ever wound down, it will say so here first: this README will open with "Looking
+for a maintainer" and the date of the last release, and the repository will be archived read-only rather
+than left to go quiet.
 
 ## License
 
