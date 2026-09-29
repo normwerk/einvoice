@@ -19,10 +19,11 @@ pnpm format || exit 1
 pnpm license-scan || exit 1
 pnpm test || exit 1
 pnpm coverage || exit 1
-node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/license-scan/*.test.mjs || exit 1
+# The same tooling tests as ci.yml's node --test step.
+node --test tools/codegen/model/*.test.mjs tools/conformance/oracle-e-invoice-eu/*.test.mjs tools/conformance/oracle-stackforge-facturx/*.test.mjs tools/conformance/roundtrip-mustang/*.test.mjs tools/license-scan/*.test.mjs tools/rates/*.test.mjs || exit 1
 
 echo "pre-push checks passed."
 echo "Not run here (both are CI-only — the Docker-based one is slow, the codegen one mutates files as a"
 echo "side effect of checking them): the codegen-determinism gates and the Docker conformance suite"
 echo "(KoSIT/veraPDF/Mustang, L1-L5). Run 'pnpm codegen && git status' or 'pnpm conformance:fixtures' etc."
-echo "yourself before a release, or rely on CI once this repo has a GitHub remote."
+echo "yourself, or rely on CI, which runs both on every push to main and every pull request."
