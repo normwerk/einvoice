@@ -51,15 +51,31 @@
  * loses the insert, not just a wasted document number — `result.created === false` is the signal to clean
  * those up (`deleteEinvoiceFiles`), a real, small extension of an already-documented edge case rather than
  * a new one.
+ *
+ * T-211 (D-59): decision and side effects are two steps. `planInvoiceForFulfillment` decides — idempotency,
+ * the mapping, the VAT-ID check, the check build, the check against what Medusa charged — and only reads:
+ * no refusal recorded, no event, no number, no file, no log line, and the shop's `basePdf` is not called.
+ * `issueInvoiceForFulfillment` runs the plan and then commits what it decided: a refusal recorded and
+ * announced, or the number, the build, the PDF, the files, the document and its event. The audit command
+ * runs the plan alone over past orders, with a VAT-ID verifier of its own (`IssuancePlanOverrides`).
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
+import type {
+  BuildInvoiceOptions,
+  BuildResult,
+  CommerceInvoiceInput,
+  EInvoiceProfileName,
+  VatIdVerifier,
+} from "@normwerk/einvoice-commerce" with {
+  "resolution-mode": "import",
+};
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import type { EinvoiceDocumentRecord, EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
 import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
-import { recordRefusalOfError } from "../refusals.js";
+import { recordRefusalOfError, type RefusalTarget } from "../refusals.js";
 import { invoicedLineValues } from "../mapping/credit-note.js";
 import {
   issueDateInSellerTimeZone,
@@ -74,6 +90,7 @@ import {
   chargedForShipment,
   describeChargedReconciliation,
   reconcileWithCharged,
+  type InvoiceBlock,
   type InvoiceNotice,
 } from "../mapping/charged-reconciliation.js";
 import { assertNoReplacementShipped, replacementLines } from "../mapping/replacement.js";
@@ -127,10 +144,49 @@ export type IssueInvoiceOutcome =
    * taken; the refusal is recorded. */
   | { readonly kind: "blocked"; readonly refusal: EinvoiceRefusalRecord; readonly message: string };
 
-export async function issueInvoiceForFulfillment(
+/** T-211: what a plan can be given in place of the plugin's own options. */
+export interface IssuancePlanOverrides {
+  /** Checks the buyer's VAT-ID in place of the `vatIdVerifier` option — the audit command's caching one. */
+  readonly vatIdVerifier?: VatIdVerifier;
+}
+
+/** T-211: an invoice that can be issued — everything decided, nothing written yet. */
+export interface ReadyInvoicePlan {
+  readonly kind: "ready";
+  readonly order: MedusaOrderForInvoice;
+  readonly input: CommerceInvoiceInput;
+  readonly profile: EInvoiceProfileName;
+  readonly buildOptions: BuildInvoiceOptions;
+  /** The invoice built with `UNALLOCATED_DOCUMENT_NUMBER`: every refusal has run, and the number changes no
+   * amount. */
+  readonly check: BuildResult;
+  readonly shipment: ShipmentScope;
+  readonly notice: InvoiceNotice | null;
+}
+
+/** T-211: what issuing the invoice for a fulfillment would do. */
+export type InvoicePlan =
+  /** A document for this fulfillment already exists. */
+  | { readonly kind: "exists" }
+  /** The order is gone. */
+  | { readonly kind: "order-missing" }
+  /** P-67: the fulfillment was cancelled before its invoice was issued. */
+  | { readonly kind: "fulfillment-canceled" }
+  /** Refused before a number is taken (P-66): `error` is what the commit records. */
+  | { readonly kind: "refused"; readonly error: unknown }
+  /** The invoice disagrees with what Medusa charged (P-63). */
+  | { readonly kind: "blocked"; readonly block: InvoiceBlock }
+  | ReadyInvoicePlan;
+
+/**
+ * T-211: decides the invoice for one fulfillment. Reads the order and the plugin's documents and checks the
+ * buyer's VAT-ID; records, announces, numbers, stores and logs nothing.
+ */
+export async function planInvoiceForFulfillment(
   container: MedusaContainer,
   { orderId, fulfillmentId }: IssueInvoiceRequest,
-): Promise<IssueInvoiceOutcome> {
+  overrides: IssuancePlanOverrides = {},
+): Promise<InvoicePlan> {
   const einvoiceService = container.resolve<EinvoiceModuleService>(EINVOICE_MODULE);
 
   const existing = await einvoiceService.listEinvoiceDocuments({
@@ -156,26 +212,16 @@ export async function issueInvoiceForFulfillment(
 
   const fulfillment = order.fulfillments?.find((candidate) => candidate.id === fulfillmentId);
   if (fulfillment?.canceled_at !== null && fulfillment?.canceled_at !== undefined) {
-    await einvoiceService.clearRefusal("invoice", fulfillmentId);
     return { kind: "fulfillment-canceled" };
   }
 
   const commerce = await import("@normwerk/einvoice-commerce");
-  const cii = await import("@normwerk/einvoice-cii");
 
   const now = () => einvoiceService.options.now?.() ?? new Date();
   const issueDate = issueDateInSellerTimeZone(einvoiceService.options.seller.countryCode, now());
-  const refused = async (error: unknown): Promise<IssueInvoiceOutcome> => ({
-    kind: "blocked",
-    ...(await recordRefusalOfError(
-      container,
-      einvoiceService,
-      { type: "invoice", orderId: order.id, idempotencyKey: fulfillmentId },
-      error,
-    )),
-  });
+  const vatIdVerifier = overrides.vatIdVerifier ?? einvoiceService.options.vatIdVerifier;
 
-  // P-66: everything up to the check build can refuse the invoice — recorded, not thrown.
+  // P-66: everything up to the check build can refuse the invoice — recorded by the commit, not thrown.
   const prepare = async () => {
     if (fulfillment === undefined) {
       throw new PluginError(
@@ -240,9 +286,8 @@ export async function issueInvoiceForFulfillment(
     // (ADR-003). Only attempted when both a verifier is configured and the buyer actually has a VAT-ID to
     // check; omitting either keeps category K unreachable, same as today (service.ts's own doc comment).
     const vatIdEvidence =
-      einvoiceService.options.vatIdVerifier !== undefined &&
-      input.taxContext.buyerVatId !== undefined
-        ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
+      vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
+        ? await vatIdVerifier.verify(input.taxContext.buyerVatId, now())
         : undefined;
 
     const buildOptions = vatIdEvidence === undefined ? {} : { vatIdEvidence };
@@ -259,44 +304,112 @@ export async function issueInvoiceForFulfillment(
   try {
     prepared = await prepare();
   } catch (error) {
-    return refused(error);
+    return { kind: "refused", error };
   }
   const { input, profile, buildOptions, check, shipment } = prepared;
 
   // P-63: the check against what Medusa charged runs on the check build's totals — the number does not
   // change them — so a blocked invoice takes no number either.
-  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
   const reconciliation = reconcileWithCharged(
     order,
     check.invoice,
     chargedForShipment(order, shipment),
   );
   if (reconciliation.outcome === "block") {
-    const message = describeChargedReconciliation(reconciliation.block);
-    logger.warn(
-      `einvoice: order ${order.id}: invoice for fulfillment ${fulfillmentId} — ${message} ` +
-        `[${reconciliation.block.code}]`,
-    );
-    const refusal = await einvoiceService.recordRefusal({
-      type: "invoice",
-      orderId: order.id,
-      idempotencyKey: fulfillmentId,
-      code: reconciliation.block.code,
-      details: { ...reconciliation.block },
-    });
-    // P-71: the shop's own code hears of it.
-    await emitIssuanceBlocked(container, {
-      refusal_id: refusal.id,
-      order_id: order.id,
-      type: "invoice",
-      code: refusal.code,
-    });
-    return { kind: "blocked", refusal, message };
+    return { kind: "blocked", block: reconciliation.block };
   }
-  const notice = reconciliation.outcome === "notice" ? reconciliation.notice : null;
+  return {
+    kind: "ready",
+    order,
+    input,
+    profile,
+    buildOptions,
+    check,
+    shipment,
+    notice: reconciliation.outcome === "notice" ? reconciliation.notice : null,
+  };
+}
+
+/** Issues the invoice for one fulfillment: `planInvoiceForFulfillment`, then what it decided is committed. */
+export async function issueInvoiceForFulfillment(
+  container: MedusaContainer,
+  request: IssueInvoiceRequest,
+): Promise<IssueInvoiceOutcome> {
+  const plan = await planInvoiceForFulfillment(container, request);
+  const einvoiceService = container.resolve<EinvoiceModuleService>(EINVOICE_MODULE);
+  switch (plan.kind) {
+    case "exists":
+    case "order-missing":
+      return plan;
+    case "fulfillment-canceled":
+      await einvoiceService.clearRefusal("invoice", request.fulfillmentId);
+      return plan;
+    case "refused": {
+      const target: RefusalTarget = {
+        type: "invoice",
+        orderId: request.orderId,
+        idempotencyKey: request.fulfillmentId,
+      };
+      return {
+        kind: "blocked",
+        ...(await recordRefusalOfError(container, einvoiceService, target, plan.error)),
+      };
+    }
+    case "blocked":
+      return recordBlock(container, einvoiceService, request, plan.block);
+    case "ready":
+      return issuePlannedInvoice(container, einvoiceService, request, plan);
+  }
+}
+
+/** P-63: an invoice that disagrees with what Medusa charged — recorded as a refusal, logged, announced. */
+async function recordBlock(
+  container: MedusaContainer,
+  einvoiceService: EinvoiceModuleService,
+  { orderId, fulfillmentId }: IssueInvoiceRequest,
+  block: InvoiceBlock,
+): Promise<IssueInvoiceOutcome> {
+  const message = describeChargedReconciliation(block);
+  container
+    .resolve(ContainerRegistrationKeys.LOGGER)
+    .warn(
+      `einvoice: order ${orderId}: invoice for fulfillment ${fulfillmentId} — ${message} ` +
+        `[${block.code}]`,
+    );
+  const refusal = await einvoiceService.recordRefusal({
+    type: "invoice",
+    orderId,
+    idempotencyKey: fulfillmentId,
+    code: block.code,
+    details: { ...block },
+  });
+  // P-71: the shop's own code hears of it.
+  await emitIssuanceBlocked(container, {
+    refusal_id: refusal.id,
+    order_id: orderId,
+    type: "invoice",
+    code: refusal.code,
+  });
+  return { kind: "blocked", refusal, message };
+}
+
+/** T-211: the commit of a ready plan — the number, the real build, the PDF, the files, the document, the
+ * event. */
+async function issuePlannedInvoice(
+  container: MedusaContainer,
+  einvoiceService: EinvoiceModuleService,
+  { fulfillmentId }: IssueInvoiceRequest,
+  { order, input, profile, buildOptions, check, shipment, notice }: ReadyInvoicePlan,
+): Promise<IssueInvoiceOutcome> {
+  const commerce = await import("@normwerk/einvoice-commerce");
+  const cii = await import("@normwerk/einvoice-cii");
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
   const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
-  const documentNumber = await numberer.next({ kind: "invoice", issueDate });
+  const documentNumber = await numberer.next({
+    kind: "invoice",
+    issueDate: input.document.issueDate,
+  });
 
   // P-67: an order paid in full before it shipped — the invoice states its total as paid.
   const paidAmount = orderPaidInFull(order) ? check.invoice.totals.totalAmountWithVat : undefined;

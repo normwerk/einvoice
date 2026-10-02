@@ -108,6 +108,13 @@ details hold its message and class (and, for a credit note, the event its retry 
 unsupported buyer country, the country). The subscriber completes instead of
 throwing. A cancelled order's invoice refusals are dropped.
 
+Deciding and writing are two steps. `planInvoiceForFulfillment` (`src/invoices/issue-invoice.ts`) and
+`planCreditNote` (`src/credit-notes/issue-credit-note.ts`) decide: they read the order and the plugin's
+documents, check the VAT-ID, and return the outcome — refused, blocked, or ready with the document built
+without a number — while recording, announcing, numbering, storing and logging nothing, and without calling
+the shop's `basePdf`. `issueInvoiceForFulfillment` and `issueCreditNote` run them and write what they decided.
+Which invoice a refund credits, and how much, is still decided in the credit-note subscribers.
+
 `GET /admin/orders/:id/einvoice` returns both: `documents` (each with its `notice`, or `null`) and
 `refusals` (each with its explanation, a `retryUrl`, and for an unsupported buyer country a
 `supportRequestUrl` — a new issue in the public repository, filled in with the country only). Every notice

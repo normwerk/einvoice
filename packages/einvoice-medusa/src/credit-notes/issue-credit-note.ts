@@ -10,13 +10,27 @@
  * allocated, so neither burns a number. P-66: a refusal there is recorded (`refusals.ts`) rather than thrown
  * — shown in the admin, and retried by redelivering the event named in `trigger`.
  *
+ * T-211 (D-59): as for an invoice (`invoices/issue-invoice.ts`), `planCreditNote` decides and only reads;
+ * `issueCreditNote` runs it and commits — a refusal recorded and announced, or the number, the build, the PDF,
+ * the files, the document and its event. What the subscribers decide before it — which invoice a refund
+ * credits, how much, the refusals they record themselves — is not part of the plan.
+ *
  * Same dynamic-import pattern as the subscribers (ESM-only core packages, CommonJS plugin build).
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
+import type {
+  BuildInvoiceOptions,
+  BuildResult,
+  CommerceInvoiceInput,
+  EInvoiceProfileName,
+} from "@normwerk/einvoice-commerce" with {
+  "resolution-mode": "import",
+};
 import type { Amount, IsoDate } from "@normwerk/einvoice-model" with {
   "resolution-mode": "import",
 };
+import type { IssuancePlanOverrides } from "../invoices/issue-invoice.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
 import type { EinvoiceDocumentRecord } from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
@@ -198,34 +212,41 @@ export type IssueCreditNoteOutcome =
   /** Refused before a number was taken (P-66); the refusal is recorded. */
   | { readonly kind: "blocked"; readonly refusal: EinvoiceRefusalRecord; readonly message: string };
 
-export async function issueCreditNote({
-  container,
-  einvoiceService,
-  order,
-  basis,
-  scope,
-  idempotencyKey,
-  reason,
-  trigger,
-}: IssueCreditNoteInput): Promise<IssueCreditNoteOutcome> {
+/** T-211: what a credit note's plan reads — the request less what only the commit writes with. */
+export type CreditNotePlanRequest = Pick<
+  IssueCreditNoteInput,
+  "container" | "einvoiceService" | "order" | "basis" | "scope" | "reason"
+>;
+
+/** T-211: what issuing a credit note would do. */
+export type CreditNotePlan =
+  /** Refused before a number is taken (P-66): `error` is what the commit records. */
+  | { readonly kind: "refused"; readonly error: unknown }
+  | {
+      readonly kind: "ready";
+      readonly input: CommerceInvoiceInput;
+      readonly profile: EInvoiceProfileName;
+      readonly buildOptions: BuildInvoiceOptions;
+      /** The credit note built with `UNALLOCATED_DOCUMENT_NUMBER`: every refusal has run. */
+      readonly check: BuildResult;
+      readonly coveredReturns: readonly CoveredReturn[];
+    };
+
+/**
+ * T-211: decides a credit note. Reads the order's returns and checks the buyer's VAT-ID when the invoice kept
+ * no decision; records, announces, numbers, stores and logs nothing.
+ */
+export async function planCreditNote(
+  { container, einvoiceService, order, basis, scope, reason }: CreditNotePlanRequest,
+  overrides: IssuancePlanOverrides = {},
+): Promise<CreditNotePlan> {
   const commerce = await import("@normwerk/einvoice-commerce");
-  const cii = await import("@normwerk/einvoice-cii");
-  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
   const now = () => einvoiceService.options.now?.() ?? new Date();
   const issueDate = issueDateInSellerTimeZone(einvoiceService.options.seller.countryCode, now());
+  const vatIdVerifier = overrides.vatIdVerifier ?? einvoiceService.options.vatIdVerifier;
 
-  const refused = async (error: unknown): Promise<IssueCreditNoteOutcome> => ({
-    kind: "blocked",
-    ...(await recordRefusalOfError(
-      container,
-      einvoiceService,
-      { type: "credit_note", orderId: order.id, idempotencyKey, trigger },
-      error,
-    )),
-  });
-
-  // P-66: everything up to the check build can refuse the credit note — recorded, not thrown.
+  // P-66: everything up to the check build can refuse the credit note — recorded by the commit, not thrown.
   const prepare = async () => {
     let input = mapOrderToCommerceInvoiceInput(order, {
       seller: einvoiceService.options.seller,
@@ -260,9 +281,8 @@ export async function issueCreditNote({
     const vatIdEvidence =
       correctedInvoiceDecision !== undefined
         ? (basis.invoice.vat_id_evidence ?? undefined)
-        : einvoiceService.options.vatIdVerifier !== undefined &&
-            input.taxContext.buyerVatId !== undefined
-          ? await einvoiceService.options.vatIdVerifier.verify(input.taxContext.buyerVatId, now())
+        : vatIdVerifier !== undefined && input.taxContext.buyerVatId !== undefined
+          ? await vatIdVerifier.verify(input.taxContext.buyerVatId, now())
           : undefined;
 
     // P-65: a partial credit states what it credits at each rate — received returns first, at their own
@@ -337,22 +357,47 @@ export async function issueCreditNote({
       ...(correctedInvoiceDecision === undefined ? {} : { correctedInvoiceDecision }),
     };
     // P-48: refusals before a document number is taken — see invoices/issue-invoice.ts.
-    commerce.buildInvoice(
+    const check = commerce.buildInvoice(
       { ...input, document: { ...input.document, number: UNALLOCATED_DOCUMENT_NUMBER } },
       buildOptions,
     );
-    return { input, profile, buildOptions, coveredReturns };
+    return { input, profile, buildOptions, check, coveredReturns };
   };
-  let prepared: Awaited<ReturnType<typeof prepare>>;
   try {
-    prepared = await prepare();
+    return { kind: "ready", ...(await prepare()) };
   } catch (error) {
-    return refused(error);
+    return { kind: "refused", error };
   }
-  const { input, profile, buildOptions, coveredReturns } = prepared;
+}
+
+/** Issues a credit note: `planCreditNote`, then what it decided is committed. */
+export async function issueCreditNote(
+  request: IssueCreditNoteInput,
+): Promise<IssueCreditNoteOutcome> {
+  const { container, einvoiceService, order, basis, idempotencyKey, reason, trigger } = request;
+  const plan = await planCreditNote(request);
+  if (plan.kind === "refused") {
+    return {
+      kind: "blocked",
+      ...(await recordRefusalOfError(
+        container,
+        einvoiceService,
+        { type: "credit_note", orderId: order.id, idempotencyKey, trigger },
+        plan.error,
+      )),
+    };
+  }
+  const { input, profile, buildOptions, coveredReturns } = plan;
+
+  const commerce = await import("@normwerk/einvoice-commerce");
+  const cii = await import("@normwerk/einvoice-cii");
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
   const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
-  const documentNumber = await numberer.next({ kind: "credit-note", issueDate });
+  const documentNumber = await numberer.next({
+    kind: "credit-note",
+    issueDate: input.document.issueDate,
+  });
 
   const buildResult = commerce.buildInvoice(
     { ...input, document: { ...input.document, number: documentNumber } },

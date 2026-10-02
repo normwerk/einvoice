@@ -105,7 +105,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   it directly rather than by reference, and a font without a name is called "(unnamed)"; an encrypted PDF is
   refused.
 
-### `einvoice-medusa` (296 tests)
+### `einvoice-medusa` (304 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -210,6 +210,12 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
   number, one stating less issued with its notice, a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown, the VIES answer an intra-EU invoice rests on kept with the document together with its rule, and carried by no event, the shipment of an exchange's new item refused without a number and announced, and a PDF that cannot
   become PDF/A left out — XML alone, the notice naming the font.
+- `src/invoices/issue-invoice.test.ts` and `src/credit-notes/issue-credit-note.test.ts` —
+  `planInvoiceForFulfillment` and `planCreditNote` decide without writing: a refused document and an invoice
+  stating more VAT than Medusa charged come back as outcomes with nothing recorded, announced, numbered,
+  stored or logged; a cancelled fulfillment's refusal is left alone; a ready document is built once, without
+  a number, and the shop's PDF is not asked for; the VAT-ID is checked with the verifier given in place of
+  the plugin's own.
 - `src/mapping/tax-evidence.test.ts` — `taxEvidenceToKeep`: a document of category K keeps the VIES answer
   it rests on, even "unavailable" when the number was confirmed another way; any other document keeps its
   decision and no VIES answer.

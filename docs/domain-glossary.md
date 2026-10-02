@@ -297,6 +297,12 @@ installed `@medusajs/*` package's compiled source.
     the plugin's e2e proof (not anticipated from reading `build-invoice.ts` or the base Schematron alone) —
     each fix was verified by re-running the same validator until it returned `ACCEPTABLE`, not just by making
     the error message go away.
+- **A plan writes nothing — the log included.** `planInvoiceForFulfillment` and `planCreditNote` return a
+  refusal as `{ kind: "refused", error }` and a block as `{ kind: "blocked", block }`; only the commit
+  (`issueInvoiceForFulfillment`, `issueCreditNote`) records, announces and logs them. Easy to break by
+  "just" adding a `logger.warn` or a `clearRefusal` to the decision: a plan run over a shop's past orders
+  would then write to its log or its refusals. The commit reads the issue date back from
+  `input.document.issueDate`, so plan and commit cannot straddle midnight with two dates.
 
 ### `@webbers/invoices-medusa` integration
 
