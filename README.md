@@ -150,6 +150,11 @@ responsible for your invoices. Provided "as is" under the MIT licence.
 | `@normwerk/einvoice-conformance` | Dev tooling: runs official validators against fixtures             |
 | `@normwerk/einvoice-ubl`         | OASIS UBL 2.1 serializer — a scaffold, planned for a later release |
 
+Of the Medusa plugin, semantic versioning covers only its
+[documented interface](packages/einvoice-medusa/README.md#versioning) — options, events, routes, admin
+widget, tables and field mapping; its other files can be imported, because Medusa loads them by path, but
+are internal and change in any release.
+
 ## Getting started
 
 Once 0.1.0 is published to npm, a Medusa v2 store — Medusa 2.12–2.15, or 2.18 or a later 2.x release, on

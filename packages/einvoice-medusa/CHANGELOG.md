@@ -12,6 +12,8 @@
   document shows its reason and code in the order's "E-Invoices" block and can be issued again; exchanges
   and warranty replacements are refused visibly, and a price edited after the invoice is noted. The plugin
   does not start for a seller outside Germany or on a Medusa release it has not been shown to work on.
+  Semantic versioning covers its documented interface only — [Versioning](README.md#versioning); every
+  other file in the package is internal.
 
 ### Patch Changes
 

@@ -64,6 +64,16 @@ other seller country. Buyers can be in Germany (businesses, consumers, public-se
 the EU/EEA except Italy and Poland (their clearance platforms take no EN 16931 document), Switzerland or
 the UK.
 
+## Versioning
+
+Semantic versioning covers the plugin's documented interface only: its options, the events
+`einvoice.document_issued` and `einvoice.issuance_blocked` with their types in
+`@normwerk/einvoice-medusa/events`, the documents read with an order (`einvoice_documents`), the Admin and
+Store API routes, the "E-Invoices" admin widget, the plugin's database tables, and the field mapping in the
+[mapping reference](https://github.com/normwerk/einvoice/blob/main/docs/mapping-reference-medusa.md). Every
+other file in the package can be imported — Medusa loads subscribers and routes by their path — but is
+internal: paths such as `invoices/*` or `mapping/*` change in any release.
+
 ## Install
 
 ```bash
