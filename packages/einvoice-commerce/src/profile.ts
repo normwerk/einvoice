@@ -49,11 +49,11 @@ export class UnsupportedCountryError extends EinvoiceError<CommerceErrorCode> {
         ? "UNSUPPORTED_BUYER_COUNTRY_CLEARANCE"
         : "UNSUPPORTED_BUYER_COUNTRY",
       reason === "clearance-model"
-        ? `selectProfile: buyer country "${countryCode}" runs a mandatory clearance e-invoicing platform ` +
+        ? `Buyer country "${countryCode}" runs a mandatory clearance e-invoicing platform ` +
             `of its own (SDI/KSeF-style national XML) — no EN 16931 document, hybrid or pure XML, can be ` +
             `submitted through it. The document must be submitted through the national platform; that flow ` +
             `is out of scope for this package.`
-        : `selectProfile: buyer country "${countryCode}" is not yet supported — v0.1 serves Germany, other ` +
+        : `Buyer country "${countryCode}" is not yet supported — v0.1 serves Germany, other ` +
             `EU/EEA member states, Switzerland, and the UK only.`,
     );
     this.name = "UnsupportedCountryError";

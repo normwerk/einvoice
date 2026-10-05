@@ -95,8 +95,18 @@ describe("selectProfile", () => {
         expect(error).toBeInstanceOf(UnsupportedCountryError);
         expect((error as UnsupportedCountryError).countryCode).toBe("US");
         expect((error as UnsupportedCountryError).reason).toBe("not-yet-supported");
-        expect((error as Error).message).toContain('buyer country "US" is not yet supported');
+        expect((error as Error).message).toContain('Buyer country "US" is not yet supported');
       }
     });
   });
+
+  // T-208: the message reaches the merchant as it is ("Not issued: …" in the admin) — no function name.
+  it.each(["IT", "US"] as const)(
+    "starts the refusal for %s with the buyer's country, not a function name",
+    (buyerCountry) => {
+      expect(() => selectProfile({ buyerCountry })).toThrow(
+        new RegExp(`^Buyer country "${buyerCountry}" `),
+      );
+    },
+  );
 });

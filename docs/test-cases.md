@@ -18,7 +18,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/errors.test.ts` — `EinvoiceError`: a stable code and the link to its explanation, anchored in lower
   case with hyphens.
 
-### `einvoice-commerce` (173 tests)
+### `einvoice-commerce` (175 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -71,8 +71,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/numbering.test.ts` — `SequentialNumberer`, and `InMemoryNumberingStore`'s own concurrency behavior
   (no duplicate or skipped numbers under concurrent calls within one process).
 - `src/profile.test.ts` — `selectProfile`: the ZUGFeRD/Factur-X profile by recipient geography,
-  including the refusal of clearance-model countries (IT, PL) with its own code, and XRechnung only for a
-  declared Leitweg-ID.
+  including the refusal of clearance-model countries (IT, PL) with its own code, a refusal's message starting
+  with the buyer's country rather than a function name, and XRechnung only for a declared Leitweg-ID.
 - `src/validate.test.ts` — `validateCommerceInvoiceInput` against the generated `CommerceInvoiceInput` JSON
   Schema.
 - `src/vat-id-verifier.test.ts` — `StaticVatIdVerifier` (the three real VIES outcomes: valid, invalid,

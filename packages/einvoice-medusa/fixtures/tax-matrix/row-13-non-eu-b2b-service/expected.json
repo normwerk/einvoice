@@ -11,6 +11,6 @@
     "kind": "error",
     "errorClass": "UnsupportedCountryError",
     "errorCode": "UNSUPPORTED_BUYER_COUNTRY",
-    "messageIncludes": "buyer country \"US\" is not yet supported"
+    "messageIncludes": "Buyer country \"US\" is not yet supported"
   }
 }

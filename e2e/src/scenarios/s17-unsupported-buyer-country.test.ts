@@ -58,7 +58,8 @@ describe("S17: a buyer country the release does not support -> refused with its 
       throw new Error("unreachable: waitFor guarantees a refusal");
     }
     expect(refusal.code).toBe("UNSUPPORTED_BUYER_COUNTRY_CLEARANCE");
-    expect(refusal.message).toMatch(/^Not issued: .*"IT"/);
+    // The refusal reads as a sentence about the buyer, with no function name before it.
+    expect(refusal.message).toMatch(/^Not issued: Buyer country "IT" /);
     expect(refusal.docsUrl).toBe(
       "https://normwerk.dev/einvoice/docs/errors#unsupported-buyer-country-clearance",
     );

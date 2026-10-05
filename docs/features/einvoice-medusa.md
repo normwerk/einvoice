@@ -129,7 +129,15 @@ left to credit). A failure after the checks — storage, the database — answer
 The widget shows a notice as an orange badge under its document ("Refund due" or "VAT differs from Medusa")
 with the explanation, and a refused invoice as a red "Invoice not issued" badge with the explanation and a
 **Retry** button. The API behind it is covered end to end (`e2e/src/scenarios/s12-*`, `s13-*`, `s14-*`); the widget's
-own rendering has not been checked in a browser yet ([`docs/manual-testing.md`](../manual-testing.md#admin-widget-visually)).
+own rendering was last checked in a browser on 2026-09-29, Medusa 2.21.0
+([`docs/manual-testing.md`](../manual-testing.md#admin-widget-visually)).
+
+Every refusal keeps its **Retry** button, also one a retry does not fix by itself — a buyer in a country the
+release does not support, Italy and Poland included, or the shipment of an exchange. A retry takes the order
+as it is now: a country entered wrongly on the address and corrected since, or a plugin release that
+supports the country, and the document is issued. The event that would have issued it does not come again,
+so without the button there would be no way to. A retry refused again takes no number and updates the same
+refusal; its explanation says what to do instead.
 
 ## Store: a customer's own e-invoices
 
