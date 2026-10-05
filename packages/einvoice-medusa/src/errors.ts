@@ -118,3 +118,17 @@ export function errorCodeOf(error: unknown): { readonly code: string; readonly d
     ? { code, docsUrl }
     : { code: "INTERNAL_ERROR", docsUrl: errorDocsUrl("INTERNAL_ERROR") };
 }
+
+/**
+ * An error as a log line states it, ending in its code. The plugin's and the core packages' own messages name
+ * ids, codes, countries and amounts only; any other error is named by its class alone, since its message
+ * holds whatever its source put in it — a VAT-ID and an address from a `vatIdVerifier`, the values of a
+ * failed query from the database driver (AGENTS.md §5.2).
+ */
+export function errorForLog(error: unknown): string {
+  const { code } = errorCodeOf(error);
+  if (code !== "INTERNAL_ERROR") {
+    return `${error instanceof Error ? error.message : String(error)} [${code}]`;
+  }
+  return `an unexpected ${error instanceof Error ? error.name : typeof error} [${code}]`;
+}

@@ -10,8 +10,9 @@
  * publicly listable; `retrieveFile` still hands back a real, usable URL for a private file (confirmed
  * in T-072 against the File Module's own default, which is private), so this costs nothing at read time.
  */
-import { Modules } from "@medusajs/framework/utils";
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
+import { errorForLog } from "./errors.js";
 
 export interface StoredEinvoiceFiles {
   readonly xmlFileId: string;
@@ -82,6 +83,7 @@ export async function storeEinvoiceFiles(
  * uploaded real files for a document that will never be read, by the time it learns it lost. Swallows its
  * own failure rather than throwing — the caller's own result (the *other* delivery's document) is still
  * correct either way, and a failed cleanup here must not turn into "recordDocumentIfAbsent itself failed".
+ * It logs the files instead: they hold the buyer's details, and no record names them any more.
  */
 export async function deleteEinvoiceFiles(
   container: MedusaContainer,
@@ -93,8 +95,14 @@ export async function deleteEinvoiceFiles(
   try {
     const fileModuleService = container.resolve(Modules.FILE);
     await fileModuleService.deleteFiles([...fileIds]);
-  } catch {
-    // Orphaned file, not a correctness problem — see this function's own doc comment.
+  } catch (error) {
+    // Orphaned files, not a correctness problem — see this function's own doc comment.
+    container
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .warn(
+        `einvoice: files ${fileIds.join(", ")} were not deleted and no document refers to them — ` +
+          `delete them from the File Module — ${errorForLog(error)}`,
+      );
   }
 }
 

@@ -543,6 +543,12 @@ describe("buildInvoice — intra-EU supply (row 3), needs vatIdEvidence", () => 
         code: "BUYER_VAT_ID_MISMATCH",
       }),
     );
+    // A caller logs the message (AGENTS.md §5.2): it names the problem, not the numbers.
+    try {
+      buildInvoice(mismatched, { vatIdEvidence: evidence });
+    } catch (error) {
+      expect((error as Error).message).not.toMatch(/FR99999999999|FR12345678901/);
+    }
   });
 
   it("refuses K when the goods are not delivered to another member state — DE or a third country (§6a Abs. 1 Nr. 1 UStG, P-44)", () => {
@@ -744,6 +750,19 @@ describe("buildInvoice — special VAT territories are refused, not invoiced by 
     const evidence = { vatId: "ESB12345678", status: "valid" as const, checkedAt: "2026-09-10" };
     expect(() => buildInvoice(input, { vatIdEvidence: evidence })).toThrow(refusal);
     expect(() => buildInvoice(input, { vatIdEvidence: evidence })).toThrow(/the Canary Islands/);
+  });
+
+  it("names the territory in the refusal's message, not the buyer's post code — a caller logs it (AGENTS.md §5.2)", () => {
+    const input = domesticInput({
+      buyer: { name: "Ejemplo SL", countryCode: "ES", city: "Santa Cruz", postCode: "38001" },
+      taxContext: { ...B2B_EU, buyerCountry: "ES", buyerIsBusiness: false, supplyType: "goods" },
+    });
+    expect(() => buildInvoice(input)).toThrow(/the Canary Islands/);
+    try {
+      buildInvoice(input);
+    } catch (error) {
+      expect((error as Error).message).not.toContain("38001");
+    }
   });
 
   it("goods to Northern Ireland (GB, BT…) — an intra-EU supply for goods, not an export — are refused", () => {

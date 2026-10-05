@@ -377,8 +377,8 @@ function assertTaxFactsMatchDocument(decision: TaxDecision, input: CommerceInvoi
     ) {
       throw new TaxRuleError(
         "BUYER_VAT_ID_MISMATCH",
-        `The document's buyer VAT-ID (BT-48) ${documentVatId} is not the VAT-ID the tax decision was made ` +
-          `on (${decidedVatId}) — refusing category K on a document that names a different buyer number.`,
+        "The document's buyer VAT-ID (BT-48) is not the VAT-ID the tax decision was made on — refusing " +
+          "category K on a document that names a different buyer number.",
         "tax-semantics#3",
       );
     }
@@ -432,7 +432,7 @@ function assertNotSpecialVatTerritory(input: CommerceInvoiceInput): void {
     if (territory !== undefined && (place.goods || !territory.goodsOnly)) {
       throw new TaxRuleError(
         "SPECIAL_VAT_TERRITORY",
-        `The ${place.what} (${place.country} ${place.postCode ?? ""}) is in ${territory.name}, ` +
+        `The ${place.what} (${place.country}) is in ${territory.name}, ` +
           `${territory.status}. This release does not model such territories; refusing rather than ` +
           `invoicing it as ${place.country}.`,
         "tax-semantics#special-territories",

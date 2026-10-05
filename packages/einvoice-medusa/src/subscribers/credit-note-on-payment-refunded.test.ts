@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   })),
   decideVatCategory: vi.fn(() => ({ categoryCode: "S", ruleId: "tax-semantics#1" })),
   nextNumber: vi.fn(async () => "GS-2026-0001"),
-  logger: { warn: vi.fn(), info: vi.fn() },
+  logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
   serializeCii: vi.fn(() => ({ xml: "<xml/>" })),
   embedInvoiceInPdfA3: vi.fn(async () => ({ pdfBytes: new Uint8Array([1, 2, 3]) })),
   checkPdfAEligibility: vi.fn(async () => ({ eligible: true })),
@@ -500,6 +500,29 @@ describe("creditNoteOnPaymentRefunded", () => {
     await creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" }));
 
     expect(mocks.deleteEinvoiceFiles).toHaveBeenCalledWith(container, ["file_xml", "file_pdf"]);
+  });
+
+  it("names the number it took when a concurrent run issued the credit note, or when it then fails", async () => {
+    const lostRace = makeEinvoiceService({
+      recordDocumentIfAbsent: async () => ({ document: { id: "doc_existing" }, created: false }),
+    });
+    await creditNoteOnPaymentRefunded(
+      makeArgs(makeContainer({ einvoiceService: lostRace }).container, { id: "pay_01" }),
+    );
+    expect(mocks.logger.warn).toHaveBeenCalledWith(
+      "einvoice: order order_01: credit note GS-2026-0001 was numbered but not issued — a concurrent run " +
+        "issued this credit note",
+    );
+
+    mocks.storeEinvoiceFiles.mockRejectedValueOnce(new Error("bucket einvoice: access denied"));
+    const { container } = makeContainer({ einvoiceService: makeEinvoiceService() });
+    await expect(
+      creditNoteOnPaymentRefunded(makeArgs(container, { id: "pay_01" })),
+    ).rejects.toThrow("bucket einvoice: access denied");
+    expect(mocks.logger.error).toHaveBeenCalledWith(
+      "einvoice: order order_01: credit note GS-2026-0001 was numbered but not issued — an unexpected " +
+        "Error [INTERNAL_ERROR]",
+    );
   });
 
   it("credits a partial refund with one line over its own amount, not the whole order (P-41)", async () => {

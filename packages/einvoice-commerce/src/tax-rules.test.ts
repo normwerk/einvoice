@@ -476,6 +476,22 @@ describe("refusal codes (T-077)", () => {
     ).toBe("MIXED_SUPPLY_CROSS_BORDER");
   });
 
+  it("names no VAT-ID in the message of a refusal about one — a caller logs it (AGENTS.md §5.2)", () => {
+    const refusals = [
+      () => decideVatCategory({ ...intraEu, buyerVatId: "DE987654321" }),
+      () => decideVatCategory(intraEu, valid("FR99999999999")),
+      () => decideVatCategory(intraEu),
+    ];
+    for (const refuse of refusals) {
+      expect(refuse).toThrow(TaxRuleError);
+      try {
+        refuse();
+      } catch (error) {
+        expect((error as Error).message).not.toMatch(/DE987654321|FR99999999999|FR12345678901/);
+      }
+    }
+  });
+
   it("resolves a domestic line at the rates of its supply date: 16 % and 5 % in the second half of 2020 (T-199)", () => {
     const decision = decideVatCategory(BASE);
     expect(resolveLineRate(decision, BASE, "standard", undefined, "2020-08-01")).toBe("16");

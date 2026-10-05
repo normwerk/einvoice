@@ -18,7 +18,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/errors.test.ts` — `EinvoiceError`: a stable code and the link to its explanation, anchored in lower
   case with hyphens.
 
-### `einvoice-commerce` (175 tests)
+### `einvoice-commerce` (177 tests)
 
 - `src/build-invoice.test.ts` — `buildInvoice`, organized by `docs/tax-semantics.md` scenario row: domestic
   (row 1), intra-EU supply needing VAT-ID evidence and a delivery to another member state (row 3), export
@@ -34,7 +34,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   including VAT (each rate group's VAT taken out of its gross total, so the invoice totals the gross amounts;
   both a net and a VAT-inclusive amount, or neither, refused), special VAT territories refused before any
   category is decided (goods placed where they go, a service where its buyer is, Northern Ireland for goods
-  only), a credit note following the decision of the invoice it corrects (K although VIES says invalid today,
+  only; the refusal names the territory, not the buyer's post code), a credit note following the decision of the invoice it corrects (K although VIES says invalid today,
   19 % although the address moved abroad and OSS was switched on, the document itself still checked, refused
   on an invoice), a domestic invoice on which the shop charged no VAT at all refused as `NO_VAT_CHARGED`
   (every line and the shipping at 0 %, or no rate recorded and none classified; one untaxed line among
@@ -49,7 +49,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   at a rate of zero or with a reduced line) and `resolveLineRate` never invoicing a line at a rate other
   than the one it was charged at, at the rates of its supply date — a line charged at another period's rate,
   or supplied before the table starts, refused with its own code; each refusal names its own code, linked to
-  its explanation.
+  its explanation, and a refusal about a VAT-ID never names the VAT-ID in its message, which a caller logs.
 - `src/de-vat-rates.test.ts` — Germany's rates by period: 16 % and 5 % from 2020-07-01 to 2020-12-31 and
   19 % and 7 % either side, nothing before 2007-01-01, every day covered exactly once, and a quoted norm and
   BGBl reference for both rates of every period.
@@ -105,7 +105,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   it directly rather than by reference, and a font without a name is called "(unnamed)"; an encrypted PDF is
   refused.
 
-### `einvoice-medusa` (306 tests)
+### `einvoice-medusa` (311 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -170,7 +170,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   decision and VIES answer stored with the invoice followed without a second VIES check, and an invoice
   without a stored decision decided again; an invoice issued at 16 % credited at 16 % and dated by its supply,
   in full and in part, though the order's tax lines say 19 %; a refund on an order with an exchange refused,
-  one on an order whose claim replaced nothing credited.
+  one on an order whose claim replaced nothing credited; the number a credit note took named in the log when
+  a concurrent run issued it or issuing it then fails.
 - `src/subscribers/credit-note-on-fulfillment-canceled.test.ts` — a cancelled fulfillment's invoice restated
   with its own lines, a fulfillment never invoiced leaving nothing to credit and its refusal dropped, and the
   credit note issued once however often the event comes.
@@ -201,7 +202,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   without an invoice, the whole invoice or only its outstanding remainder credited, per invoice, an invoice
   of a cancelled fulfillment left to that cancellation, and the order's refused invoices dropped.
 - `src/storage.test.ts` — `storeEinvoiceFiles` (XML-only vs. XML+PDF upload shape), `deleteEinvoiceFiles`
-  (including that a failed delete is swallowed, not thrown), and `fetchFileBytes`.
+  (a failed delete swallowed, not thrown, and the files it leaves behind logged by id, without the storage's
+  own message), and `fetchFileBytes`.
 - `src/subscribers/invoice-on-fulfillment-created.test.ts` and `…split-fulfillments.test.ts` — the invoice
   subscriber's orchestration: idempotency, the order-not-found guard, numbering and the merchant's own PDF,
   the concurrency-race cleanup, two fulfillments invoiced for their own lines (the first with the shipping,
@@ -209,7 +211,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   fulfillment not invoiced, a missing one refused, `buildInvoice` warnings logged without the
   invoice payload, an invoice stating more VAT than Medusa charged recorded as a refusal without taking a
   number, one stating less issued with its notice, a `buildInvoice` refusal recorded as a refusal — code, message and rule — instead of thrown, the VIES answer an intra-EU invoice rests on kept with the document together with its rule, and carried by no event, the shipment of an exchange's new item refused without a number and announced, and a PDF that cannot
-  become PDF/A left out — XML alone, the notice naming the font.
+  become PDF/A left out — XML alone, the notice naming the font; the number taken named in the log when a
+  concurrent run issued the invoice, or when issuing it then fails, the failure rethrown.
 - `src/invoices/issue-invoice.test.ts` and `src/credit-notes/issue-credit-note.test.ts` —
   `planInvoiceForFulfillment` and `planCreditNote` decide without writing: a refused document and an invoice
   stating more VAT than Medusa charged come back as outcomes with nothing recorded, announced, numbered,
@@ -222,7 +225,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
 - `src/refusals.test.ts` — `describeRefusal` (a refusal explained by its error's message, a block by its
   amounts) and `recordRefusalOfError` (the error's code, its message, class, rule and the credit note's
   trigger recorded and logged; an unsupported buyer country kept for the support request; an error without a
-  code recorded as `INTERNAL_ERROR`).
+  code recorded as `INTERNAL_ERROR`, logged at error level by its class while the refusal keeps its message;
+  the refusal of an unverified VAT-ID, with the message the core really raises, logged without the VAT-ID).
 - `src/errors.test.ts` — the plugin's own errors: a code and its link built exactly as the core packages
   build them, a core package's code read back and anything else called `INTERNAL_ERROR`, and a support
   request on the repository's country form, its fields filled in by the ids the form has, with the countries
@@ -233,7 +237,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   listing carries no notice), and `einvoiceSupportStatus` (what the release supports and the configured seller country).
 - `src/api/admin/orders/[id]/einvoice/refusals/[refusalId]/retry/route.test.ts` — the retry route: 404 for
   another order's refusal, the invoice issued, a retry still blocked saying why, 500 for a failure after
-  the checks, and a credit note retried by redelivering its refund or cancellation — issued, refused again,
+  the checks, logged by the error's class, and a credit note retried by redelivering its refund or cancellation — issued, refused again,
   or nothing left to credit.
 
 ### `einvoice-conformance` (8 tests) / `einvoice-ubl` (1 test)
@@ -303,8 +307,8 @@ the declared Leitweg-ID in BT-10 and the XRechnung profile), S12 (VAT charged th
 state: issued with a refund-due notice; refunding the overpayment credits nothing, a further refund
 credits its own amount), S13 (an invoice stating more VAT than was charged: not issued, the reason in the
 admin API, the order corrected, the retry issues it; a refund made meanwhile refused and credited by its own
-retry), S14 (VIES unavailable: the invoice refused and recorded, retried after the VAT-ID was confirmed by
-hand, the invoice keeping VIES's "unavailable"; with the confirmation withdrawn, a refund still credited as
+retry), S14 (VIES unavailable: the invoice refused and recorded, Medusa's log naming the refusal's code but
+not the buyer's VAT-ID, retried after the VAT-ID was confirmed by hand, the invoice keeping VIES's "unavailable"; with the confirmation withdrawn, a refund still credited as
 K, following the invoice's decision), S15 (a 7 % / 19 % basket: shipping split into a charge per rate with the notice naming it as the
 cause; a received return credited at its own rate, a goodwill refund and the rest of a cancelled order
 credited per rate, every document KoSIT-green), S16 (prices including VAT, shipping without VAT in Medusa:

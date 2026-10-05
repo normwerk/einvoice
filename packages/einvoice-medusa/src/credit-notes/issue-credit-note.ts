@@ -37,6 +37,7 @@ import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
 import { deleteEinvoiceFiles, fetchFileBytes, storeEinvoiceFiles } from "../storage.js";
 import { recordRefusalOfError, type CreditNoteTrigger } from "../refusals.js";
 import { emitDocumentIssued } from "../events.js";
+import { errorForLog } from "../errors.js";
 import type { EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
 import {
   issueDateInSellerTimeZone,
@@ -374,7 +375,7 @@ export async function planCreditNote(
 export async function issueCreditNote(
   request: IssueCreditNoteInput,
 ): Promise<IssueCreditNoteOutcome> {
-  const { container, einvoiceService, order, basis, idempotencyKey, reason, trigger } = request;
+  const { container, einvoiceService, order, idempotencyKey, trigger } = request;
   const plan = await planCreditNote(request);
   if (plan.kind === "refused") {
     return {
@@ -387,17 +388,36 @@ export async function issueCreditNote(
       )),
     };
   }
-  const { input, profile, buildOptions, coveredReturns } = plan;
 
   const commerce = await import("@normwerk/einvoice-commerce");
-  const cii = await import("@normwerk/einvoice-cii");
-  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
-
   const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
   const documentNumber = await numberer.next({
     kind: "credit-note",
-    issueDate: input.document.issueDate,
+    issueDate: plan.input.document.issueDate,
   });
+  // A number taken is spent whatever follows — see `invoices/issue-invoice.ts`.
+  try {
+    return await issueNumberedCreditNote(request, plan, documentNumber);
+  } catch (error) {
+    container
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .error(
+        `einvoice: order ${order.id}: credit note ${documentNumber} was numbered but not issued — ` +
+          errorForLog(error),
+      );
+    throw error;
+  }
+}
+
+/** The credit note for a number taken: the real build, the PDF, the files, the document, the event. */
+async function issueNumberedCreditNote(
+  { container, einvoiceService, order, basis, idempotencyKey, reason }: IssueCreditNoteInput,
+  { input, profile, buildOptions, coveredReturns }: Extract<CreditNotePlan, { kind: "ready" }>,
+  documentNumber: string,
+): Promise<IssueCreditNoteOutcome> {
+  const commerce = await import("@normwerk/einvoice-commerce");
+  const cii = await import("@normwerk/einvoice-cii");
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
   const buildResult = commerce.buildInvoice(
     { ...input, document: { ...input.document, number: documentNumber } },
@@ -451,6 +471,10 @@ export async function issueCreditNote(
     await deleteEinvoiceFiles(
       container,
       stored.pdfFileId === null ? [stored.xmlFileId] : [stored.xmlFileId, stored.pdfFileId],
+    );
+    logger.warn(
+      `einvoice: order ${order.id}: credit note ${documentNumber} was numbered but not issued — a ` +
+        "concurrent run issued this credit note",
     );
     return { kind: "exists" };
   }

@@ -62,15 +62,24 @@ describe("deleteEinvoiceFiles", () => {
     expect(deleteFiles).toHaveBeenCalledWith(["file_1", "file_2"]);
   });
 
-  it("swallows a deleteFiles failure rather than throwing", async () => {
+  it("swallows a deleteFiles failure rather than throwing, and logs the files no document refers to", async () => {
+    const warn = vi.fn();
     const fakeContainer = {
-      resolve: () => ({
-        deleteFiles: async () => {
-          throw new Error("boom");
-        },
-      }),
+      resolve: (key: string) =>
+        key === "logger"
+          ? { warn }
+          : {
+              deleteFiles: async () => {
+                throw new Error("bucket einvoice: access denied");
+              },
+            },
     } as unknown as MedusaContainer;
-    await expect(deleteEinvoiceFiles(fakeContainer, ["file_1"])).resolves.toBeUndefined();
+    await expect(deleteEinvoiceFiles(fakeContainer, ["file_1", "file_2"])).resolves.toBeUndefined();
+    // The files hold the buyer's details: the log says which to delete, and not the storage's own message.
+    expect(warn).toHaveBeenCalledWith(
+      "einvoice: files file_1, file_2 were not deleted and no document refers to them — delete them " +
+        "from the File Module — an unexpected Error [INTERNAL_ERROR]",
+    );
   });
 });
 

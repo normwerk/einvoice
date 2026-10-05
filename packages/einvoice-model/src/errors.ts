@@ -1,7 +1,8 @@
 /**
  * Hand-written, like `validate.ts`. T-077: the base of every error the packages raise for a caller to act
  * on — a stable `code` to branch on and to show, and `docsUrl`, where the code is explained. The message is
- * for the developer reading a log and may change between releases; the code does not.
+ * for the developer reading a log and may change between releases; the code does not. Being logged, it names
+ * ids, codes, countries and amounts, never a party's VAT-ID, name or address (AGENTS.md §5.2).
  */
 
 /** The published error reference: one anchor per code. */

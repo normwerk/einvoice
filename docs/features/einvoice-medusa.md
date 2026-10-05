@@ -23,24 +23,30 @@ when `recordDocumentIfAbsent` reports `created: false`.
 
 Everything stays in the shop's own database and File Module; nothing is sent anywhere else by the plugin.
 
-| Where                               | What                                                                                                                                                                     | Personal data                                                  |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| File Module, private                | The XML and, if one was produced, the PDF of every document                                                                                                              | The buyer's name, address, VAT-ID and email, as on any invoice |
-| `einvoice_document`                 | Per document: its type, order, number, file ids, the notice of a difference with what Medusa charged, what each line was invoiced at, the invoice a credit note corrects | None                                                           |
-| `einvoice_document.tax_decisions`   | The rule of [`docs/tax-semantics.md`](../tax-semantics.md) the document followed, its VAT category and the reasoning                                                     | The reasoning of an intra-EU supply names the buyer's VAT-ID   |
-| `einvoice_document.vat_id_evidence` | Only on a document of category K: the answer of your `vatIdVerifier` the exemption rests on — VAT-ID, status, date, VIES's consultation number                           | The buyer's VAT-ID, already on the invoice itself              |
-| `einvoice_document.price_notices`   | Only on an invoice whose price an order edit changed after it was issued: per line, the price it stated, the price now, and which way                                    | None                                                           |
-| `einvoice_document.pdf_notice`      | Only on a document issued as XML alone because the PDF from `standalone.basePdf` could not become PDF/A: the reason, and the font it did not embed                       | None                                                           |
-| `einvoice_refusal`                  | A document that was not issued: its code and the amounts or the message explaining it                                                                                    | The message may name the buyer's VAT-ID or country             |
-| `einvoice_counter`                  | The last number of each series                                                                                                                                           | None                                                           |
+| Where                               | What                                                                                                                                                                     | Personal data                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| File Module, private                | The XML and, if one was produced, the PDF of every document                                                                                                              | The buyer's name, address, VAT-ID and email, as on any invoice                                             |
+| `einvoice_document`                 | Per document: its type, order, number, file ids, the notice of a difference with what Medusa charged, what each line was invoiced at, the invoice a credit note corrects | None                                                                                                       |
+| `einvoice_document.tax_decisions`   | The rule of [`docs/tax-semantics.md`](../tax-semantics.md) the document followed, its VAT category and the reasoning                                                     | The reasoning of an intra-EU supply names the buyer's VAT-ID                                               |
+| `einvoice_document.vat_id_evidence` | Only on a document of category K: the answer of your `vatIdVerifier` the exemption rests on — VAT-ID, status, date, VIES's consultation number                           | The buyer's VAT-ID, already on the invoice itself                                                          |
+| `einvoice_document.price_notices`   | Only on an invoice whose price an order edit changed after it was issued: per line, the price it stated, the price now, and which way                                    | None                                                                                                       |
+| `einvoice_document.pdf_notice`      | Only on a document issued as XML alone because the PDF from `standalone.basePdf` could not become PDF/A: the reason, and the font it did not embed                       | None                                                                                                       |
+| `einvoice_refusal`                  | A document that was not issued: its code and the amounts or the message explaining it                                                                                    | The buyer's country; an unexpected error's message as its source raised it, your `vatIdVerifier`'s for one |
+| `einvoice_counter`                  | The last number of each series                                                                                                                                           | None                                                                                                       |
 
 An intra-EU supply is exempt only if the buyer's VAT-ID was valid on the day of supply (§6a Abs. 1 Nr. 4
 UStG), which the seller must be able to show; that is why the VIES answer is kept with the document that
 rests on it, and on no other. The plugin deletes none of these records; keep them as long as the tax
-records they belong to. It logs no invoice content and no buyer details, and its events carry ids, the
-number and codes only.
+records they belong to. Its events carry ids, the number and codes only.
 If you record your processing of personal data, the table above is what the plugin adds to it; the VIES check
 itself is a request your own `vatIdVerifier` makes.
+
+Its log lines carry ids, document numbers, codes and amounts — no invoice content, and of the buyer at most
+the country. An error the plugin did not raise itself, such as one from your `vatIdVerifier`, the database
+or the File Module, is logged by its class and code: its message can hold whatever its source put in it, so
+the admin shows it instead, with the refusal or the failed retry. A document number taken for a document
+that was then not issued is logged as such, so the gap it leaves in the series can be explained. Medusa's
+own event bus also logs an error a subscriber throws, message included, as it does for any subscriber.
 
 ## Admin: "E-Invoices" widget on the order page
 

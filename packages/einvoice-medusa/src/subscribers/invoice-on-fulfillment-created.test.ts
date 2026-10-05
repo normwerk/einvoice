@@ -37,7 +37,7 @@ const mocks = vi.hoisted(() => ({
     pdfFileId: null as string | null,
   })),
   deleteEinvoiceFiles: vi.fn(async () => undefined),
-  logger: { warn: vi.fn(), info: vi.fn() },
+  logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
   eventBus: { emit: vi.fn(async () => undefined) },
   nextNumber: vi.fn(async () => "RE-2026-0001"),
 }));
@@ -405,6 +405,39 @@ describe("invoiceOnFulfillmentCreated", () => {
     );
 
     expect(mocks.deleteEinvoiceFiles).toHaveBeenCalledWith(container, ["file_xml", "file_pdf"]);
+  });
+
+  it("names the number it took when a concurrent run issued this fulfillment's invoice — the gap is explained", async () => {
+    const einvoiceService = makeEinvoiceService({
+      recordDocumentIfAbsent: async () => ({ document: { id: "doc_existing" }, created: false }),
+    });
+    const { container } = makeContainer(einvoiceService);
+
+    await invoiceOnFulfillmentCreated(
+      makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+    );
+
+    expect(mocks.logger.warn).toHaveBeenCalledWith(
+      "einvoice: order order_01: invoice RE-2026-0001 was numbered but not issued — a concurrent run " +
+        "issued this fulfillment's invoice",
+    );
+  });
+
+  it("names the number it took when the invoice then fails, and rethrows the failure", async () => {
+    mocks.storeEinvoiceFiles.mockRejectedValueOnce(new Error("bucket einvoice: access denied"));
+    const { container } = makeContainer(makeEinvoiceService());
+
+    await expect(
+      invoiceOnFulfillmentCreated(
+        makeArgs(container, { order_id: "order_01", fulfillment_id: "ful_01" }),
+      ),
+    ).rejects.toThrow("bucket einvoice: access denied");
+
+    // The error's own message is the database's or the storage's, which Medusa logs with the error.
+    expect(mocks.logger.error).toHaveBeenCalledWith(
+      "einvoice: order order_01: invoice RE-2026-0001 was numbered but not issued — an unexpected Error " +
+        "[INTERNAL_ERROR]",
+    );
   });
   it("records an order buildInvoice refuses, with its reason, and takes no document number (P-48, P-66)", async () => {
     mocks.buildInvoice.mockImplementationOnce(() => {

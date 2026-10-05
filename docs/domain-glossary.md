@@ -303,6 +303,22 @@ installed `@medusajs/*` package's compiled source.
   "just" adding a `logger.warn` or a `clearRefusal` to the decision: a plan run over a shop's past orders
   would then write to its log or its refusals. The commit reads the issue date back from
   `input.document.issueDate`, so plan and commit cannot straddle midnight with two dates.
+- **A core error's message reaches the merchant's log verbatim — so it never carries a value of the order.**
+  `recordRefusalOfError` logs the message of every error with a code (`errorForLog` in `errors.ts` does the
+  same for the other log lines). Until 2026-10-05, four `TaxRuleError`s named the buyer's VAT-ID and the
+  special-territory refusal the buyer's post code, so every VIES outage wrote VAT-IDs to the log. Name the
+  problem, the code and the amounts; the value is on the order. An error without a code (`INTERNAL_ERROR`) is
+  logged by its class only: its message is someone else's — a merchant's VIES client, the database driver.
+- **knex puts a failed query's values into the error message.** `formatQuery(sql, bindings)` is prepended
+  to every driver error unless `compileSqlOnError: false` (`knex/lib/execution/internal/query-executioner.js`).
+  Medusa's `dbErrorMapper` rewrites only unique, not-null, foreign-key and invalid-field errors; anything
+  else — a dropped connection mid-insert — carries the `INSERT`'s values, which for `einvoice_document`
+  include `tax_decisions` and `vat_id_evidence`. Another reason the plugin's log lines name such an error by
+  its class only.
+- **Both Medusa event buses log the whole error a subscriber throws** — `event-bus-local@2.19.0` with
+  `logger.error(err)`, `event-bus-redis@2.19.0` with `logger.warn(err)`. A failure after the document number
+  is taken is rethrown after the plugin's own line naming the number: Medusa's line has the message, the
+  plugin's the number no document carries.
 
 ### `@webbers/invoices-medusa` integration
 

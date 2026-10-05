@@ -271,7 +271,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       throw new TaxRuleError(
         "BUYER_VAT_ID_DOMESTIC",
         `Intra-EU supply needs a buyer VAT-ID issued by another member state (§6a Abs. 1 Nr. 4 UStG, ` +
-          `Art. 138(1) VAT Directive) — got the German VAT-ID ${context.buyerVatId}. Refusing category K.`,
+          `Art. 138(1) VAT Directive) — the buyer's VAT-ID is a German one. Refusing category K.`,
         "tax-semantics#3",
       );
     }
@@ -279,8 +279,8 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
       if (normalizeVatId(vatIdEvidence.vatId) !== buyerVatId) {
         throw new TaxRuleError(
           "BUYER_VAT_ID_MISMATCH",
-          `The positive VIES check is for VAT-ID ${vatIdEvidence.vatId}, not for the buyer's ` +
-            `${context.buyerVatId} — refusing category K on evidence about a different number.`,
+          `The positive VIES check is for another VAT-ID than the buyer's — refusing category K on ` +
+            `evidence about a different number.`,
           "tax-semantics#3",
         );
       }
@@ -307,7 +307,7 @@ export function decideVatCategory(context: TaxContext, vatIdEvidence?: VatIdEvid
     }
     throw new TaxRuleError(
       "VAT_ID_UNVERIFIED",
-      `Intra-EU supply to buyer VAT-ID ${context.buyerVatId} needs a positive VIES check (vatIdEvidence.status === "valid") ` +
+      `Intra-EU supply needs a positive VIES check of the buyer's VAT-ID (vatIdEvidence.status === "valid") ` +
         `or an explicit regimeOverride: { kind: "intra-eu-confirmed" } — refusing to select category K on an ` +
         `unverified VAT-ID. This does not need to block the underlying order — defer invoice issuance ` +
         `until the check resolves.`,

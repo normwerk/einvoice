@@ -102,7 +102,7 @@ import {
 } from "../mapping/shipment.js";
 import { describePdfNotice, documentPdf } from "../pdf.js";
 import { taxEvidenceToKeep } from "../mapping/tax-evidence.js";
-import { PluginError } from "../errors.js";
+import { PluginError, errorForLog } from "../errors.js";
 import { emitDocumentIssued, emitIssuanceBlocked } from "../events.js";
 
 /**
@@ -393,23 +393,45 @@ async function recordBlock(
   return { kind: "blocked", refusal, message };
 }
 
-/** T-211: the commit of a ready plan — the number, the real build, the PDF, the files, the document, the
- * event. */
+/** T-211: the commit of a ready plan — the number, then the invoice that carries it. */
 async function issuePlannedInvoice(
+  container: MedusaContainer,
+  einvoiceService: EinvoiceModuleService,
+  request: IssueInvoiceRequest,
+  plan: ReadyInvoicePlan,
+): Promise<IssueInvoiceOutcome> {
+  const commerce = await import("@normwerk/einvoice-commerce");
+  const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
+  const documentNumber = await numberer.next({
+    kind: "invoice",
+    issueDate: plan.input.document.issueDate,
+  });
+  // A number taken is spent whatever follows: the log names one no invoice carries, so the gap it leaves in
+  // the series can be explained. The error itself goes on to Medusa, which logs it, or to the admin's retry.
+  try {
+    return await issueNumberedInvoice(container, einvoiceService, request, plan, documentNumber);
+  } catch (error) {
+    container
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .error(
+        `einvoice: order ${plan.order.id}: invoice ${documentNumber} was numbered but not issued — ` +
+          errorForLog(error),
+      );
+    throw error;
+  }
+}
+
+/** The invoice for a number taken: the real build, the PDF, the files, the document, the event. */
+async function issueNumberedInvoice(
   container: MedusaContainer,
   einvoiceService: EinvoiceModuleService,
   { fulfillmentId }: IssueInvoiceRequest,
   { order, input, profile, buildOptions, check, shipment, notice }: ReadyInvoicePlan,
+  documentNumber: string,
 ): Promise<IssueInvoiceOutcome> {
   const commerce = await import("@normwerk/einvoice-commerce");
   const cii = await import("@normwerk/einvoice-cii");
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
-
-  const numberer = new commerce.SequentialNumberer(new ModuleNumberingStore(einvoiceService));
-  const documentNumber = await numberer.next({
-    kind: "invoice",
-    issueDate: input.document.issueDate,
-  });
 
   // P-67: an order paid in full before it shipped — the invoice states its total as paid.
   const paidAmount = orderPaidInFull(order) ? check.invoice.totals.totalAmountWithVat : undefined;
@@ -487,6 +509,10 @@ async function issuePlannedInvoice(
     await deleteEinvoiceFiles(
       container,
       stored.pdfFileId === null ? [stored.xmlFileId] : [stored.xmlFileId, stored.pdfFileId],
+    );
+    logger.warn(
+      `einvoice: order ${order.id}: invoice ${documentNumber} was numbered but not issued — a concurrent ` +
+        "run issued this fulfillment's invoice",
     );
     return { kind: "exists" };
   }

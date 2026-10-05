@@ -76,7 +76,9 @@ describe("recordRefusalOfError (P-66)", () => {
 describe("recordRefusalOfError codes (T-077)", () => {
   async function record(error: unknown) {
     const recordRefusal = vi.fn(async (input: unknown) => input);
-    const container = { resolve: () => ({ warn: vi.fn() }) } as unknown as MedusaContainer;
+    const container = {
+      resolve: () => ({ warn: vi.fn(), error: vi.fn() }),
+    } as unknown as MedusaContainer;
     await recordRefusalOfError(
       container,
       { recordRefusal } as unknown as EinvoiceModuleService,
@@ -104,6 +106,74 @@ describe("recordRefusalOfError codes (T-077)", () => {
     const { code, details } = await record(new Error("connection reset"));
     expect(code).toBe("INTERNAL_ERROR");
     expect(details).toMatchObject({ message: "connection reset", errorClass: "Error" });
+  });
+});
+
+describe("recordRefusalOfError logging (AGENTS.md §5.2)", () => {
+  function logged() {
+    const logger = { warn: vi.fn(), error: vi.fn() };
+    const container = {
+      resolve: (key: string) => (key === "event_bus" ? { emit: vi.fn() } : logger),
+    } as unknown as MedusaContainer;
+    return { logger, container };
+  }
+  const target = { type: "invoice", orderId: "order_01", idempotencyKey: "ful_01" } as const;
+
+  it("logs an unexpected error at error level by its class, not by its message, which the refusal keeps", async () => {
+    const { logger, container } = logged();
+    const recordRefusal = vi.fn(async (input: unknown) => input);
+    // Whatever the error's source put in it — a merchant's VIES client, say.
+    const error = new TypeError(
+      "VIES answered for FR98765432109: Exemple SARL, 1 Rue Exemple, Paris",
+    );
+
+    await recordRefusalOfError(
+      container,
+      { recordRefusal } as unknown as EinvoiceModuleService,
+      target,
+      error,
+    );
+
+    expect(logger.error).toHaveBeenCalledWith(
+      "einvoice: order order_01: invoice for fulfillment ful_01 — not issued: an unexpected TypeError, " +
+        "its message kept with the refusal [INTERNAL_ERROR]",
+    );
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(recordRefusal).toHaveBeenCalledWith(
+      expect.objectContaining({ details: expect.objectContaining({ message: error.message }) }),
+    );
+  });
+
+  it("logs the refusal of an unverified VAT-ID without the VAT-ID — the message the core really raises", async () => {
+    const { logger, container } = logged();
+    const { decideVatCategory } = await import("@normwerk/einvoice-commerce");
+    let error: unknown;
+    try {
+      decideVatCategory({
+        sellerCountry: "DE",
+        sellerVatId: "DE123456789",
+        buyerCountry: "FR",
+        buyerVatId: "FR98765432109",
+        buyerIsBusiness: true,
+        ossRegistered: false,
+        supplyType: "goods",
+      });
+    } catch (thrown) {
+      error = thrown;
+    }
+
+    await recordRefusalOfError(
+      container,
+      {
+        recordRefusal: vi.fn(async () => ({ id: "einvref_1" })),
+      } as unknown as EinvoiceModuleService,
+      target,
+      error,
+    );
+
+    const lines = logger.warn.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(lines).toContain("[VAT_ID_UNVERIFIED]");
+    expect(lines).not.toContain("FR98765432109");
   });
 });
 

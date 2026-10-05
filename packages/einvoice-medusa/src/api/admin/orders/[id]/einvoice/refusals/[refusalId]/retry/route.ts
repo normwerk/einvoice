@@ -11,6 +11,7 @@
  */
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
 import type { SubscriberArgs } from "@medusajs/framework";
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import { EINVOICE_MODULE } from "../../../../../../../../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../../../../../../../../modules/einvoice/service.js";
 import type {
@@ -19,6 +20,7 @@ import type {
 } from "../../../../../../../../modules/einvoice/service.js";
 import { issueInvoiceForFulfillment } from "../../../../../../../../invoices/issue-invoice.js";
 import { describeRefusal } from "../../../../../../../../refusals.js";
+import { errorForLog } from "../../../../../../../../errors.js";
 import creditNoteOnPaymentRefunded from "../../../../../../../../subscribers/credit-note-on-payment-refunded.js";
 import creditNoteOnOrderCanceled from "../../../../../../../../subscribers/credit-note-on-order-canceled.js";
 import creditNoteOnFulfillmentCanceled from "../../../../../../../../subscribers/credit-note-on-fulfillment-canceled.js";
@@ -139,7 +141,13 @@ export async function POST(req: MedusaRequest, res: MedusaResponse): Promise<voi
         return;
     }
   } catch (error) {
-    // Refusals are outcomes; what is thrown failed after them — storage, the database, the file module.
+    // Refusals are outcomes; what is thrown failed after them — storage, the database, the file module. The
+    // admin gets the message; the log, which would otherwise not hear of it, the class (`errorForLog`).
+    req.scope
+      .resolve(ContainerRegistrationKeys.LOGGER)
+      .error(
+        `einvoice: order ${orderId}: the retry of refusal ${refusalId} failed — ${errorForLog(error)}`,
+      );
     res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
   }
 }

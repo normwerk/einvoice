@@ -42,6 +42,7 @@ function call(
     listEinvoiceRefusals: ReturnType<typeof vi.fn>;
     clearRefusal: ReturnType<typeof vi.fn>;
   };
+  logger: { error: ReturnType<typeof vi.fn> };
 } {
   let lookups = 0;
   const service = {
@@ -61,15 +62,17 @@ function call(
       return res;
     },
   };
+  const logger = { error: vi.fn() };
   const req = {
     params: { id: "order_01", refusalId: "einvref_1" },
-    scope: { resolve: () => service },
+    scope: { resolve: (key: string) => (key === "logger" ? logger : service) },
   };
   return {
     req: req as unknown as MedusaRequest,
     res: res as unknown as MedusaResponse,
     sent,
     service,
+    logger,
   };
 }
 
@@ -117,11 +120,14 @@ describe("POST /admin/orders/:id/einvoice/refusals/:refusalId/retry (P-63)", () 
     });
   });
 
-  it("answers 500 with the message when issuing fails after the checks", async () => {
+  it("answers 500 with the message when issuing fails after the checks, and logs the failure without it", async () => {
     mocks.issueInvoiceForFulfillment.mockRejectedValueOnce(new Error("file storage unavailable"));
-    const { req, res, sent } = call([REFUSAL]);
+    const { req, res, sent, logger } = call([REFUSAL]);
     await POST(req, res);
     expect(sent).toEqual({ status: 500, body: { message: "file storage unavailable" } });
+    expect(logger.error).toHaveBeenCalledWith(
+      "einvoice: order order_01: the retry of refusal einvref_1 failed — an unexpected Error [INTERNAL_ERROR]",
+    );
   });
 
   const CREDIT_REFUSAL = {

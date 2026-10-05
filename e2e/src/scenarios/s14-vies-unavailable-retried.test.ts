@@ -14,6 +14,7 @@ import {
 import { capturePayment, getOrderPayment, refundPayment } from "../api/payments.js";
 import { loadCatalog, requireVariantId, type Catalog } from "../seed/catalog.js";
 import { waitFor } from "../harness/wait-for.js";
+import { logs } from "../harness/compose.js";
 import { UNAVAILABLE_VAT_ID } from "../harness/env.js";
 import * as bt from "../assert/bt.js";
 import { validateBytes } from "../assert/conformance.js";
@@ -78,6 +79,10 @@ describe("S14: VIES unavailable -> not issued, confirmed by hand, retried", () =
     expect((await getEinvoiceStatus(admin, orderId)).documents).toEqual([]);
 
     expect((await retryRefusal(admin, refusal)).outcome).toBe("blocked");
+    // Both refusals are logged — by their code, without the buyer's VAT-ID (AGENTS.md §5.2).
+    const medusaLog = await logs("medusa");
+    expect(medusaLog).toContain("[VAT_ID_UNVERIFIED]");
+    expect(medusaLog).not.toContain(UNAVAILABLE_VAT_ID);
 
     await setOrderMetadata(admin, orderId, {
       regime_override: {

@@ -13,7 +13,8 @@
  * A thrown error used to reach only the log, and the event that would have issued the document does not
  * come again — the order silently had no invoice. A refusal is shown in the admin widget and retried from
  * there (`POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`); `details.event` names what a credit
- * note's retry redelivers. The log line carries the code and the message, never the document.
+ * note's retry redelivers. The log line carries the code and the message, never the document — and of an
+ * unexpected error (`INTERNAL_ERROR`), its class instead of its message.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
@@ -51,7 +52,8 @@ const RECONCILIATION_CODES: ReadonlySet<string> = new Set([
   "CHARGED_TOTALS_MISSING",
 ]);
 
-/** The merchant-facing explanation of a refusal — the admin widget and the log both show it. */
+/** The merchant-facing explanation of a refusal — the admin widget shows it, the log every one but an
+ * `INTERNAL_ERROR`. */
 export function describeRefusal(refusal: Pick<EinvoiceRefusalRecord, "code" | "details">): string {
   if (RECONCILIATION_CODES.has(refusal.code)) {
     return describeChargedReconciliation({
@@ -71,7 +73,8 @@ function documentLabel(target: RefusalTarget): string {
     : `credit note for ${target.idempotencyKey}`;
 }
 
-/** Records `error` as the reason the document for `target` was not issued, and logs it at warn level. */
+/** Records `error` as the reason the document for `target` was not issued, and logs it at warn level — an
+ * unexpected error at error level. */
 export async function recordRefusalOfError(
   container: MedusaContainer,
   einvoiceService: EinvoiceModuleService,
@@ -98,9 +101,18 @@ export async function recordRefusalOfError(
     details,
   });
   const message = describeRefusal({ code, details });
-  container
-    .resolve(ContainerRegistrationKeys.LOGGER)
-    .warn(`einvoice: order ${target.orderId}: ${documentLabel(target)} — ${message} [${code}]`);
+  const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
+  const line = `einvoice: order ${target.orderId}: ${documentLabel(target)} —`;
+  if (code === "INTERNAL_ERROR") {
+    // A defect or a failure elsewhere, with a message the plugin did not write (`errorForLog`, errors.ts):
+    // the admin shows it, the log names the class.
+    logger.error(
+      `${line} not issued: an unexpected ${String(details["errorClass"] ?? typeof error)}, its message ` +
+        `kept with the refusal [${code}]`,
+    );
+  } else {
+    logger.warn(`${line} ${message} [${code}]`);
+  }
   // P-71: the shop's own code hears of it.
   await emitIssuanceBlocked(container, {
     refusal_id: refusal.id,
