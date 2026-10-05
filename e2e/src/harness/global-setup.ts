@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { upBase, upMedusa, down, logs } from "./compose.js";
 import { publishToVerdaccio } from "./publish.js";
-import { MEDUSA_CONTAINER_NAME } from "./env.js";
+import { ADMIN_EMAIL, MEDUSA_CONTAINER_NAME, MEDUSA_URL } from "./env.js";
 import { prepareMedusaVersion } from "./medusa-version.js";
 
 const execFileAsync = promisify(execFile);
@@ -84,6 +84,14 @@ export default async function setup(): Promise<() => Promise<void>> {
     // for now; a real pass/fail signal from vitest's own run would let this skip on green, a refinement
     // for a later pass, not this one.
     await collectLogs();
+    if (process.env["EINVOICE_E2E_ADMIN"] === "1") {
+      // T-210: the dashboard is for looking at the orders the scenarios left behind — it stays up.
+      console.log(
+        `[e2e] EINVOICE_E2E_ADMIN=1: the stand is left running, the dashboard at ${MEDUSA_URL}/app ` +
+          `(log in as ${ADMIN_EMAIL}, password in e2e/src/harness/env.ts).`,
+      );
+      return;
+    }
     if (process.env["EINVOICE_E2E_KEEP_STAND"] === "1") {
       // For inspecting a failure in the running stand; the next run's own down() removes it.
       console.log("[e2e] EINVOICE_E2E_KEEP_STAND=1: the stand is left running.");

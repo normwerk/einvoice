@@ -86,19 +86,17 @@ badge naming the font (`PDF_FONT_NOT_EMBEDDED` — S23) and no PDF download icon
 ("zu Rechnung RE-… vom …", "for invoice RE-… of …").
 
 All of the above was last checked on 2026-09-29, Medusa 2.21.0, on the orders the end-to-end scenarios leave
-behind — every badge, line, code link and the Retry request as described. How to repeat it:
+behind — every badge, line, code link and the Retry request as described. The refused Italian invoice (S17)
+was checked again on 2026-10-02: its explanation starts with the buyer's country, the Retry button is there,
+and "Ask for support of this country" links to the country form with `seller=DE` and `buyer=IT`. The form
+itself, on GitHub, was not opened: GitHub shows it only to a signed-in account. How to repeat it:
 
-1. `EINVOICE_E2E_KEEP_STAND=1 pnpm e2e` — the stand stays up with every scenario's orders.
-2. The stand's Medusa serves no dashboard (`admin: { disable: true }` in `e2e/app/medusa-config.ts`), so
-   start a second one from a copy of its container, on the stand's network (`einvoice-e2e_default`), with the
-   same database: `docker export einvoice-e2e-medusa-1 | docker import - <image>` (a `docker commit` copy
-   published no port here). In it: set `admin: { disable: false }`, add
-   `cookieOptions: { secure: false }` to `projectConfig` (the dashboard is served over plain HTTP, and a
-   secure session cookie is never sent back), run `medusa build`, link `.medusa/server/public` to `public`,
-   and run `medusa start` with `NODE_ENV=staging` on a port of its own. `medusa develop` does not do here:
-   its dashboard fails to load the `virtual:medusa/i18n` module.
-3. Log in with the stand's admin (`e2e/src/harness/env.ts`). The orders are named after their scenario in
-   the customer's e-mail (`s12-buyer@…`, `s23-buyer@…`).
+1. `EINVOICE_E2E_ADMIN=1 pnpm e2e` — the scenarios run against a stand that also serves Medusa's dashboard,
+   and the stand is left running with every scenario's orders, the dashboard at `http://localhost:9500/app`
+   ([`docs/e2e.md`](e2e.md#with-medusas-dashboard)).
+2. Log in with the stand's admin (`e2e/src/harness/env.ts`). The orders are named after their scenario in
+   the customer's e-mail (`s12-buyer@…`, `s23-buyer@…`); the order list's search finds them by `s12` etc.
+3. `pnpm --filter @normwerk/einvoice-e2e stand:down` removes the stand; so does the next `pnpm e2e`.
 
 The credit note's PDF was checked by its text: `renderInvoicePdf` embeds its fonts with a Unicode map, so the
 title and the reference lines can be read out of the file.

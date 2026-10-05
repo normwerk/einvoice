@@ -130,6 +130,21 @@ the run and written to `e2e/.artifacts/versions.txt`.
 Results so far are in the plugin's compatibility table
 ([`packages/einvoice-medusa/README.md`](../packages/einvoice-medusa/README.md#compatibility)).
 
+## With Medusa's dashboard
+
+```bash
+EINVOICE_E2E_ADMIN=1 pnpm e2e
+```
+
+runs the same suite against a stand that also serves Medusa's dashboard, for looking at the plugin's admin
+widgets on the orders the scenarios create ([`docs/manual-testing.md`](manual-testing.md#admin-widget-visually)).
+The stand builds the dashboard before it starts (`medusa build --admin-only`) and serves it from that build,
+with a session cookie that works over plain HTTP; when the run ends, the stand is left running. Open
+`http://localhost:9500/app` and log in with the stand's admin from `e2e/src/harness/env.ts`.
+`pnpm --filter @normwerk/einvoice-e2e stand:down`, or the next `pnpm e2e`, removes it. Without the variable the
+stand serves no dashboard, as before. Checked on 2026-10-02 with Medusa 2.21.0: 41/41, and the dashboard
+logged in and showed the E-Invoices block on the scenarios' orders.
+
 ## What this doesn't cover yet
 
 This is the `fast` profile only: a committed Medusa v2 app (`e2e/app/`, scaffolded with

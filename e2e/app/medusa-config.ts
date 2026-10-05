@@ -33,14 +33,22 @@ const fixedNow = process.env.EINVOICE_E2E_NOW;
 // has to be corrected explicitly rather than relying on the provider's own default.
 const port = process.env.PORT ?? "9500";
 
+// T-210: `EINVOICE_E2E_ADMIN=1` serves the dashboard, for checking the plugin's admin widgets by hand on the
+// orders the scenarios leave behind (docs/manual-testing.md). The image then runs `medusa build` before
+// `medusa start` (docker/medusa/Dockerfile).
+const withAdmin = process.env.EINVOICE_E2E_ADMIN === "1";
+
 module.exports = defineConfig({
   // T-078: the stand only ever drives Admin/Store HTTP APIs (plan-e2e.md's own "через Admin/Store HTTP API,
   // не через внутренние воркфлоу и не через UI") — the dashboard itself is never opened. `medusa start`
   // otherwise refuses to boot without a prebuilt admin bundle ("Could not find index.html in the admin
   // build directory", a real error hit running this for real); disabling it skips that requirement
-  // entirely rather than adding a `medusa build` step this stand has no other use for.
-  admin: { disable: true },
+  // entirely rather than adding a `medusa build` step this stand has no other use for — unless asked for
+  // (T-210, above).
+  admin: { disable: !withAdmin },
   projectConfig: {
+    // T-210: the dashboard is served over plain HTTP, and a secure session cookie is never sent back.
+    ...(withAdmin ? { cookieOptions: { secure: false } } : {}),
     databaseUrl: process.env.DATABASE_URL,
     redisUrl: process.env.REDIS_URL,
     http: {

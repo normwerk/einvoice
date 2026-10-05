@@ -27,4 +27,11 @@ EXPOSE 9500
 # running stand while iterating on scenarios) rather than failing the whole chain.
 # EINVOICE_E2E_NPM_INSTALL_FLAGS is empty except for a Medusa release below the plugin's peer range
 # (src/harness/medusa-version.ts), which installs only with --legacy-peer-deps.
-CMD ["sh", "-c", "npm install $EINVOICE_E2E_NPM_INSTALL_FLAGS && export PATH=\"/app/node_modules/.bin:$PATH\" && medusa db:migrate && (medusa user -e admin@einvoice-e2e.example -p supersecret || true) && medusa start"]
+#
+# T-210: with EINVOICE_E2E_ADMIN=1 the dashboard is built first and served from the build. `--admin-only`
+# builds the dashboard alone, into .medusa/admin: a full `medusa build` also type-checks the backend, fails on
+# medusa-config.ts's import of an ESM package, and exits non-zero although the dashboard was built.
+# `medusa start` serves ./public/admin, and only outside NODE_ENV=development — in development it tries the
+# dashboard's dev server, which does not load here (`virtual:medusa/i18n`). Not `production` either, which
+# changes more than the dashboard; `staging` is any other value.
+CMD ["sh", "-c", "npm install $EINVOICE_E2E_NPM_INSTALL_FLAGS && export PATH=\"/app/node_modules/.bin:$PATH\" && medusa db:migrate && (medusa user -e admin@einvoice-e2e.example -p supersecret || true) && if [ \"$EINVOICE_E2E_ADMIN\" = 1 ]; then medusa build --admin-only && mkdir -p public && ln -sfn ../.medusa/admin public/admin && NODE_ENV=staging medusa start; else medusa start; fi"]
