@@ -90,8 +90,14 @@ refuses.
 npx medusa db:migrate
 ```
 
-This creates `einvoice_document` and `einvoice_counter` (this plugin's own two tables — no schema
-changes to any core Medusa table).
+This creates the plugin's own three tables — no schema changes to any core Medusa table:
+
+- `einvoice_document` — every invoice and credit note issued: its order, number and files;
+- `einvoice_refusal` — every document not issued, with its code and the reason;
+- `einvoice_counter` — the last number of each series.
+
+What each one keeps, and which holds personal data:
+[What the plugin stores](features/einvoice-medusa.md#what-the-plugin-stores).
 
 ## 4. Try it
 
