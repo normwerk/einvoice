@@ -117,7 +117,9 @@ Which invoice a refund credits, and how much, is still decided in the credit-not
 
 `GET /admin/orders/:id/einvoice` returns both: `documents` (each with its `notice`, or `null`) and
 `refusals` (each with its explanation, a `retryUrl`, and for an unsupported buyer country a
-`supportRequestUrl` — a new issue in the public repository, filled in with the country only). Every notice
+`supportRequestUrl` — the public repository's country form, `.github/ISSUE_TEMPLATE/country.yml`, which labels
+the issue `country-request`, with the seller's and the buyer's country filled in and nothing about the order).
+Every notice
 and refusal carries the `docsUrl` of its code, which the widget links. `GET /admin/einvoice/support` states
 what the release supports (`describeSupport`, `@normwerk/einvoice-commerce`) for the "E-Invoicing" block on
 the store's settings page (`src/admin/widgets/einvoice-support.tsx`, zone `store.details.after`). `POST /admin/orders/:id/einvoice/refusals/:refusalId/retry`

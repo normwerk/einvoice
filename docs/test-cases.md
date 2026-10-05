@@ -105,7 +105,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   it directly rather than by reference, and a font without a name is called "(unnamed)"; an encrypted PDF is
   refused.
 
-### `einvoice-medusa` (304 tests)
+### `einvoice-medusa` (306 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -225,7 +225,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   code recorded as `INTERNAL_ERROR`).
 - `src/errors.test.ts` — the plugin's own errors: a code and its link built exactly as the core packages
   build them, a core package's code read back and anything else called `INTERNAL_ERROR`, and a support
-  request filled in with the country only.
+  request on the repository's country form, its fields filled in by the ids the form has, with the countries
+  only.
 - `src/api/einvoice-http.test.ts` — the admin/store routes' shared helpers: `listEinvoiceDocumentSummaries`, `sendEinvoiceFile` and `customerOwnsOrder` (a customer can only reach documents of their own orders), and `listAdminEinvoiceStatus` (notices and refusals with their retry route and the link to their code's
   explanation, a support request for an unsupported buyer country, each document's rule and the VIES answer
   of an intra-EU supply, a price changed after the invoice named by its line's title, admin only — the store

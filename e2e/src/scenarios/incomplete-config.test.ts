@@ -35,7 +35,9 @@ describe("incomplete config: the plugin refuses to boot without required options
     expect(result.output).toContain(
       "https://normwerk.dev/einvoice/docs/errors#unsupported-seller-country",
     );
-    expect(result.output).toContain("title=Support%20for%20seller%20country%20NL");
+    expect(result.output).toContain(
+      "?template=country.yml&title=Support+for+seller+country+NL&seller=NL&",
+    );
     expect(result.output).not.toMatch(/\b[TPMD]-\d{2,3}\b|STRATEGY\.md|plan-v0\.1/);
     expect(result.output).not.toContain("Server is ready");
   }, 240_000);

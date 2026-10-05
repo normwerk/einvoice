@@ -264,7 +264,7 @@ code stays the same across releases and links to its explanation on the
   the plugin was installed). Issue the invoice first, then retry the credit note.
 - `UNSUPPORTED_BUYER_COUNTRY_CLEARANCE` — a buyer in Italy or Poland, whose clearance platforms take their
   own national XML; this release does not serve them. The block links to a support request for the
-  country, filled in beforehand — nothing is sent unless you open and submit it.
+  country on GitHub, filled in beforehand — nothing is sent unless you open and submit it.
 - `INTERNAL_ERROR` — anything unexpected; the reason says what happened.
 
 The order itself is never held up: a refusal only means the document is missing.

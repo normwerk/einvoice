@@ -68,14 +68,31 @@ export function errorDocsUrl(code: string): string {
   return `${ERROR_REFERENCE_URL}#${code.toLowerCase().replaceAll("_", "-")}`;
 }
 
-/** A new issue asking for a country, filled in beforehand — the only signal of demand the plugin sends, and
- * only when the merchant opens it. Carries the country and nothing about the order. */
-export function supportRequestUrl(role: "seller" | "buyer", country: string): string {
-  const title = `Support for ${role} country ${country}`;
-  const body =
-    `A ${role} in ${country} is not supported by @normwerk/einvoice-medusa yet. ` +
-    "What would you need the invoices for that country to look like?";
-  return `${NEW_ISSUE_URL}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+/** The countries a support request is about: the seller's always, the buyer's when a buyer's is asked for. */
+export interface SupportRequestCountries {
+  readonly seller: string;
+  readonly buyer?: string;
+}
+
+/**
+ * A new issue asking for a country, filled in beforehand — the only signal of demand the plugin sends, and
+ * only when the merchant opens it. Carries the countries and nothing about the order.
+ *
+ * T-209: it opens the repository's country form (`.github/ISSUE_TEMPLATE/country.yml`), which labels the issue
+ * `country-request`, with the form's fields filled in by their ids; a blank issue carried no label.
+ */
+export function supportRequestUrl({ seller, buyer }: SupportRequestCountries): string {
+  const [role, country] = buyer === undefined ? ["seller", seller] : ["buyer", buyer];
+  const params = new URLSearchParams({
+    template: "country.yml",
+    title: `Support for ${role} country ${country}`,
+    seller,
+    ...(buyer === undefined ? {} : { buyer }),
+    context:
+      `A ${role} in ${country} is not supported by @normwerk/einvoice-medusa yet. ` +
+      "What would you need the invoices for that country to look like?",
+  });
+  return `${NEW_ISSUE_URL}?${params.toString()}`;
 }
 
 export class PluginError extends Error {

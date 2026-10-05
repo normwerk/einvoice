@@ -63,7 +63,12 @@ describe("S17: a buyer country the release does not support -> refused with its 
     expect(refusal.docsUrl).toBe(
       "https://normwerk.dev/einvoice/docs/errors#unsupported-buyer-country-clearance",
     );
-    expect(refusal.supportRequestUrl).toContain("title=Support%20for%20buyer%20country%20IT");
+    // The repository's country form, which labels the issue; its fields filled in.
+    const support = new URL(refusal.supportRequestUrl ?? "");
+    expect(support.searchParams.get("template")).toBe("country.yml");
+    expect(support.searchParams.get("title")).toBe("Support for buyer country IT");
+    expect(support.searchParams.get("seller")).toBe("DE");
+    expect(support.searchParams.get("buyer")).toBe("IT");
     expect(refusal.message).not.toMatch(/\bat \w+ \(|\b[TPMD]-\d{2,3}\b/);
     expect((await getEinvoiceStatus(admin, orderId)).documents).toEqual([]);
   });

@@ -252,6 +252,7 @@ describe("listAdminEinvoiceStatus (P-63)", () => {
 
   it("offers a support request for a buyer country the release does not support (T-077)", async () => {
     const req = makeRequest({
+      options: { seller: { countryCode: "DE" } },
       listEinvoiceDocuments: vi.fn(async () => []),
       listEinvoiceRefusals: vi.fn(async () => [
         {
@@ -269,7 +270,11 @@ describe("listAdminEinvoiceStatus (P-63)", () => {
     expect(refusal?.docsUrl).toBe(
       "https://normwerk.dev/einvoice/docs/errors#unsupported-buyer-country-clearance",
     );
-    expect(refusal?.supportRequestUrl).toContain("title=Support%20for%20buyer%20country%20IT");
+    const support = new URL(refusal?.supportRequestUrl ?? "");
+    expect(support.searchParams.get("template")).toBe("country.yml");
+    expect(support.searchParams.get("buyer")).toBe("IT");
+    // The configured seller's country, which the form asks for too.
+    expect(support.searchParams.get("seller")).toBe("DE");
   });
 
   it("keeps notices out of the store listing — they tell the merchant what to refund", async () => {

@@ -72,8 +72,8 @@ also "VIES: FR… valid on <date> · consultation …".
 
 Codes and support: every notice's and refusal's code, in brackets after the
 explanation, opens its anchor on the error reference; a refusal for a buyer in Italy (end-to-end scenario
-S17) also shows "Ask for support of this country", which opens a new GitHub issue with the title and body
-filled in and nothing sent. **Settings → Store** shows an "E-Invoicing" block below the store details: the
+S17) also shows "Ask for support of this country", which opens the repository's country form with the title,
+the seller's and the buyer's country filled in, and nothing sent. **Settings → Store** shows an "E-Invoicing" block below the store details: the
 seller country, one line on what the release supports (from `GET /admin/einvoice/support`), and a link to
 the error reference.
 

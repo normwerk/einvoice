@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   errorCodeOf,
@@ -37,10 +39,44 @@ describe("plugin errors (T-077)", () => {
     expect(errorCodeOf(undefined).code).toBe("INTERNAL_ERROR");
   });
 
-  it("fills in a support request with the country and nothing about the order", () => {
-    const url = new URL(supportRequestUrl("buyer", "IT"));
+  it("fills in the country form with the countries and nothing about the order (T-209)", () => {
+    const url = new URL(supportRequestUrl({ seller: "DE", buyer: "IT" }));
     expect(url.origin + url.pathname).toBe("https://github.com/normwerk/einvoice/issues/new");
+    // The form, not a blank issue: the form sets the `country-request` label.
+    expect(url.searchParams.get("template")).toBe("country.yml");
     expect(url.searchParams.get("title")).toBe("Support for buyer country IT");
-    expect(url.searchParams.get("body")).toContain("A buyer in IT");
+    expect(url.searchParams.get("seller")).toBe("DE");
+    expect(url.searchParams.get("buyer")).toBe("IT");
+    expect(url.searchParams.get("context")).toContain("A buyer in IT");
+    expect([...url.searchParams.keys()].sort()).toEqual([
+      "buyer",
+      "context",
+      "seller",
+      "template",
+      "title",
+    ]);
+  });
+
+  it("leaves the buyer to the merchant when the seller's country is the one asked for (T-209)", () => {
+    const url = new URL(supportRequestUrl({ seller: "FR" }));
+    expect(url.searchParams.get("title")).toBe("Support for seller country FR");
+    expect(url.searchParams.get("seller")).toBe("FR");
+    expect(url.searchParams.has("buyer")).toBe(false);
+    expect(url.searchParams.get("context")).toContain("A seller in FR");
+  });
+
+  it("prefills only fields the country form has, by their ids (T-209)", () => {
+    // `__dirname`, not `import.meta.url`: this package compiles to CommonJS (see medusa-version.test.ts).
+    const form = readFileSync(
+      resolve(__dirname, "../../../.github/ISSUE_TEMPLATE/country.yml"),
+      "utf8",
+    );
+    const ids = [...form.matchAll(/^\s+id: (\S+)$/gm)].map((match) => match[1]);
+    const url = new URL(supportRequestUrl({ seller: "DE", buyer: "IT" }));
+    const fields = [...url.searchParams.keys()].filter(
+      (key) => !["template", "title"].includes(key),
+    );
+    expect(fields.every((field) => ids.includes(field))).toBe(true);
+    expect(form).toContain('labels: ["country-request"]');
   });
 });

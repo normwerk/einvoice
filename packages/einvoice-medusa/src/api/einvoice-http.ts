@@ -111,10 +111,13 @@ const UNSUPPORTED_COUNTRY_CODES: ReadonlySet<string> = new Set([
   "UNSUPPORTED_BUYER_COUNTRY_CLEARANCE",
 ]);
 
-function supportRequestOf(refusal: EinvoiceRefusalRecord): string | null {
+function supportRequestOf(
+  refusal: EinvoiceRefusalRecord,
+  einvoiceService: EinvoiceModuleService,
+): string | null {
   const country = refusal.details["country"];
   return UNSUPPORTED_COUNTRY_CODES.has(refusal.code) && typeof country === "string"
-    ? supportRequestUrl("buyer", country)
+    ? supportRequestUrl({ seller: einvoiceService.options.seller.countryCode, buyer: country })
     : null;
 }
 
@@ -212,7 +215,7 @@ export async function listAdminEinvoiceStatus(
       docsUrl: errorDocsUrl(refusal.code),
       updatedAt: new Date(refusal.updated_at).toISOString(),
       retryUrl: `${basePath}/einvoice/refusals/${refusal.id}/retry`,
-      supportRequestUrl: supportRequestOf(refusal),
+      supportRequestUrl: supportRequestOf(refusal, einvoiceService),
     })),
   };
 }

@@ -79,7 +79,7 @@ describe("EinvoiceModuleService", () => {
       expect.objectContaining({
         code: "UNSUPPORTED_SELLER_COUNTRY",
         message: expect.stringMatching(
-          /seller country "AT" is not supported .*\(supported: DE\).*errors#unsupported-seller-country.*Want AT sooner\? https:\/\/github\.com\/normwerk\/einvoice\/issues\/new\?title=Support%20for%20seller%20country%20AT/,
+          /seller country "AT" is not supported .*\(supported: DE\).*errors#unsupported-seller-country.*Want AT sooner\? https:\/\/github\.com\/normwerk\/einvoice\/issues\/new\?template=country\.yml&title=Support\+for\+seller\+country\+AT&seller=AT&/,
         ),
       }),
     );

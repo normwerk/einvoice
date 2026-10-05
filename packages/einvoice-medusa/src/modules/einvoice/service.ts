@@ -174,7 +174,7 @@ function assertValidOptions(options: EinvoiceModuleOptions): void {
       `seller country "${country}" is not supported by this release of @normwerk/einvoice-medusa ` +
         `(supported: ${SUPPORTED_SELLER_COUNTRIES.join(", ")}) — the VAT rules, rates and invoice ` +
         `requirements it applies are German law. See ${errorDocsUrl("UNSUPPORTED_SELLER_COUNTRY")}. ` +
-        `Want ${country} sooner? ${supportRequestUrl("seller", country)}`,
+        `Want ${country} sooner? ${supportRequestUrl({ seller: country })}`,
       "UNSUPPORTED_SELLER_COUNTRY",
     );
   }
