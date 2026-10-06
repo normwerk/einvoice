@@ -47,7 +47,7 @@ describe("supported Medusa releases", () => {
   });
 
   it("reads the installed @medusajs/framework version from the app root", () => {
-    expect(installedMedusaVersion()).toBe("2.19.0");
+    expect(installedMedusaVersion()).toBe("2.21.2");
     expect(installedMedusaVersion("/nonexistent")).toBeUndefined();
   });
 });
