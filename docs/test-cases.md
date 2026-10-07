@@ -240,11 +240,15 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   the checks, logged by the error's class, and a credit note retried by redelivering its refund or cancellation — issued, refused again,
   or nothing left to credit.
 
-### `einvoice-conformance` (8 tests) / `einvoice-ubl` (1 test)
+### `einvoice-conformance` (11 tests) / `einvoice-ubl` (1 test)
 
 - `einvoice-conformance/src/kosit-report.test.ts` — `parseKositReport`: real KoSIT XML report parsing,
   including the `BR-DE-TMP-32`-is-informational-not-a-failure distinction
   (`docs/domain-glossary.md`). `src/index.test.ts` is a scaffold smoke test.
+- `einvoice-conformance/src/dry-run/markdown.test.ts` — the dry-run report: "writes the example report as
+  JSON" and "renders the example report as Markdown" (golden files `src/dry-run/__fixtures__/example-report.json`
+  and `.md`, rewritten by `vitest -u`); "says the documents were not validated when the validators did not
+  run, never that they are valid".
 - `einvoice-ubl/src/index.test.ts` — scaffold smoke test only; UBL serialization itself is v0.2 scope,
   not yet implemented.
 

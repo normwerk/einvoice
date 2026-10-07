@@ -40,7 +40,8 @@
     "!dist/**/*.test.js",
     "!dist/**/*.test.js.map",
     "!dist/**/*.test.d.ts",
-    "!dist/**/*.test.d.ts.map"
+    "!dist/**/*.test.d.ts.map",
+    "!dist/**/__fixtures__"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

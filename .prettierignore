@@ -13,3 +13,7 @@ e2e/app/**
 docs/l4-oracle-eu-report.md
 # Same reasoning, for the T-042 oracle (tools/conformance/oracle-stackforge-facturx.mjs).
 docs/l4-oracle-facturx-report.md
+# Golden files of the dry-run report, written by its test (`toMatchFileSnapshot`): the bytes the renderer and
+# `JSON.stringify` produce are the thing under test, not prettier's layout of them.
+packages/einvoice-conformance/src/dry-run/__fixtures__/example-report.json
+packages/einvoice-conformance/src/dry-run/__fixtures__/example-report.md

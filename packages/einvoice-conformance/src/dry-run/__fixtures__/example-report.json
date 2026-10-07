@@ -1,0 +1,874 @@
+{
+  "schemaVersion": 1,
+  "header": {
+    "startedAt": "2026-10-07T12:00:00Z",
+    "plugin": {
+      "name": "@normwerk/einvoice-medusa",
+      "version": "0.1.0"
+    },
+    "platform": {
+      "name": "Medusa",
+      "version": "2.21.2"
+    },
+    "nodeVersion": "22.12.0",
+    "core": [
+      {
+        "name": "@normwerk/einvoice-commerce",
+        "version": "0.1.0"
+      },
+      {
+        "name": "@normwerk/einvoice-cii",
+        "version": "0.1.0"
+      },
+      {
+        "name": "@normwerk/einvoice-model",
+        "version": "0.1.0"
+      }
+    ],
+    "rulesSha256": "e29a5da1d7450f8d2946f22431bc90310a833e2e4fe3a78d4aca3961dd7937a1",
+    "scope": {
+      "selection": {
+        "kind": "period",
+        "from": "2026-09-01",
+        "to": "2026-09-30"
+      },
+      "orders": 26,
+      "fulfillments": 30,
+      "skipped": {
+        "alreadyInvoiced": 0,
+        "canceled": 1
+      },
+      "vatIdChecks": {
+        "distinct": 3,
+        "confirmed": 2,
+        "notConfirmed": 0,
+        "unavailable": 1
+      }
+    }
+  },
+  "preflight": [
+    {
+      "check": "platform-version",
+      "status": "pass",
+      "installed": "2.21.2",
+      "supported": "2.12–2.15, 2.18 or a later 2.x"
+    },
+    {
+      "check": "migrations",
+      "status": "pass",
+      "pending": []
+    },
+    {
+      "check": "plugin-options",
+      "status": "pass",
+      "invalid": []
+    },
+    {
+      "check": "tax-rates",
+      "status": "pass",
+      "withoutVat": []
+    },
+    {
+      "check": "other-invoice-plugins",
+      "status": "warn",
+      "plugins": [
+        "@webbers/invoices-medusa"
+      ]
+    },
+    {
+      "check": "file-storage",
+      "status": "pass",
+      "provider": "@medusajs/medusa/file-local"
+    },
+    {
+      "check": "vat-id-verifier",
+      "status": "pass",
+      "configured": true
+    }
+  ],
+  "validation": {
+    "status": "ran",
+    "tools": [
+      {
+        "name": "kosit-validator",
+        "version": "1.6.3",
+        "sha256": "799e64befca97d4080e03608c80b85dd5a5ecc5f4ae4f35d1116ec2855b9a7c9"
+      },
+      {
+        "name": "xrechnung-validator-configuration",
+        "version": "XRechnung 3.0.2, release v2026-08-31",
+        "sha256": "2530cd107c414511c5d0462ec10f886910395abfca820db82e83d70bf01221a8"
+      },
+      {
+        "name": "mustang-cli",
+        "version": "2.26.0",
+        "sha256": "42d7868cb68264874a7b8cab4c3587b03b23ccc7cd72373da917f66758bb9736"
+      }
+    ]
+  },
+  "assessments": [
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s01",
+        "fulfillmentId": "ful_s01"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s02",
+        "fulfillmentId": "ful_s02"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s04",
+        "fulfillmentId": "ful_s04"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "credit-note",
+        "orderId": "order_s04",
+        "trigger": "refund",
+        "refundId": "ref_s04"
+      },
+      "outcome": {
+        "class": "not-assessed",
+        "limitation": "CREDIT_NOTES_NOT_ASSESSED"
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s05",
+        "fulfillmentId": "ful_s05"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "credit-note",
+        "orderId": "order_s05",
+        "trigger": "refund",
+        "refundId": "ref_s05"
+      },
+      "outcome": {
+        "class": "not-assessed",
+        "limitation": "CREDIT_NOTES_NOT_ASSESSED"
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s06",
+        "fulfillmentId": "ful_s06"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "credit-note",
+        "orderId": "order_s06",
+        "trigger": "order-canceled"
+      },
+      "outcome": {
+        "class": "not-assessed",
+        "limitation": "CREDIT_NOTES_NOT_ASSESSED"
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s07",
+        "fulfillmentId": "ful_s07"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s08",
+        "fulfillmentId": "ful_s08"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s09",
+        "fulfillmentId": "ful_s09"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s10",
+        "fulfillmentId": "ful_s10"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s11",
+        "fulfillmentId": "ful_s11"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "XRECHNUNG",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s12",
+        "fulfillmentId": "ful_s12"
+      },
+      "outcome": {
+        "class": "would-issue-with-notice",
+        "profile": "EN16931",
+        "notice": {
+          "code": "VAT_OVERCHARGED",
+          "reason": "Prices without VAT: the invoice states less VAT than Medusa charged — typically a business buyer in another EU member state, invoiced at 0 % — and the buyer paid the difference on top.",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#vat-overcharged"
+        },
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "credit-note",
+        "orderId": "order_s12",
+        "trigger": "refund",
+        "refundId": "ref_s12"
+      },
+      "outcome": {
+        "class": "not-assessed",
+        "limitation": "CREDIT_NOTES_NOT_ASSESSED"
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s13",
+        "fulfillmentId": "ful_s13"
+      },
+      "outcome": {
+        "class": "would-refuse",
+        "refusal": {
+          "code": "INVOICE_VAT_ABOVE_CHARGED",
+          "reason": "The invoice would state more VAT than Medusa charged, and so a higher total than the buyer paid — VAT stated on an invoice is owed (§14c UStG).",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#invoice-vat-above-charged"
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s14",
+        "fulfillmentId": "ful_s14"
+      },
+      "outcome": {
+        "class": "would-refuse",
+        "refusal": {
+          "code": "VAT_ID_UNVERIFIED",
+          "reason": "An intra-EU supply (category K) needs the buyer's VAT-ID confirmed valid — a positive VIES check — or a declared manual confirmation (regime override `intra-eu-confirmed`).",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#vat-id-unverified"
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s15",
+        "fulfillmentId": "ful_s15"
+      },
+      "outcome": {
+        "class": "would-issue-with-notice",
+        "profile": "EN16931",
+        "notice": {
+          "code": "VAT_OVERCHARGED",
+          "reason": "Prices without VAT: the invoice states less VAT than Medusa charged — typically a business buyer in another EU member state, invoiced at 0 % — and the buyer paid the difference on top.",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#vat-overcharged",
+          "cause": "shipping-split-across-rates"
+        },
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s16",
+        "fulfillmentId": "ful_s16"
+      },
+      "outcome": {
+        "class": "would-issue-with-notice",
+        "profile": "EN16931",
+        "notice": {
+          "code": "VAT_DIFFERS_FROM_MEDUSA",
+          "reason": "Prices including VAT: the buyer paid the invoice total, but Medusa counts a different VAT than the invoice.",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#vat-differs-from-medusa"
+        },
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s17",
+        "fulfillmentId": "ful_s17"
+      },
+      "outcome": {
+        "class": "would-refuse",
+        "refusal": {
+          "code": "UNSUPPORTED_BUYER_COUNTRY_CLEARANCE",
+          "reason": "The buyer's country — Italy or Poland — runs a mandatory clearance platform with its own national XML; no EN 16931 document can be submitted through it.",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#unsupported-buyer-country-clearance",
+          "country": "IT"
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s18",
+        "fulfillmentId": "ful_s18_1"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s18",
+        "fulfillmentId": "ful_s18_2"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s18b",
+        "fulfillmentId": "ful_s18b_2"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s20",
+        "fulfillmentId": "ful_s20"
+      },
+      "outcome": {
+        "class": "would-refuse",
+        "refusal": {
+          "code": "NO_VAT_CHARGED",
+          "reason": "No line and no shipping of a domestic order carries VAT: the shop charged none.",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#no-vat-charged"
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s21",
+        "fulfillmentId": "ful_s21"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s22_exchange",
+        "fulfillmentId": "ful_s22_exchange_1"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s22_exchange",
+        "fulfillmentId": "ful_s22_exchange_2"
+      },
+      "outcome": {
+        "class": "would-refuse",
+        "refusal": {
+          "code": "SHIPMENT_OF_EXCHANGE",
+          "reason": "A fulfillment ships the new item of an exchange.",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#shipment-of-exchange"
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "credit-note",
+        "orderId": "order_s22_exchange",
+        "trigger": "refund",
+        "refundId": "ref_s22_exchange"
+      },
+      "outcome": {
+        "class": "not-assessed",
+        "limitation": "CREDIT_NOTES_NOT_ASSESSED"
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s22_claim",
+        "fulfillmentId": "ful_s22_claim_1"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s22_claim",
+        "fulfillmentId": "ful_s22_claim_2"
+      },
+      "outcome": {
+        "class": "would-refuse",
+        "refusal": {
+          "code": "SHIPMENT_OF_CLAIM_REPLACEMENT",
+          "reason": "A fulfillment ships a replacement from a claim.",
+          "docsUrl": "https://normwerk.dev/einvoice/docs/errors#shipment-of-claim-replacement"
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s22_edit",
+        "fulfillmentId": "ful_s22_edit"
+      },
+      "outcome": {
+        "class": "not-assessed",
+        "limitation": "ORDER_EDITED_AFTER_SHIPMENT"
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_s23",
+        "fulfillmentId": "ful_s23"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "valid",
+              "rules": []
+            },
+            {
+              "tool": "mustang",
+              "result": "valid",
+              "rules": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_illustrative_invalid",
+        "fulfillmentId": "ful_illustrative_invalid"
+      },
+      "outcome": {
+        "class": "would-issue",
+        "profile": "EN16931",
+        "validation": {
+          "status": "ran",
+          "verdicts": [
+            {
+              "tool": "kosit",
+              "result": "invalid",
+              "rules": [
+                "BR-CO-15"
+              ]
+            },
+            {
+              "tool": "mustang",
+              "result": "invalid",
+              "rules": [
+                "BR-CO-15"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "document": {
+        "type": "invoice",
+        "orderId": "order_illustrative_tool_error",
+        "fulfillmentId": "ful_illustrative_tool_error"
+      },
+      "outcome": {
+        "class": "tool-error",
+        "error": {
+          "stage": "plan",
+          "code": "INTERNAL_ERROR",
+          "errorClass": "TypeError",
+          "stack": [
+            {
+              "function": "mapOrderToCommerceInvoiceInput",
+              "at": "@normwerk/einvoice-medusa/.medusa/server/src/mapping/order-to-commerce-invoice-input.js:412:31"
+            },
+            {
+              "function": "prepare",
+              "at": "@normwerk/einvoice-medusa/.medusa/server/src/invoices/issue-invoice.js:268:19"
+            },
+            {
+              "function": "planInvoiceForFulfillment",
+              "at": "@normwerk/einvoice-medusa/.medusa/server/src/invoices/issue-invoice.js:316:16"
+            },
+            {
+              "outside": 4
+            }
+          ],
+          "fingerprint": "3f9a0c1d2e4b"
+        }
+      }
+    }
+  ],
+  "runLimitations": [
+    "SHOP_PDF_NOT_ASSESSED"
+  ]
+}
