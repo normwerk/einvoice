@@ -249,4 +249,76 @@ describe("planInvoiceForFulfillment (T-211)", () => {
     expect(configured.verify).not.toHaveBeenCalled();
     expect(plan).toMatchObject({ kind: "ready", buildOptions: { vatIdEvidence: evidence } });
   });
+
+  // T-214 (P-81): a dry run plans an order's second fulfillment after its first, with nothing issued — it
+  // hands the plan its own register of the invoices planned so far.
+  it("reads the order's invoices from the source it is given instead of the plugin's documents", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const order = {
+      ...ORDER,
+      fulfillments: [
+        {
+          id: "ful_01",
+          created_at: "2026-01-15T09:00:00Z",
+          items: [{ line_item_id: "item_01", quantity: 1 }],
+        },
+        {
+          id: "ful_02",
+          created_at: "2026-01-16T09:00:00Z",
+          items: [{ line_item_id: "item_01", quantity: 1 }],
+        },
+      ],
+    };
+    mocks.buildInvoice.mockImplementationOnce((input: unknown) => ({
+      invoice: {
+        ...(input as object),
+        totals: { totalAmountWithVat: "119.00", totalVatAmount: "19.00" },
+        lines: [],
+      },
+      warnings: [],
+      decisions: [],
+    }));
+    const invoices = {
+      hasInvoice: vi.fn(async () => false),
+      invoicesOfOrder: vi.fn(async () => [
+        {
+          idempotency_key: "ful_01",
+          line_values: [{ itemId: "item_01", rate: "19", quantity: "1", gross: "119.00" }],
+          includes_shipping: true,
+        },
+      ]),
+    };
+
+    const plan = await planInvoiceForFulfillment(
+      makeContainer(einvoiceService, order),
+      { orderId: "order_01", fulfillmentId: "ful_02" },
+      { invoices },
+    );
+
+    expect(invoices.hasInvoice).toHaveBeenCalledWith("ful_02");
+    expect(invoices.invoicesOfOrder).toHaveBeenCalledWith("order_01");
+    expect(einvoiceService.listEinvoiceDocuments).not.toHaveBeenCalled();
+    expect(plan).toMatchObject({
+      kind: "ready",
+      shipment: { includesShipping: false, lines: [{ itemId: "item_01", quantity: "1" }] },
+    });
+    expectNothingWritten(einvoiceService);
+  });
+
+  it("decides a fulfillment the given source holds an invoice for as existing", async () => {
+    const einvoiceService = makeEinvoiceService();
+    const invoices = {
+      hasInvoice: vi.fn(async () => true),
+      invoicesOfOrder: vi.fn(async () => []),
+    };
+
+    const plan = await planInvoiceForFulfillment(
+      makeContainer(einvoiceService),
+      { orderId: "order_01", fulfillmentId: "ful_01" },
+      { invoices },
+    );
+
+    expect(plan).toEqual({ kind: "exists" });
+    expect(einvoiceService.listEinvoiceDocuments).not.toHaveBeenCalled();
+  });
 });

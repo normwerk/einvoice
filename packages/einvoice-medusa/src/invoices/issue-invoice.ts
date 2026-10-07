@@ -58,6 +58,10 @@
  * `issueInvoiceForFulfillment` runs the plan and then commits what it decided: a refusal recorded and
  * announced, or the number, the build, the PDF, the files, the document and its event. The audit command
  * runs the plan alone over past orders, with a VAT-ID verifier of its own (`IssuancePlanOverrides`).
+ *
+ * T-214 (P-81): and with its own register of the order's invoices — a dry run issues nothing, so without one
+ * an order's second fulfillment would be planned as its first, the shipping on both invoices. The plan reads
+ * the order's invoices through `InvoiceRecordSource`; the plugin's documents are the default one.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
@@ -72,7 +76,11 @@ import type {
 };
 import { EINVOICE_MODULE } from "../modules/einvoice/index.js";
 import type EinvoiceModuleService from "../modules/einvoice/service.js";
-import type { EinvoiceDocumentRecord, EinvoiceRefusalRecord } from "../modules/einvoice/service.js";
+import type {
+  EinvoiceDocumentRecord,
+  EinvoiceRefusalRecord,
+  InvoicedLine,
+} from "../modules/einvoice/service.js";
 import { ModuleNumberingStore } from "../modules/einvoice/numbering-store.js";
 import { deleteEinvoiceFiles, storeEinvoiceFiles } from "../storage.js";
 import { recordRefusalOfError, type RefusalTarget } from "../refusals.js";
@@ -105,14 +113,46 @@ import { taxEvidenceToKeep } from "../mapping/tax-evidence.js";
 import { PluginError, errorForLog } from "../errors.js";
 import { emitDocumentIssued, emitIssuanceBlocked } from "../events.js";
 
+/** T-214: what a plan reads of an invoice the order already has — issued, or planned by the same dry run. */
+export type InvoiceRecordForPlan = Pick<
+  EinvoiceDocumentRecord,
+  "idempotency_key" | "line_values" | "includes_shipping"
+>;
+
+/** T-214 (P-81): where a plan reads the invoices already issued. */
+export interface InvoiceRecordSource {
+  /** Whether the fulfillment has its invoice. */
+  hasInvoice(fulfillmentId: string): Promise<boolean>;
+  /** The order's invoices, cancelled fulfillments' included. */
+  invoicesOfOrder(orderId: string): Promise<readonly InvoiceRecordForPlan[]>;
+}
+
+/** The invoices the plugin issued — the source every plan reads unless it is given another. */
+export function issuedInvoices(einvoiceService: EinvoiceModuleService): InvoiceRecordSource {
+  return {
+    hasInvoice: async (fulfillmentId) =>
+      (
+        await einvoiceService.listEinvoiceDocuments({
+          type: "invoice",
+          idempotency_key: fulfillmentId,
+        })
+      ).length > 0,
+    invoicesOfOrder: async (orderId) =>
+      (await einvoiceService.listEinvoiceDocuments({
+        type: "invoice",
+        order_id: orderId,
+      })) as unknown as EinvoiceDocumentRecord[],
+  };
+}
+
 /**
  * P-67: the order's invoices still standing — those whose fulfillment was not cancelled (a cancelled
  * fulfillment's invoice is credited in full, and its units ship again in another one).
  */
-export function standingInvoices(
+export function standingInvoices<Invoice extends Pick<EinvoiceDocumentRecord, "idempotency_key">>(
   order: MedusaOrderForInvoice,
-  invoices: readonly EinvoiceDocumentRecord[],
-): readonly EinvoiceDocumentRecord[] {
+  invoices: readonly Invoice[],
+): readonly Invoice[] {
   const canceled = new Set(
     (order.fulfillments ?? [])
       .filter(
@@ -148,6 +188,8 @@ export type IssueInvoiceOutcome =
 export interface IssuancePlanOverrides {
   /** Checks the buyer's VAT-ID in place of the `vatIdVerifier` option — the audit command's caching one. */
   readonly vatIdVerifier?: VatIdVerifier;
+  /** T-214: the order's invoices in place of the plugin's documents — a dry run's register. */
+  readonly invoices?: InvoiceRecordSource;
 }
 
 /** T-211: an invoice that can be issued — everything decided, nothing written yet. */
@@ -188,12 +230,9 @@ export async function planInvoiceForFulfillment(
   overrides: IssuancePlanOverrides = {},
 ): Promise<InvoicePlan> {
   const einvoiceService = container.resolve<EinvoiceModuleService>(EINVOICE_MODULE);
+  const invoices = overrides.invoices ?? issuedInvoices(einvoiceService);
 
-  const existing = await einvoiceService.listEinvoiceDocuments({
-    type: "invoice",
-    idempotency_key: fulfillmentId,
-  });
-  if (existing.length > 0) {
+  if (await invoices.hasInvoice(fulfillmentId)) {
     return { kind: "exists" };
   }
 
@@ -233,13 +272,7 @@ export async function planInvoiceForFulfillment(
     const { exchanges, claims } = await loadExchangesAndClaims(container, order.id);
     assertNoReplacementShipped(fulfillment, replacementLines(exchanges, claims));
     // P-67: what the order's other invoices already took — units, discount, and the shipping.
-    const others = standingInvoices(
-      order,
-      (await einvoiceService.listEinvoiceDocuments({
-        type: "invoice",
-        order_id: order.id,
-      })) as unknown as EinvoiceDocumentRecord[],
-    );
+    const others = standingInvoices(order, await invoices.invoicesOfOrder(order.id));
     const invoicedBefore: LineInvoicedBefore[] = others.flatMap((invoice) =>
       (invoice.line_values ?? []).map((line) => ({
         itemId: line.itemId,
@@ -421,24 +454,61 @@ async function issuePlannedInvoice(
   }
 }
 
+/**
+ * T-214: the invoice a ready plan is issued as — with its number, and stating it paid when the order was paid
+ * in full before it shipped (P-67). The commit builds it with the number it takes, a dry run with
+ * `UNALLOCATED_DOCUMENT_NUMBER`: the same XML but for the number.
+ */
+export async function buildPlannedInvoice(
+  { order, input, buildOptions, check }: ReadyInvoicePlan,
+  documentNumber: string,
+): Promise<BuildResult> {
+  const commerce = await import("@normwerk/einvoice-commerce");
+  const paidAmount = orderPaidInFull(order) ? check.invoice.totals.totalAmountWithVat : undefined;
+  return commerce.buildInvoice(
+    { ...input, paidAmount, document: { ...input.document, number: documentNumber } },
+    buildOptions,
+  );
+}
+
+/** The CII profile `serializeCii` writes for a document profile. */
+export function ciiProfileOf(profile: EInvoiceProfileName): "xrechnung-3.0-cii" | "en16931-cii" {
+  return profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
+}
+
+/**
+ * P-65: what each order line was invoiced at — a later return is credited at that; P-67: and its share of the
+ * line's discount. T-201: and the unit price Medusa had for it, which a later order edit is compared with.
+ * Stored with the invoice; a dry run keeps it in its register for the order's next invoice.
+ */
+export function plannedLineValues(
+  { order, shipment }: Pick<ReadyInvoicePlan, "order" | "shipment">,
+  built: BuildResult,
+): readonly InvoicedLine[] {
+  return invoicedLineValues(
+    shipment.lines.map((line) => {
+      const price = order.items.find((item) => item.id === line.itemId)?.unit_price;
+      return price === undefined || price === null
+        ? line
+        : { ...line, unitPrice: Number(price).toFixed(4) };
+    }),
+    built.invoice.lines,
+  );
+}
+
 /** The invoice for a number taken: the real build, the PDF, the files, the document, the event. */
 async function issueNumberedInvoice(
   container: MedusaContainer,
   einvoiceService: EinvoiceModuleService,
   { fulfillmentId }: IssueInvoiceRequest,
-  { order, input, profile, buildOptions, check, shipment, notice }: ReadyInvoicePlan,
+  plan: ReadyInvoicePlan,
   documentNumber: string,
 ): Promise<IssueInvoiceOutcome> {
-  const commerce = await import("@normwerk/einvoice-commerce");
+  const { order, profile, shipment, notice } = plan;
   const cii = await import("@normwerk/einvoice-cii");
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
 
-  // P-67: an order paid in full before it shipped — the invoice states its total as paid.
-  const paidAmount = orderPaidInFull(order) ? check.invoice.totals.totalAmountWithVat : undefined;
-  const buildResult = commerce.buildInvoice(
-    { ...input, paidAmount, document: { ...input.document, number: documentNumber } },
-    buildOptions,
-  );
+  const buildResult = await buildPlannedInvoice(plan, documentNumber);
 
   // P-39: `buildInvoice` reports what it could not map or had to assume (`BuildResult.warnings`); it goes
   // to the log at warn level, as does a notice (P-63) — codes, messages and amounts only, never the invoice
@@ -456,8 +526,7 @@ async function issueNumberedInvoice(
   // T-073: the merchant's own PDF, if any — see this file's own doc comment.
   const basePdfBytes = await einvoiceService.options.standalone?.basePdf?.(buildResult.invoice);
 
-  const ciiProfile = profile === "XRECHNUNG" ? "xrechnung-3.0-cii" : "en16931-cii";
-  const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfile });
+  const { xml } = cii.serializeCii(buildResult.invoice, { profile: ciiProfileOf(profile) });
 
   // T-033: a PDF that cannot become PDF/A is left out; the document is issued as XML with a notice why.
   const { pdfBytes: finalPdfBytes, pdfNotice } = await documentPdf(basePdfBytes, xml, {
@@ -486,18 +555,7 @@ async function issueNumberedInvoice(
     pdfFileId: stored.pdfFileId,
     pdfNotice,
     notice,
-    // P-65: what each order line was invoiced at — a later return is credited at that; P-67: and its share
-    // of the line's discount.
-    // T-201: and the unit price Medusa had for it, which a later order edit is compared with.
-    lineValues: invoicedLineValues(
-      shipment.lines.map((line) => {
-        const price = order.items.find((item) => item.id === line.itemId)?.unit_price;
-        return price === undefined || price === null
-          ? line
-          : { ...line, unitPrice: Number(price).toFixed(4) };
-      }),
-      buildResult.invoice.lines,
-    ),
+    lineValues: plannedLineValues(plan, buildResult),
     includesShipping: shipment.includesShipping,
     // T-192: the VIES answer a K invoice rests on, and the rule it followed.
     ...taxEvidenceToKeep(buildResult),
