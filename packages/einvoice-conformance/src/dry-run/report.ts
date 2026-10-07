@@ -3,7 +3,13 @@
  * running, without issuing anything: no document number taken, no file stored, no event sent. A platform's
  * dry-run command writes it as JSON; `markdown.ts` renders it for a merchant or a partner to read.
  * Platform-neutral: the Medusa plugin writes it first, the Vendure one later. `__fixtures__/example-report.ts`
- * shows it filled in; no command writes it yet.
+ * shows it filled in.
+ *
+ * Two steps, so that no shipped package depends on this one (AGENTS.md §6): the plugin writes a folder with
+ * `report.json` — every document's validation `not-run` — and `xml/<fulfillment id>.xml` for each invoice it
+ * would issue (the id with any character outside `A-Za-z0-9_-` as `_`, `validate.ts`'s `xmlFileName`); the XML
+ * names the buyer and stays on that machine. `pnpm conformance dry-run <folder>` validates it and writes the
+ * verdicts back into `report.json`, and `report.md`.
  *
  * Without personal data by construction (D-08, AGENTS.md §5.2): every field is an internal id, a count, a code,
  * a version, a hash, a validator rule id, a country code or a sentence fixed per code — never a name, an

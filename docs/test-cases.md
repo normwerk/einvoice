@@ -257,7 +257,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   the checks, logged by the error's class, and a credit note retried by redelivering its refund or cancellation — issued, refused again,
   or nothing left to credit.
 
-### `einvoice-conformance` (11 tests) / `einvoice-ubl` (1 test)
+### `einvoice-conformance` (16 tests) / `einvoice-ubl` (1 test)
 
 - `einvoice-conformance/src/kosit-report.test.ts` — `parseKositReport`: real KoSIT XML report parsing,
   including the `BR-DE-TMP-32`-is-informational-not-a-failure distinction
@@ -266,6 +266,11 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   JSON" and "renders the example report as Markdown" (golden files `src/dry-run/__fixtures__/example-report.json`
   and `.md`, rewritten by `vitest -u`); "says the documents were not validated when the validators did not
   run, never that they are valid".
+- `einvoice-conformance/src/dry-run/verdicts.test.ts`, `validate.test.ts` — a validator's verdict on a dry-run
+  document: KoSIT valid (an information-level message fires no rule), accepted with warnings, or rejected
+  with its rule ids; Mustang's errors and warnings by rule id, never by text, notices ignored; each verdict
+  put on the document KoSIT and Mustang saw, a document whose XML is missing left not validated, a validator
+  failing on one a tool error, a refusal untouched, KoSIT started once for all of them.
 - `einvoice-ubl/src/index.test.ts` — scaffold smoke test only; UBL serialization itself is v0.2 scope,
   not yet implemented.
 

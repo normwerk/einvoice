@@ -22,8 +22,9 @@ import { dirname, basename, resolve, extname } from "node:path";
 // though the source is kosit-report.ts (moduleResolution: Bundler allows
 // this — see tsconfig.base.json).
 import { parseKositReport } from "./kosit-report.js";
+import { dryRunCommand } from "./dry-run/command.js";
+import { KOSIT_IMAGE } from "./dry-run/docker.js";
 
-const KOSIT_IMAGE = "einvoice-conformance-kosit:local";
 const VERAPDF_IMAGE = "einvoice-conformance-verapdf:local";
 
 interface ValidationResult {
@@ -137,8 +138,13 @@ function validatePdf(filePath: string): ValidationResult {
 
 function main(): void {
   const [command, file] = process.argv.slice(2);
+  // T-214: the dry run's second step, on the folder the plugin's dry run wrote.
+  if (command === "dry-run" && file !== undefined) {
+    process.exitCode = dryRunCommand(resolve(file));
+    return;
+  }
   if (command !== "validate" || file === undefined) {
-    console.error("Usage: pnpm conformance validate <file.xml|file.pdf>");
+    console.error("Usage: pnpm conformance validate <file.xml|file.pdf> | dry-run <folder>");
     process.exitCode = 1;
     return;
   }

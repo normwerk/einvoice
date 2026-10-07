@@ -6,3 +6,4 @@ export const PACKAGE_NAME = "@normwerk/einvoice-conformance";
 
 export * from "./dry-run/report.js";
 export { renderDryRunMarkdown, toolErrorReportUrl } from "./dry-run/markdown.js";
+export { validateDryRun, xmlFileName, type Validators } from "./dry-run/validate.js";

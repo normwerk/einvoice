@@ -8,7 +8,7 @@ What the plugin would have done with these orders had it been running: the docum
 
 - **Selection:** fulfillments created from 2026-09-01 to 2026-09-30 — 26 orders, 30 fulfillments.
 - **Skipped:** 0 fulfillments already invoiced by the plugin, 1 cancelled before an invoice was issued.
-- **VAT-IDs:** 3 distinct checked — 2 confirmed, 0 not confirmed, 1 without an answer (the verifier was unavailable).
+- **VAT-IDs:** 3 distinct checked — 2 confirmed, 0 not confirmed; for 1 the verifier gave no answer.
 - **Plugin:** `@normwerk/einvoice-medusa` 0.1.0; core `@normwerk/einvoice-commerce` 0.1.0, `@normwerk/einvoice-cii` 0.1.0, `@normwerk/einvoice-model` 0.1.0.
 - **VAT rules:** SHA-256 `e29a5da1d7450f8d2946f22431bc90310a833e2e4fe3a78d4aca3961dd7937a1`.
 - **Platform:** Medusa 2.21.2, Node.js 22.12.0.

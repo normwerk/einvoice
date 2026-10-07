@@ -221,9 +221,10 @@ function run(report: DryRunReport): string[] {
       `${plural(scope.fulfillments, "fulfillment")}.`,
     `- **Skipped:** ${plural(scope.skipped.alreadyInvoiced, "fulfillment")} already invoiced by the ` +
       `plugin, ${scope.skipped.canceled} cancelled before an invoice was issued.`,
-    `- **VAT-IDs:** ${checks.distinct} distinct checked — ${checks.confirmed} confirmed, ` +
-      `${checks.notConfirmed} not confirmed, ${checks.unavailable} without an answer (the verifier was ` +
-      "unavailable).",
+    checks.distinct === 0
+      ? "- **VAT-IDs:** none checked."
+      : `- **VAT-IDs:** ${checks.distinct} distinct checked — ${checks.confirmed} confirmed, ` +
+        `${checks.notConfirmed} not confirmed; for ${checks.unavailable} the verifier gave no answer.`,
     `- **Plugin:** ${packages([header.plugin])}; core ${packages(header.core)}.`,
     `- **VAT rules:** SHA-256 ${code(header.rulesSha256)}.`,
     `- **Platform:** ${header.platform.name} ${header.platform.version}, Node.js ${header.nodeVersion}.`,
