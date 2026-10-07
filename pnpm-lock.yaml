@@ -125,6 +125,9 @@ importers:
       '@medusajs/ui':
         specifier: 4.2.6
         version: 4.2.6(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3)
+      '@normwerk/einvoice-conformance':
+        specifier: workspace:*
+        version: link:../einvoice-conformance
       '@swc/core':
         specifier: ^1.7.28
         version: 1.16.2(@swc/helpers@0.5.23)

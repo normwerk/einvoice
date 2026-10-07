@@ -105,7 +105,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   it directly rather than by reference, and a font without a name is called "(unnamed)"; an encrypted PDF is
   refused.
 
-### `einvoice-medusa` (311 tests)
+### `einvoice-medusa` (335 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -218,7 +218,24 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   stating more VAT than Medusa charged come back as outcomes with nothing recorded, announced, numbered,
   stored or logged; a cancelled fulfillment's refusal is left alone; a ready document is built once, without
   a number, and the shop's PDF is not asked for; the VAT-ID is checked with the verifier given in place of
-  the plugin's own.
+  the plugin's own; the order's invoices are read from the source given in place of the plugin's documents,
+  and a fulfillment that source holds an invoice for is `exists`.
+- `src/dry-run/run.test.ts` — the dry run over a shop's orders through the real plan, `buildInvoice` and
+  `serializeCii`: an order's second fulfillment planned after its first, the shipping on the first invoice
+  only, and its refund listed as a credit note not assessed; each kind of order's outcome — a refusal with
+  its code, reason, link and the buyer's country, an order edited after its fulfillment not assessed, a
+  defect as a tool error, a cancelled fulfillment and one after the period skipped — and the counts; a tool
+  error named by its code, class and our own frames, never its message; nothing written, announced,
+  numbered or logged, the shop's PDF not asked for; the plugin's documents read only when its tables are
+  there; each distinct VAT-ID checked once and counted; the report's header and its validation left to the
+  next step; and, over every tax-matrix fixture, no name, address, contact, VAT-ID or IBAN in the report.
+- `src/dry-run/tool-error.test.ts`, `args.test.ts`, `preflight.test.ts`, `output.test.ts`,
+  `versions.test.ts` — a stack reduced to the frames in `@normwerk` packages, installed or in the workspace,
+  the others counted, the message left out whatever it looks like, one fingerprint per defect; the run's
+  `key=value` arguments; the preflight's pending migrations by name, VAT rates (fail for the seller's
+  country, warn for another), another invoice plugin, a missing VAT-ID verifier and the File Module's
+  provider; the output folder (an earlier run's XML replaced, a foreign folder left alone); the installed
+  versions and the hash of the commerce rule modules.
 - `src/mapping/tax-evidence.test.ts` — `taxEvidenceToKeep`: a document of category K keeps the VIES answer
   it rests on, even "unavailable" when the number was confirmed another way; any other document keeps its
   decision and no VIES answer.
