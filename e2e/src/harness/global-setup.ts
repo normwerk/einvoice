@@ -23,7 +23,8 @@ const CONFORMANCE_COMPOSE_FILE = path.join(REPO_ROOT, "docker", "compose.conform
 async function buildConformanceImages(): Promise<void> {
   await execFileAsync(
     "docker",
-    ["compose", "-f", CONFORMANCE_COMPOSE_FILE, "build", "kosit", "verapdf"],
+    // T-214: Mustang for the dry run's validation step (`scenarios/dry-run.test.ts`).
+    ["compose", "-f", CONFORMANCE_COMPOSE_FILE, "build", "kosit", "verapdf", "mustang"],
     {
       maxBuffer: 64 * 1024 * 1024,
     },

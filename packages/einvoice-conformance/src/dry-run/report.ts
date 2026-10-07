@@ -103,8 +103,13 @@ export type PreflightCheck =
   | (PreflightResult & { readonly check: "migrations"; readonly pending: readonly string[] })
   /** The plugin options that are missing or invalid, by path (`seller.contact.email`) — never their values. */
   | (PreflightResult & { readonly check: "plugin-options"; readonly invalid: readonly string[] })
-  /** The countries whose tax region charges no VAT. A domestic order there is refused (`NO_VAT_CHARGED`). */
-  | (PreflightResult & { readonly check: "tax-rates"; readonly withoutVat: readonly string[] })
+  /** The countries whose tax region charges no VAT. `fail` when the seller's is among them: every domestic order
+   * is refused (`NO_VAT_CHARGED`). Another country without a rate is listed, not judged. */
+  | (PreflightResult & {
+      readonly check: "tax-rates";
+      readonly sellerCountry: string;
+      readonly withoutVat: readonly string[];
+    })
   /** Other plugins known to issue invoices of their own. With both running, a sale gets two invoices. */
   | (PreflightResult & {
       readonly check: "other-invoice-plugins";
@@ -202,9 +207,13 @@ export type StackFrame =
 export type DocumentLimitationCode =
   /** This release's dry run plans invoices only: a refund or a cancellation is listed, not planned. */
   | "CREDIT_NOTES_NOT_ASSESSED"
-  /** The order was edited after this fulfillment. The run reads the order as it is now, not as it was when the
-   * invoice would have been issued, so it does not plan the invoice. */
-  | "ORDER_EDITED_AFTER_SHIPMENT";
+  /** The order changed after this fulfillment — `changes` says how. The run reads the order as it is now, not
+   * as it was when the invoice would have been issued, so it does not judge the invoice. */
+  | "ORDER_CHANGED_AFTER_SHIPMENT";
+
+/** How an order changed after a fulfillment: an order edit; a return received of an item the fulfillment
+ * shipped; an exchange or a claim; a change of the order's own details (its metadata, email, address). */
+export type OrderChangeKind = "edit" | "return" | "exchange" | "claim" | "order-update";
 
 /** A limit of the dry run itself for the whole shop. */
 export type RunLimitationCode =
@@ -239,7 +248,12 @@ export type Outcome =
   /** The plugin would not issue it, and says why. */
   | { readonly class: "would-refuse"; readonly refusal: Finding }
   /** The dry run cannot tell what the plugin would do. */
-  | { readonly class: "not-assessed"; readonly limitation: DocumentLimitationCode }
+  | {
+      readonly class: "not-assessed";
+      readonly limitation: DocumentLimitationCode;
+      /** For `ORDER_CHANGED_AFTER_SHIPMENT`: how the order changed, each kind once. */
+      readonly changes?: readonly OrderChangeKind[];
+    }
   /** The run failed on the document. */
   | { readonly class: "tool-error"; readonly error: ToolError };
 

@@ -193,8 +193,13 @@ export interface IssuancePlanOverrides {
 }
 
 /** T-211: an invoice that can be issued — everything decided, nothing written yet. */
-export interface ReadyInvoicePlan {
+export interface ReadyInvoicePlan extends PlannedBuild {
   readonly kind: "ready";
+  readonly notice: InvoiceNotice | null;
+}
+
+/** The invoice a plan built without a number — a ready plan's, and a blocked one's (T-214). */
+export interface PlannedBuild {
   readonly order: MedusaOrderForInvoice;
   readonly input: CommerceInvoiceInput;
   readonly profile: EInvoiceProfileName;
@@ -203,7 +208,6 @@ export interface ReadyInvoicePlan {
    * amount. */
   readonly check: BuildResult;
   readonly shipment: ShipmentScope;
-  readonly notice: InvoiceNotice | null;
 }
 
 /** T-211: what issuing the invoice for a fulfillment would do. */
@@ -216,8 +220,9 @@ export type InvoicePlan =
   | { readonly kind: "fulfillment-canceled" }
   /** Refused before a number is taken (P-66): `error` is what the commit records. */
   | { readonly kind: "refused"; readonly error: unknown }
-  /** The invoice disagrees with what Medusa charged (P-63). */
-  | { readonly kind: "blocked"; readonly block: InvoiceBlock }
+  /** The invoice disagrees with what Medusa charged (P-63). T-214: with the invoice built — a dry run reading an
+   * order changed since its fulfillment registers it for the order's next invoices. */
+  | ({ readonly kind: "blocked"; readonly block: InvoiceBlock } & PlannedBuild)
   | ReadyInvoicePlan;
 
 /**
@@ -349,7 +354,16 @@ export async function planInvoiceForFulfillment(
     chargedForShipment(order, shipment),
   );
   if (reconciliation.outcome === "block") {
-    return { kind: "blocked", block: reconciliation.block };
+    return {
+      kind: "blocked",
+      block: reconciliation.block,
+      order,
+      input,
+      profile,
+      buildOptions,
+      check,
+      shipment,
+    };
   }
   return {
     kind: "ready",
@@ -460,7 +474,7 @@ async function issuePlannedInvoice(
  * `UNALLOCATED_DOCUMENT_NUMBER`: the same XML but for the number.
  */
 export async function buildPlannedInvoice(
-  { order, input, buildOptions, check }: ReadyInvoicePlan,
+  { order, input, buildOptions, check }: PlannedBuild,
   documentNumber: string,
 ): Promise<BuildResult> {
   const commerce = await import("@normwerk/einvoice-commerce");

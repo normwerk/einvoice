@@ -22,7 +22,7 @@ What the plugin would have done with these orders had it been running: the docum
 | Medusa version | pass | 2.21.2; the plugin runs on 2.12–2.15, 2.18 or a later 2.x |
 | Plugin migrations | pass | All applied |
 | Plugin options | pass | Complete |
-| VAT rates | pass | Every tax region charges VAT |
+| VAT rates | pass | DE charges VAT; no rate in the tax region of FR, where Medusa charges no VAT |
 | Other invoice plugins | **warn** | `@webbers/invoices-medusa`: with both running, a sale gets two invoices, and the VAT stated on each is owed |
 | File storage | pass | `@medusajs/medusa/file-local` |
 | VAT-ID verifier | pass | Configured |
@@ -131,11 +131,11 @@ This release's dry run plans invoices only: the refunds and cancellations below 
 - Order `order_s12`, credit note for refund `ref_s12`
 - Order `order_s22_exchange`, credit note for refund `ref_s22_exchange`
 
-### `ORDER_EDITED_AFTER_SHIPMENT` — 1
+### `ORDER_CHANGED_AFTER_SHIPMENT` — 1
 
-These orders were edited after the fulfillment. The run reads an order as it is now, not as it was when the invoice would have been issued, so it does not plan the invoice.
+These orders changed after the fulfillment. The run reads an order as it is now, not as it was when the invoice would have been issued, so it does not judge the invoice.
 
-- Order `order_s22_edit`, invoice for fulfillment `ful_s22_edit`
+- Order `order_s22_edit`, invoice for fulfillment `ful_s22_edit` — edited
 
 ## Would issue
 

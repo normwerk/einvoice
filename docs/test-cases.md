@@ -105,7 +105,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   it directly rather than by reference, and a font without a name is called "(unnamed)"; an encrypted PDF is
   refused.
 
-### `einvoice-medusa` (335 tests)
+### `einvoice-medusa` (336 tests)
 
 - `src/mapping/order-to-commerce-invoice-input.test.ts` — `mapOrderToCommerceInvoiceInput`: every real
   mapping edge case documented in
@@ -222,7 +222,8 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   and a fulfillment that source holds an invoice for is `exists`.
 - `src/dry-run/run.test.ts` — the dry run over a shop's orders through the real plan, `buildInvoice` and
   `serializeCii`: an order's second fulfillment planned after its first, the shipping on the first invoice
-  only, and its refund listed as a credit note not assessed; each kind of order's outcome — a refusal with
+  only, and its refund listed as a credit note not assessed; a fulfillment whose item came back not assessed,
+  its invoice still taking the shipping for the next one; each kind of order's outcome — a refusal with
   its code, reason, link and the buyer's country, an order edited after its fulfillment not assessed, a
   defect as a tool error, a cancelled fulfillment and one after the period skipped — and the counts; a tool
   error named by its code, class and our own frames, never its message; nothing written, announced,
@@ -233,7 +234,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   `versions.test.ts` — a stack reduced to the frames in `@normwerk` packages, installed or in the workspace,
   the others counted, the message left out whatever it looks like, one fingerprint per defect; the run's
   `key=value` arguments; the preflight's pending migrations by name, VAT rates (fail for the seller's
-  country, warn for another), another invoice plugin, a missing VAT-ID verifier and the File Module's
+  country, another listed), another invoice plugin, a missing VAT-ID verifier and the File Module's
   provider; the output folder (an earlier run's XML replaced, a foreign folder left alone); the installed
   versions and the hash of the commerce rule modules.
 - `src/mapping/tax-evidence.test.ts` — `taxEvidenceToKeep`: a document of category K keeps the VIES answer
@@ -324,7 +325,7 @@ Covered in more depth in [`docs/e2e.md`](e2e.md); listed here for the same compl
 conformance suite above — a different kind of test from either: it proves **wiring** (does a real order's
 data reach the plugin, over the real Admin/Store HTTP API, and come back out as a correct, validator-passing
 document?), not tax-category correctness (the tax-matrix row above already owns that) or document-format
-conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 26 files / 41 checks:
+conformance in isolation (the conformance suite above already owns that). `pnpm e2e`, 27 files / 46 checks:
 S1 (domestic B2B, PDF/A-3b), S2 (cross-border with VAT-ID; the VIES answer kept with the invoice), S4 (return → credit note), S5 (partial refund →
 one-line credit note of the refunded amount), S6 (cancellation after the invoice → credit note reversing
 it), S7 (promotion code → line allowance), S8 (services-only order to an EU business → category AE), S9
@@ -362,7 +363,13 @@ admin shows `PDF_FONT_NOT_EMBEDDED` naming the font), idempotency (an event
 delivered to the
 subscriber a second time, awaited), Store API ownership, boot refusal (a missing required option; a seller
 outside Germany),
-and tarball contents across all six published packages. Every invoice scenario also checks that the
+tarball contents across all six published packages, and the dry run, last: the plugin's `medusa exec` script
+over every order of the stand, on a copy of its database without the plugin's documents — each fulfillment
+the outcome the events gave it (issued with the same notice, or refused with the same code), a cancelled one
+skipped, one whose order changed afterwards not assessed, no tool error; every invoice at the events' total,
+both of an order shipped in two parts placed for it (the shipping on the first only); every row of the copy
+and the File Module's files unchanged; the conformance step's KoSIT and Mustang verdicts all valid; no
+buyer's name, address, postcode, telephone or email in `report.json` or `report.md`. Every invoice scenario also checks that the
 invoice totals what Medusa charged (`order.total`) — the stand's German tax region charges 19%, its
 Spanish one 21%.
 

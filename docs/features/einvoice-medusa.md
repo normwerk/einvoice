@@ -116,7 +116,7 @@ throwing. A cancelled order's invoice refusals are dropped.
 
 Deciding and writing are two steps. `planInvoiceForFulfillment` (`src/invoices/issue-invoice.ts`) and
 `planCreditNote` (`src/credit-notes/issue-credit-note.ts`) decide: they read the order and the plugin's
-documents, check the VAT-ID, and return the outcome — refused, blocked, or ready with the document built
+documents (an invoice's plan, a dry run's register in their place), check the VAT-ID, and return the outcome — refused, blocked, or ready with the document built
 without a number — while recording, announcing, numbering, storing and logging nothing, and without calling
 the shop's `basePdf`. `issueInvoiceForFulfillment` and `issueCreditNote` run them and write what they decided.
 Which invoice a refund credits, and how much, is still decided in the credit-note subscribers.
@@ -240,6 +240,38 @@ The exchanges and claims are read through Query (`order_exchange`, `order_claim`
 one counts for nothing. Each refusal is recorded and announced like any other (`einvoice.issuance_blocked`).
 A fulfillment item that names no order line is refused too (`SHIPMENT_ITEM_WITHOUT_LINE`) rather than left off
 the invoice.
+
+## Dry run — the plugin over past orders, issuing nothing
+
+`src/scripts/einvoice-dry-run.ts`, run inside the shop's Medusa with `medusa exec` (no subscribers, jobs or
+routes loaded):
+
+```bash
+npx medusa exec ./node_modules/@normwerk/einvoice-medusa/.medusa/server/src/scripts/einvoice-dry-run.js from=2026-09-01 to=2026-09-30 out=einvoice-dry-run
+```
+
+`orders=<id>,<id>` names orders instead of a period. Every fulfillment goes through
+`planInvoiceForFulfillment`, an order's in the order they were created, with a VAT-ID verifier that checks
+each distinct VAT-ID once and a register of the invoices planned so far, read in place of the plugin's
+documents (`IssuancePlanOverrides.invoices`) — so an order's second invoice carries no shipping, as when the
+plugin issues it. A ready plan is built as the commit would build it (`buildPlannedInvoice`), with a
+placeholder for the number, and serialized. Nothing is numbered, stored, recorded or announced, and
+`basePdf` is not called (`src/dry-run/run.ts`).
+
+The folder gets `report.json` — the schema of `@normwerk/einvoice-conformance` (`src/dry-run/report.ts`
+there), without personal data: ids, counts, codes, versions — and `xml/<fulfillment id>.xml` for each invoice
+the plugin would issue, which names the buyer and stays on the machine. `pnpm conformance dry-run <folder>`
+validates the XML with KoSIT and Mustang and writes `report.md`; the plugin does not depend on that package.
+
+Each document's outcome: would issue, would issue with a notice, would refuse (the code, the first sentence of
+its doc comment — `src/generated/error-reasons.ts`, `pnpm codegen:error-reasons` — and its link), not
+assessed (a refund or a cancellation: credit notes are not planned in this release; an invoice whose order
+changed after the fulfillment — edited, exchanged, claimed, its details changed, or an item of it returned —
+since the run reads the order as it is now; it is still registered for the order's next invoices), or a tool
+error (code, class and the frames in `@normwerk` packages, never the message).
+Before the orders, the report checks the shop's setup (`src/dry-run/preflight.ts`): the Medusa release, the
+plugin's migrations, VAT rates per tax region, other invoice plugins, the File Module's provider, the VAT-ID
+verifier. Where the plugin's tables are missing, the register starts empty.
 
 ## What this deliberately does not do
 

@@ -67,7 +67,11 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.20.2)(@vitest/coverage-v8@4.1.11)(vite@7.3.6(@types/node@22.20.2)(jiti@2.7.0)(yaml@2.9.1))
 
-  e2e: {}
+  e2e:
+    devDependencies:
+      '@normwerk/einvoice-conformance':
+        specifier: workspace:*
+        version: link:../packages/einvoice-conformance
 
   packages/einvoice-cii:
     dependencies:

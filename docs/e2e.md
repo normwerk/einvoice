@@ -24,7 +24,9 @@ One command. It builds this repo's own packages and publishes them to a disposab
 torn down with everything else afterward), builds and boots a real Medusa v2 app that installs them from there,
 drives it through the real Admin/Store HTTP APIs — a cart, an order, a fulfillment, a refund — and checks
 the e-invoice XML/PDF it produces against the real KoSIT Validator and veraPDF, the same tools
-[`docs/README.md`](README.md#conformance-validators) uses for the fixture suite.
+[`docs/README.md`](README.md#conformance-validators) uses for the fixture suite. Last, it runs the plugin's dry
+run over every order the scenarios placed and validates its XML with KoSIT and Mustang — about 40 seconds more
+(one run measured).
 
 **About 3-4 minutes** on a laptop (measured across three full runs, strictly back-to-back with no pause:
 244s / 220s / 193s), most of it a real `npm install` of the Medusa app itself (this stand's own
@@ -66,6 +68,7 @@ running it repeatedly.
 ✓ src/scenarios/store-ownership.test.ts      — only the order's own customer can download its file
 ✓ src/scenarios/incomplete-config.test.ts    — the plugin refuses to boot without a required option, or with a seller outside Germany
 ✓ src/scenarios/tarball-contents.test.ts     — no test/fixture files leak into any published package
+✓ src/scenarios/dry-run.test.ts              — the plugin's dry run over every order, last: the same outcomes as the events, nothing written, no personal data in the report
 ```
 
 Every invoice is also compared with what Medusa charged (`order.tax_total`, `order.total`) before it is

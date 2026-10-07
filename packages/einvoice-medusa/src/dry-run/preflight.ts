@@ -61,7 +61,8 @@ interface TaxRegion {
   readonly tax_rates?: readonly { readonly rate?: number | string | null }[] | null;
 }
 
-/** Countries whose tax region charges no VAT, the seller's own among them when it has no region at all. */
+/** Countries whose tax region charges no VAT, the seller's own among them when it has no region at all — a
+ * failure for the seller's (every domestic order refused), listed for another. */
 async function taxRatesCheck(
   container: MedusaContainer,
   sellerCountry: string,
@@ -88,17 +89,20 @@ async function taxRatesCheck(
     ]
       .filter((country) => !charging.has(country))
       .sort();
+    const seller = sellerCountry.toUpperCase();
     return {
       check: "tax-rates",
-      status: withoutVat.includes(sellerCountry.toUpperCase())
-        ? "fail"
-        : withoutVat.length > 0
-          ? "warn"
-          : "pass",
+      status: withoutVat.includes(seller) ? "fail" : "pass",
+      sellerCountry: seller,
       withoutVat,
     };
   } catch {
-    return { check: "tax-rates", status: "not-checked", withoutVat: [] };
+    return {
+      check: "tax-rates",
+      status: "not-checked",
+      sellerCountry: sellerCountry.toUpperCase(),
+      withoutVat: [],
+    };
   }
 }
 

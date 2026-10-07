@@ -84,7 +84,7 @@ export const exampleReport: DryRunReport = {
     },
     { check: "migrations", status: "pass", pending: [] },
     { check: "plugin-options", status: "pass", invalid: [] },
-    { check: "tax-rates", status: "pass", withoutVat: [] },
+    { check: "tax-rates", status: "pass", sellerCountry: "DE", withoutVat: ["FR"] },
     { check: "other-invoice-plugins", status: "warn", plugins: ["@webbers/invoices-medusa"] },
     { check: "file-storage", status: "pass", provider: "@medusajs/medusa/file-local" },
     { check: "vat-id-verifier", status: "pass", configured: true },
@@ -214,7 +214,8 @@ export const exampleReport: DryRunReport = {
     ),
     invoice("order_s22_edit", "ful_s22_edit", {
       class: "not-assessed",
-      limitation: "ORDER_EDITED_AFTER_SHIPMENT",
+      limitation: "ORDER_CHANGED_AFTER_SHIPMENT",
+      changes: ["edit"],
     }),
     invoice("order_s23", "ful_s23", issued()),
     invoice("order_illustrative_invalid", "ful_illustrative_invalid", {

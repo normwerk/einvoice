@@ -708,3 +708,27 @@ integrations` itself states the list "is curated from npm," and its own visible 
   `confirm-claim-request.js`); without it, fulfilling the new item fails with "No stock reservation found".
 - **Confirming an exchange cancels a payment that is only authorized.** Capture the order's payment first if
   a refund is to follow (checked on 2.21.0, end-to-end scenario S22).
+- **`medusa exec` loads no entry points.** It boots the app with `skipLoadingEntryPoints: true`
+  (`@medusajs/medusa` `commands/exec.js`, 2.21): modules and their options, but no subscribers, jobs or routes —
+  a script run this way cannot set off the plugin's own subscribers. The plugin's module still checks its
+  options and the Medusa release when it loads, so on an unsupported release the dry run does not start.
+- **`medusa exec <file> [args..]` hands over positional words.** A `--from` would be taken by Medusa's own
+  option parser; the dry run reads `from=YYYY-MM-DD`-style words instead.
+- **KoSIT validates many files in one run.** `validator.jar … -o <dir> a.xml b.xml` writes
+  `a-report.xml`, `b-report.xml` into `<dir>` and starts its JVM once; it exits non-zero when it rejects any
+  of them, the reports are still written.
+- **Mustang names a rule inside its message.** `--action validate` reports `<error>`/`<warning>`/`<notice>`
+  elements whose text carries `[ID BR-CO-15]`; a `<notice>` (`BR-DE-TMP-32`) fails nothing, as KoSIT's
+  information level does not. Read the id, not the text: the text and the `criterion` quote the document's
+  structure, and a schema error's text can quote its values.
+- **Medusa records every change to an order in `order_change`, a fulfillment's too.** `change_type` is
+  `return_request`, `return_receive`, `exchange`, `claim`, `edit` or `credit_line`; `updateOrderWorkflow`
+  records a change of the order's metadata, email or addresses as `update_order` (2.21, not in the
+  `OrderChangeType` enum); a fulfillment's change has no type and carries `FULFILL_ITEM` actions. A returned
+  item is a `RECEIVE_RETURN_ITEM` (or `RECEIVE_DAMAGED_RETURN_ITEM`) action naming the line item.
+- **An order read later is not the order its invoice was issued from.** The dry run over the end-to-end
+  stand's orders disagreed with what the plugin had issued in exactly three ways, all changes after the
+  fulfillment: a line whose every unit came back leaves nothing to check the invoice against
+  (`CHARGED_TOTALS_MISSING`); an exchange's or claim's outbound shipping joins the order's shipping methods,
+  so the first invoice read later carries it; a `regime_override` withdrawn after the invoice refuses it
+  (`VAT_ID_UNVERIFIED`). The dry run leaves such an invoice not assessed.

@@ -14,6 +14,7 @@ import {
   type DryRunHeader,
   type DryRunReport,
   type Finding,
+  type OrderChangeKind,
   type OutcomeClass,
   type PreflightCheck,
   type PreflightStatus,
@@ -54,9 +55,17 @@ const NOT_RUN_REASONS: Readonly<
 const DOCUMENT_LIMITATIONS: Readonly<Record<DocumentLimitationCode, string>> = {
   CREDIT_NOTES_NOT_ASSESSED:
     "This release's dry run plans invoices only: the refunds and cancellations below are listed, not planned.",
-  ORDER_EDITED_AFTER_SHIPMENT:
-    "These orders were edited after the fulfillment. The run reads an order as it is now, not as it was when " +
-    "the invoice would have been issued, so it does not plan the invoice.",
+  ORDER_CHANGED_AFTER_SHIPMENT:
+    "These orders changed after the fulfillment. The run reads an order as it is now, not as it was when the " +
+    "invoice would have been issued, so it does not judge the invoice.",
+};
+
+const CHANGES: Readonly<Record<OrderChangeKind, string>> = {
+  edit: "edited",
+  return: "an item of it returned",
+  exchange: "exchanged",
+  claim: "a claim",
+  "order-update": "the order's details changed",
 };
 
 const RUN_LIMITATIONS: Readonly<Record<RunLimitationCode, string>> = {
@@ -258,14 +267,19 @@ function preflightRow(check: PreflightCheck, platform: string): readonly [string
           : `Missing or invalid: ${names(check.invalid)} — the plugin does not start ` +
             `(${code("INVALID_PLUGIN_OPTIONS")})`,
       ];
-    case "tax-rates":
+    case "tax-rates": {
+      const others = check.withoutVat.filter((country) => country !== check.sellerCountry);
+      const seller = check.withoutVat.includes(check.sellerCountry)
+        ? `The seller's country, ${check.sellerCountry}, charges no VAT: every domestic order is refused ` +
+          `(${code("NO_VAT_CHARGED")})`
+        : `${check.sellerCountry} charges VAT`;
       return [
         "VAT rates",
-        check.withoutVat.length === 0
-          ? "Every tax region charges VAT"
-          : `No VAT charged in the tax region of ${check.withoutVat.join(", ")}: a domestic order ` +
-            `there is refused (${code("NO_VAT_CHARGED")})`,
+        others.length === 0
+          ? `${seller}${check.withoutVat.length === 0 ? "; so does every other tax region" : ""}`
+          : `${seller}; no rate in the tax region${others.length === 1 ? "" : "s"} of ${others.join(", ")}, where Medusa charges no VAT`,
       ];
+    }
     case "other-invoice-plugins":
       return [
         "Other invoice plugins",
@@ -479,7 +493,11 @@ function notAssessed(report: DryRunReport): string[] {
       "",
       DOCUMENT_LIMITATIONS[limitation],
       "",
-      ...listDocuments(group),
+      ...listDocuments(group, ({ outcome }) =>
+        outcome.class === "not-assessed" && outcome.changes !== undefined
+          ? ` — ${outcome.changes.map((change) => CHANGES[change]).join(", ")}`
+          : "",
+      ),
     );
   }
   return lines;

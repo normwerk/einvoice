@@ -43,7 +43,7 @@ describe("checkPreflight (T-214)", () => {
     expect(migrations).toHaveProperty("pending", pluginMigrations());
   });
 
-  it("fails the VAT rates when the seller's country charges none, and warns for another country", async () => {
+  it("fails the VAT rates when the seller's country charges none, and lists another country", async () => {
     const zero = { country_code: "at", province_code: null, tax_rates: [{ rate: 0 }] };
 
     const checks = await checkPreflight(makeContainer({ taxRegions: [zero] }));
@@ -51,11 +51,12 @@ describe("checkPreflight (T-214)", () => {
     expect(checks.find(({ check }) => check === "tax-rates")).toEqual({
       check: "tax-rates",
       status: "fail",
+      sellerCountry: "DE",
       withoutVat: ["AT", "DE"],
     });
     const warned = await checkPreflight(makeContainer({ taxRegions: [GERMANY, zero] }));
     expect(warned.find(({ check }) => check === "tax-rates")).toMatchObject({
-      status: "warn",
+      status: "pass",
       withoutVat: ["AT"],
     });
   });

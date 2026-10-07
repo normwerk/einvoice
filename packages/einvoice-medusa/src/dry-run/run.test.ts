@@ -182,6 +182,8 @@ function makeService(options: Record<string, unknown> = {}) {
 interface ShopOptions {
   /** When each order's edits were confirmed. */
   readonly edits?: Readonly<Record<string, readonly string[]>>;
+  /** Returns each order received: when, and which line items came back. */
+  readonly returns?: Readonly<Record<string, readonly { at: string; items: readonly string[] }[]>>;
   /** Orders whose exchanges cannot be read — a defect stands in. */
   readonly broken?: readonly string[];
 }
@@ -189,7 +191,7 @@ interface ShopOptions {
 function makeContainer(
   service: ReturnType<typeof makeService>,
   orders: readonly Record<string, unknown>[],
-  { edits = {}, broken = [] }: ShopOptions = {},
+  { edits = {}, returns = {}, broken = [] }: ShopOptions = {},
 ): MedusaContainer {
   const orderById = (id: unknown) => orders.find((order) => order["id"] === id);
   const graph = vi.fn(
@@ -209,23 +211,39 @@ function makeContainer(
           return { data: ids.map(orderById).filter((order) => order !== undefined) };
         }
         case "order_change": {
-          const order = orderById(filters["order_id"]);
-          if (filters["change_type"] === "edit") {
-            return {
-              data: (edits[String(filters["order_id"])] ?? []).map((confirmed_at) => ({
-                confirmed_at,
-              })),
-            };
-          }
-          const fulfillments = (order?.["fulfillments"] ?? []) as readonly MedusaFulfillment[];
-          return {
-            data: fulfillments.map((fulfillment) => ({
-              actions: (fulfillment.items ?? []).map((item) => ({
-                action: "FULFILL_ITEM",
-                reference_id: fulfillment.id,
-                details: { reference_id: item.line_item_id, quantity: item.quantity },
-              })),
+          const orderId = String(filters["order_id"]);
+          const fulfillments = (orderById(orderId)?.["fulfillments"] ??
+            []) as readonly MedusaFulfillment[];
+          const edited = (edits[orderId] ?? []).map((confirmed_at) => ({
+            change_type: "edit",
+            status: "confirmed",
+            confirmed_at,
+            actions: [],
+          }));
+          const received = (returns[orderId] ?? []).map(({ at, items }) => ({
+            change_type: "return_receive",
+            status: "confirmed",
+            confirmed_at: at,
+            actions: items.map((item) => ({
+              action: "RECEIVE_RETURN_ITEM",
+              details: { reference_id: item },
             })),
+          }));
+          return {
+            data: [
+              ...edited,
+              ...received,
+              ...fulfillments.map((fulfillment) => ({
+                change_type: null,
+                status: "confirmed",
+                confirmed_at: fulfillment.created_at,
+                actions: (fulfillment.items ?? []).map((item) => ({
+                  action: "FULFILL_ITEM",
+                  reference_id: fulfillment.id,
+                  details: { reference_id: item.line_item_id, quantity: item.quantity },
+                })),
+              })),
+            ],
           };
         }
         case "order_exchange":
@@ -281,6 +299,34 @@ describe("planOrders (T-214)", () => {
     });
   });
 
+  it("leaves a fulfillment whose item came back unjudged, and still counts what its invoice took", async () => {
+    const returned = {
+      ...SPLIT,
+      id: "order_returned",
+      items: SPLIT.items.map((item) =>
+        item.id === "item_goods"
+          ? { ...item, detail: { quantity: 1, return_received_quantity: 1 } }
+          : item,
+      ),
+      payment_collections: [],
+    };
+
+    const planned = await planOrders(
+      makeContainer(makeService(), [returned], {
+        returns: { order_returned: [{ at: "2026-09-20T08:00:00Z", items: ["item_goods"] }] },
+      }),
+      SEPTEMBER,
+      { issuedDocuments: true },
+    );
+
+    expect(planned.assessments.map(({ outcome }) => outcome)).toEqual([
+      { class: "not-assessed", limitation: "ORDER_CHANGED_AFTER_SHIPMENT", changes: ["return"] },
+      { class: "would-issue", profile: "EN16931", validation: { status: "not-run" } },
+    ]);
+    // The first invoice, blocked against what Medusa holds after the return, still took the shipping.
+    expect(grandTotal(planned.xml.get("ful_split_2"))).toBe("59.50");
+  });
+
   it("states each kind of order's outcome, and counts what it skipped", async () => {
     const service = makeService();
     const planned = await planOrders(
@@ -311,7 +357,8 @@ describe("planOrders (T-214)", () => {
     );
     expect(byOrder["order_edited"]).toEqual({
       class: "not-assessed",
-      limitation: "ORDER_EDITED_AFTER_SHIPMENT",
+      limitation: "ORDER_CHANGED_AFTER_SHIPMENT",
+      changes: ["edit"],
     });
     expect(byOrder["order_broken"]).toMatchObject({
       class: "tool-error",

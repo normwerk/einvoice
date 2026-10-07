@@ -11,5 +11,8 @@
     "stand:down": "docker compose -f docker/compose.e2e.yml down -v",
     "stand:logs": "docker compose -f docker/compose.e2e.yml logs",
     "e2e:run": "vitest run"
+  },
+  "devDependencies": {
+    "@normwerk/einvoice-conformance": "workspace:*"
   }
 }

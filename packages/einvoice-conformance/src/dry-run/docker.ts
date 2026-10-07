@@ -39,16 +39,21 @@ interface ImagesLock {
   }[];
 }
 
-/** The pinned versions, from the repository's `docker/images.lock` — beside the working folder or this
- * package. Without it, the tools are named with their versions unknown. */
+/** The pinned versions, from the `docker/images.lock` of the repository the images are built from — this
+ * package's, else the working folder's — the first that names the validators (the end-to-end stand has a lock
+ * of its own). Without one, the tools are named with their versions unknown. */
 export function validatorTools(): readonly ValidatorTool[] {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const lockFile = [
-    path.resolve(process.cwd(), "docker/images.lock"),
-    path.resolve(here, "../../../../docker/images.lock"),
-  ].find((candidate) => existsSync(candidate));
   const lock: ImagesLock =
-    lockFile === undefined ? {} : (JSON.parse(readFileSync(lockFile, "utf8")) as ImagesLock);
+    [
+      path.resolve(here, "../../../../docker/images.lock"),
+      path.resolve(process.cwd(), "docker/images.lock"),
+    ]
+      .filter((candidate) => existsSync(candidate))
+      .map((candidate) => JSON.parse(readFileSync(candidate, "utf8")) as ImagesLock)
+      .find((candidate) =>
+        DRY_RUN_TOOLS.every((name) => candidate.tools?.some((tool) => tool.name === name)),
+      ) ?? {};
   return DRY_RUN_TOOLS.map((name) => {
     const tool = lock.tools?.find((candidate) => candidate.name === name);
     return { name, version: tool?.version ?? "unknown", sha256: tool?.sha256 ?? "unknown" };

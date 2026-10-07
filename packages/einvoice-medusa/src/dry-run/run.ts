@@ -7,7 +7,11 @@
  * commit's steps (`issueInvoiceForFulfillment`).
  *
  * Credit notes are not planned in this release: each refund and cancellation is listed as not assessed. So is
- * an invoice whose order was edited after the fulfillment — the run reads the order as it is now.
+ * an invoice whose order changed after the fulfillment — edited, exchanged, claimed, its details changed, or an
+ * item of the fulfillment returned (end-to-end, each made the run disagree with what the plugin had issued: a
+ * returned line has no units left to check the invoice against, an exchange adds its shipping, a withdrawn
+ * VAT-ID confirmation refuses what was issued). The run reads the order as it is now. Such a fulfillment is
+ * still planned, and registered when its invoice could be built, so the order's next invoices take what it took.
  */
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils";
 import type { MedusaContainer } from "@medusajs/framework";
@@ -16,6 +20,7 @@ import type {
   DocumentRef,
   DryRunReport,
   DryRunScope,
+  OrderChangeKind,
   Outcome,
   PreflightCheck,
   RunLimitationCode,
@@ -123,17 +128,81 @@ async function* ordersOf(
   }
 }
 
-/** When the order's confirmed edits were confirmed. */
-async function editTimes(container: MedusaContainer, orderId: string): Promise<readonly number[]> {
+interface RunOrderChange {
+  readonly change_type?: string | null;
+  readonly status?: string | null;
+  readonly created_at?: Instant;
+  readonly confirmed_at?: Instant;
+  readonly actions?:
+    | readonly {
+        readonly action?: string | null;
+        readonly reference_id?: string | null;
+        readonly details?: { readonly reference_id?: unknown } | null;
+      }[]
+    | null;
+}
+
+/** Medusa's change types that change the whole order — every fulfillment before them. */
+const ORDER_CHANGES: Readonly<Record<string, OrderChangeKind>> = {
+  edit: "edit",
+  exchange: "exchange",
+  claim: "claim",
+  update_order: "order-update",
+};
+const RECEIVED = new Set(["RECEIVE_RETURN_ITEM", "RECEIVE_DAMAGED_RETURN_ITEM"]);
+
+/** How the order changed after each of its fulfillments, by fulfillment id: an edit, exchange, claim or change
+ * of its details after it, or a return received of an item it shipped. */
+async function changesAfter(
+  container: MedusaContainer,
+  orderId: string,
+  fulfillments: readonly RunFulfillment[],
+): Promise<ReadonlyMap<string, readonly OrderChangeKind[]>> {
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
   const { data } = await query.graph({
     entity: "order_change",
-    filters: { order_id: orderId, change_type: "edit", status: "confirmed" },
-    fields: ["confirmed_at"],
+    filters: { order_id: orderId },
+    fields: [
+      "change_type",
+      "status",
+      "created_at",
+      "confirmed_at",
+      "actions.action",
+      "actions.reference_id",
+      "actions.details",
+    ],
   });
-  return (data as unknown as { readonly confirmed_at?: Instant }[])
-    .map(({ confirmed_at }) => time(confirmed_at))
-    .filter((confirmed) => confirmed > 0);
+  const changes = (data as unknown as RunOrderChange[]).filter(
+    ({ status }) => status !== "canceled" && status !== "declined",
+  );
+  const itemsOf = (fulfillmentId: string): ReadonlySet<string> =>
+    new Set(
+      changes.flatMap(({ actions }) =>
+        (actions ?? [])
+          .filter(
+            ({ action, reference_id }) =>
+              action === "FULFILL_ITEM" && reference_id === fulfillmentId,
+          )
+          .map(({ details }) => String(details?.reference_id)),
+      ),
+    );
+  return new Map(
+    fulfillments.map((fulfillment) => {
+      const shipped = itemsOf(fulfillment.id);
+      const kinds = changes.flatMap((change): OrderChangeKind[] => {
+        if (time(change.confirmed_at ?? change.created_at) <= time(fulfillment.created_at))
+          return [];
+        const whole = ORDER_CHANGES[change.change_type ?? ""];
+        if (whole !== undefined) return [whole];
+        const returned = (change.actions ?? []).some(
+          ({ action, details }) =>
+            RECEIVED.has(action ?? "") && shipped.has(String(details?.reference_id)),
+        );
+        return returned ? ["return"] : [];
+      });
+      return [fulfillment.id, [...new Set(kinds)]];
+    }),
+  );
 }
 
 export async function planOrders(
@@ -169,8 +238,12 @@ export async function planOrders(
   const planFulfillment = async (
     order: RunOrder,
     fulfillment: RunFulfillment,
-    edited: boolean,
+    changes: readonly OrderChangeKind[],
   ): Promise<Outcome | "already-invoiced" | "canceled"> => {
+    const changed: Outcome | undefined =
+      changes.length === 0
+        ? undefined
+        : { class: "not-assessed", limitation: "ORDER_CHANGED_AFTER_SHIPMENT", changes };
     const plan = await planInvoiceForFulfillment(
       container,
       { orderId: order.id, fulfillmentId: fulfillment.id },
@@ -187,14 +260,24 @@ export async function planOrders(
         const finding = refusalFinding(plan.error);
         if (finding.code === "INTERNAL_ERROR")
           return { class: "tool-error", error: toolErrorOf(plan.error, "plan") };
-        return edited
-          ? { class: "not-assessed", limitation: "ORDER_EDITED_AFTER_SHIPMENT" }
-          : { class: "would-refuse", refusal: finding };
+        return changed ?? { class: "would-refuse", refusal: finding };
       }
       case "blocked":
-        return edited
-          ? { class: "not-assessed", limitation: "ORDER_EDITED_AFTER_SHIPMENT" }
-          : { class: "would-refuse", refusal: blockFinding(plan.block) };
+        if (changed === undefined)
+          return { class: "would-refuse", refusal: blockFinding(plan.block) };
+        // Checked against what Medusa holds now — after a return, an exchange — the block says nothing about the
+        // invoice the plugin issued then; that one still took its units and the shipping.
+        try {
+          const built = await buildPlannedInvoice(plan, UNALLOCATED_DOCUMENT_NUMBER);
+          register.add(order.id, {
+            idempotency_key: fulfillment.id,
+            line_values: plannedLineValues(plan, built),
+            includes_shipping: plan.shipment.includesShipping,
+          });
+        } catch (error) {
+          return { class: "tool-error", error: toolErrorOf(error, "serialize") };
+        }
+        return changed;
       case "ready": {
         let document: string;
         try {
@@ -208,7 +291,7 @@ export async function planOrders(
         } catch (error) {
           return { class: "tool-error", error: toolErrorOf(error, "serialize") };
         }
-        if (edited) return { class: "not-assessed", limitation: "ORDER_EDITED_AFTER_SHIPMENT" };
+        if (changed !== undefined) return changed;
         xml.set(fulfillment.id, document);
         return plan.notice === null
           ? { class: "would-issue", profile: plan.profile, validation: { status: "not-run" } }
@@ -226,7 +309,7 @@ export async function planOrders(
     const ordered = byCreation(order.fulfillments ?? []);
     if (!ordered.some(inPeriod)) continue;
     orders += 1;
-    const edits = await editTimes(container, order.id);
+    const changes = await changesAfter(container, order.id, ordered);
     const assess = (document: DocumentRef, outcome: Outcome): void => {
       assessments.push({ document, outcome });
     };
@@ -262,10 +345,9 @@ export async function planOrders(
         }
         continue;
       }
-      const edited = edits.some((confirmed) => confirmed > time(fulfillment.created_at));
       let outcome: Awaited<ReturnType<typeof planFulfillment>>;
       try {
-        outcome = await planFulfillment(order, fulfillment, edited);
+        outcome = await planFulfillment(order, fulfillment, changes.get(fulfillment.id) ?? []);
       } catch (error) {
         outcome = { class: "tool-error", error: toolErrorOf(error, "plan") };
       }
