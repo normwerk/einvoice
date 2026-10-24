@@ -20,11 +20,11 @@ credited there.
 Security fixes go into the latest minor release line of 0.x only. An older line is not patched: upgrade to
 the latest release.
 
-| Version                   | Security fixes |
-| ------------------------- | -------------- |
-| Latest 0.x minor line     | Yes            |
-| Earlier minor lines       | No             |
-| Not yet released (`main`) | Yes            |
+| Version                     | Security fixes |
+| --------------------------- | -------------- |
+| Latest 0.x minor line (0.1) | Yes            |
+| Earlier minor lines         | No             |
+| `main`, ahead of a release  | Yes            |
 
 ## What counts
 

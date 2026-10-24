@@ -152,8 +152,8 @@ steps (`docs/quickstart-medusa.md`'s own "How this was verified" section) — a 
 the same thing as a person who has never seen this codebase actually following the prose instructions
 themselves, hitting whatever a script doesn't (an ambiguous instruction, a missing prerequisite, a copy-paste
 error). On 2026-10-24 the maintainer installed the packages into a clean `create-medusa-app` project and
-checked the main scenarios by hand. A developer who did not write the code follows the quickstart once
-v0.1.0 is on npm; what they find comes back as issues and pull requests.
+checked the main scenarios by hand. A developer who did not write the code follows the quickstart with
+v0.1.0 from npm; what they find comes back as issues and pull requests.
 
 ## Dry run, by the documentation, on the end-to-end stand
 
@@ -182,9 +182,8 @@ which stands in for a shop's staging copy, the steps that differ are these:
    Then `docs/dry-run.md`, "1. Run it", with `out=/tmp/einvoice-dry-run`; leave the shell, and
    `docker cp einvoice-e2e-medusa-1:/tmp/einvoice-dry-run .`
 
-4. `docs/dry-run.md`, "2. Validate the XML and write the report", from this repository's root. Until the
-   packages are on npm, `pnpm build && pnpm conformance dry-run ./einvoice-dry-run` stands in for the `npx`
-   line.
+4. `docs/dry-run.md`, "2. Validate the XML and write the report", from this repository's root — the `npx`
+   line, or `pnpm build && pnpm conformance dry-run ./einvoice-dry-run` for the repository's own build.
 5. What `report.md` shows (2026-10-07, Medusa 2.21.0, the suite's own run): every setup check passing, the VAT
    rates line naming the countries without a rate; 26 invoices the plugin would issue, 2 with a notice, 6
    refused, 22 not assessed (16 credit notes, 6 orders changed after the fulfillment), no tool error; every

@@ -5,9 +5,10 @@ and §12.
 
 ## Status
 
-The monorepo scaffold and the initial technical spikes are done. Spike findings that landed here:
-`docs/sources.md` (artifact licensing) and `docs/tax-semantics.md` (draft VAT scenario table).
-`einvoice-model` is the first package with real generated content — see below.
+v0.1.0 was released on 2026-10-24: the Medusa plugin and the core packages are on npm as `@normwerk/*`
+([GitHub release](https://github.com/normwerk/einvoice/releases/tag/v0.1.0), with the conformance report run
+against the tag). The documentation of the released version is published at
+[normwerk.dev/einvoice/docs](https://normwerk.dev/einvoice/docs/).
 
 **Using `@normwerk/einvoice-medusa` in a Medusa v2 project?** Start at
 [`docs/quickstart-medusa.md`](quickstart-medusa.md) instead of reading this whole index — everything below
