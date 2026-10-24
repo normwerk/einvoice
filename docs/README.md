@@ -11,7 +11,8 @@ The monorepo scaffold and the initial technical spikes are done. Spike findings 
 
 **Using `@normwerk/einvoice-medusa` in a Medusa v2 project?** Start at
 [`docs/quickstart-medusa.md`](quickstart-medusa.md) instead of reading this whole index — everything below
-is for people working on this repo itself.
+is for people working on this repo itself. To see what the plugin would do with your own past orders before
+you turn it on: [`docs/dry-run.md`](dry-run.md).
 
 ## `einvoice-model`
 
@@ -72,6 +73,8 @@ Cross-referenced with [`docs/tax-semantics.md`](tax-semantics.md).
 - [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) — the adapter side: which Medusa
   order/customer field, or which `einvoice-medusa` module option, each BT/BG comes from. Hand-written,
   not generated.
+- [`docs/dry-run.md`](dry-run.md) — the plugin over past orders, issuing nothing: how to run it, how to read
+  the report, what it does not assess.
 - [`docs/tax-semantics.md`](tax-semantics.md) — the VAT rules applied, one scenario per row with legal
   sources; what the validators do not catch. Not tax advice.
 - [`docs/supported-countries.md`](supported-countries.md) — the seller, buyers and territories this release

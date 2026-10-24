@@ -17,14 +17,16 @@ import { writeDryRun } from "./output.js";
 const REPORT = { schemaVersion: 1 } as unknown as DryRunReport;
 
 describe("writeDryRun (T-214)", () => {
-  it("writes the report and each XML by fulfillment id, replacing an earlier run's XML", () => {
+  it("writes the report and each XML by fulfillment id, replacing an earlier run's XML and report", () => {
     const folder = path.join(mkdtempSync(path.join(tmpdir(), "dry-run-")), "out");
     writeDryRun(folder, REPORT, new Map([["ful_old", "<old/>"]]));
+    writeFileSync(path.join(folder, "report.md"), "# the earlier run");
 
     writeDryRun(folder, REPORT, new Map([["ful_1", "<xml/>"]]));
 
     expect(JSON.parse(readFileSync(path.join(folder, "report.json"), "utf8"))).toEqual(REPORT);
     expect(readdirSync(path.join(folder, "xml"))).toEqual(["ful_1.xml"]);
+    expect(existsSync(path.join(folder, "report.md"))).toBe(false);
   });
 
   it("leaves a folder that holds something other than an earlier run alone", () => {

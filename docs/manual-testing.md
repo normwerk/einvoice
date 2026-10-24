@@ -153,3 +153,40 @@ the same thing as a person who has never seen this codebase actually following t
 themselves, hitting whatever a script doesn't (an ambiguous instruction, a missing prerequisite, a copy-paste
 error). The requirement before release — a new developer, someone who did not write the code, gets through
 the quickstart in 30 minutes — needs an actual person for that reason; not yet done.
+
+## Dry run, by the documentation, on the end-to-end stand
+
+The requirement before release: someone who did not write the code runs the dry run on the end-to-end stand
+following [`docs/dry-run.md`](dry-run.md) alone, within 30 minutes. Not done yet. The end-to-end suite runs
+the same steps by script on every run (`e2e/src/scenarios/dry-run.test.ts`) — which proves the commands, not
+the prose. The stand stands in for a shop's staging copy; the steps that differ are these:
+
+1. `EINVOICE_E2E_KEEP_STAND=1 pnpm e2e` — the scenarios run, and the stand is left running with their orders
+   ([`docs/e2e.md`](e2e.md)).
+2. The staging copy. The stand's plugin has already issued the scenarios' invoices; a copy of its database
+   without them is the shop before the plugin:
+
+   ```bash
+   docker exec einvoice-e2e-postgres-1 sh -c 'dropdb -U medusa --if-exists medusa_dry_run && createdb -U medusa medusa_dry_run && pg_dump -U medusa medusa_e2e | psql -q -U medusa medusa_dry_run'
+   docker exec einvoice-e2e-postgres-1 psql -U medusa -d medusa_dry_run -c 'delete from einvoice_document; delete from einvoice_refusal;'
+   ```
+
+3. The shop's Medusa, on the copy — the plugin is installed and configured there already:
+
+   ```bash
+   docker exec -it -e DATABASE_URL='postgres://medusa:medusa@postgres:5432/medusa_dry_run?sslmode=disable' einvoice-e2e-medusa-1 sh
+   ```
+
+   Then `docs/dry-run.md`, "1. Run it", with `out=/tmp/einvoice-dry-run`; leave the shell, and
+   `docker cp einvoice-e2e-medusa-1:/tmp/einvoice-dry-run .`
+
+4. `docs/dry-run.md`, "2. Validate the XML and write the report", from this repository's root. Until the
+   packages are on npm, `pnpm build && pnpm conformance dry-run ./einvoice-dry-run` stands in for the `npx`
+   line.
+5. What `report.md` shows (2026-10-07, Medusa 2.21.0, the suite's own run): every setup check passing, the VAT
+   rates line naming the countries without a rate; 26 invoices the plugin would issue, 2 with a notice, 6
+   refused, 22 not assessed (16 credit notes, 6 orders changed after the fulfillment), no tool error; every
+   validated invoice valid. The counts move when scenarios are added.
+6. `pnpm --filter @normwerk/einvoice-e2e stand:down` removes the stand; so does the next `pnpm e2e`.
+
+Record here: who ran it, the date, the minutes it took, and every place the documentation made them stop.

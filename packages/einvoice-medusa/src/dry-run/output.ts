@@ -4,7 +4,7 @@
  * and rendering the report as Markdown is `@normwerk/einvoice-conformance`'s step (`dry-run <folder>`).
  *
  * A folder that already holds something other than an earlier dry run is left alone: the run replaces only its
- * own `report.json` and `xml/`.
+ * own `report.json` and `xml/`, and removes the earlier run's `report.md`.
  */
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -14,6 +14,8 @@ import type { DryRunReport } from "@normwerk/einvoice-conformance" with {
 
 export const REPORT_FILE = "report.json";
 export const XML_DIR = "xml";
+/** The conformance step's rendering of an earlier run — removed, so it never sits next to a newer report. */
+const MARKDOWN_FILE = "report.md";
 
 /** A fulfillment id as a file name: Medusa's ids are letters, digits and underscores already. */
 export function xmlFileName(fulfillmentId: string): string {
@@ -36,6 +38,7 @@ export function writeDryRun(
   }
   const xmlDir = path.join(folder, XML_DIR);
   rmSync(xmlDir, { recursive: true, force: true });
+  rmSync(path.join(folder, MARKDOWN_FILE), { force: true });
   mkdirSync(xmlDir, { recursive: true });
   for (const [fulfillmentId, document] of xml) {
     writeFileSync(path.join(xmlDir, xmlFileName(fulfillmentId)), document);

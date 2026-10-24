@@ -85,11 +85,27 @@ Full setup — configuration, migrations, optional PDF modes — is the
 [quickstart](https://github.com/normwerk/einvoice/blob/main/docs/quickstart-medusa.md): about 30 minutes
 from a fresh `create-medusa-app` project to a KoSIT-validated invoice on your first fulfilled order.
 
+## Dry run: try it on your orders first
+
+Before you turn the plugin on, run it over a period of your past orders on a staging copy — it issues
+nothing, and reports for every fulfillment whether it would issue the invoice, issue it with a notice, or
+refuse it and why:
+
+```bash
+npx medusa exec ./node_modules/@normwerk/einvoice-medusa/.medusa/server/src/scripts/einvoice-dry-run.js from=2026-09-01 to=2026-09-30
+```
+
+The report names no customer.
+[`npx @normwerk/einvoice-conformance dry-run einvoice-dry-run`](https://www.npmjs.com/package/@normwerk/einvoice-conformance)
+validates the invoices' XML with the official validators and writes it as Markdown. How to run it and how to
+read it: [dry run](https://github.com/normwerk/einvoice/blob/main/docs/dry-run.md).
+
 ## Documentation
 
 Part of [normwerk/einvoice](https://github.com/normwerk/einvoice). See that repository for:
 
 - [Quickstart](https://github.com/normwerk/einvoice/blob/main/docs/quickstart-medusa.md)
+- [Dry run — the plugin over your past orders, issuing nothing](https://github.com/normwerk/einvoice/blob/main/docs/dry-run.md)
 - [Supported countries](https://github.com/normwerk/einvoice/blob/main/docs/supported-countries.md)
 - [Medusa field → BT/BG mapping reference](https://github.com/normwerk/einvoice/blob/main/docs/mapping-reference-medusa.md)
 - [Storage, admin widget, Store API design](https://github.com/normwerk/einvoice/blob/main/docs/features/einvoice-medusa.md)

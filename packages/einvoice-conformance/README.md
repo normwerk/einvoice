@@ -13,9 +13,11 @@ docker compose -f docker/compose.conformance.yml build
 node dist/cli.js validate <file.xml|file.pdf>
 ```
 
-`node dist/cli.js dry-run <folder>` is the second step of a plugin's dry run: it validates the XML of every
-invoice the plugin would issue (KoSIT and Mustang), writes the verdicts into the folder's `report.json` and
-writes `report.md`. Without Docker or the validator images, the report says the validators did not run.
+`npx @normwerk/einvoice-conformance dry-run <folder>` is the second step of a plugin's dry run: it validates
+the XML of every invoice the plugin would issue (KoSIT and Mustang), writes the verdicts into the folder's
+`report.json` and writes `report.md`. Without Docker or the validator images, the report says the validators
+did not run. How to run the whole dry run:
+[`docs/dry-run.md`](https://github.com/normwerk/einvoice/blob/main/docs/dry-run.md).
 
 Part of [normwerk/einvoice](https://github.com/normwerk/einvoice), a TypeScript e-invoicing toolkit for
 Germany's XRechnung/ZUGFeRD mandate (with `@normwerk/einvoice-medusa` as the first platform adapter, for

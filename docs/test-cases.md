@@ -235,7 +235,7 @@ Run all of them: `pnpm test` (per-package: `pnpm --filter <package> test`).
   the others counted, the message left out whatever it looks like, one fingerprint per defect; the run's
   `key=value` arguments; the preflight's pending migrations by name, VAT rates (fail for the seller's
   country, another listed), another invoice plugin, a missing VAT-ID verifier and the File Module's
-  provider; the output folder (an earlier run's XML replaced, a foreign folder left alone); the installed
+  provider; the output folder (an earlier run's XML and `report.md` replaced, a foreign folder left alone); the installed
   versions and the hash of the commerce rule modules.
 - `src/mapping/tax-evidence.test.ts` — `taxEvidenceToKeep`: a document of category K keeps the VIES answer
   it rests on, even "unavailable" when the number was confirmed another way; any other document keeps its

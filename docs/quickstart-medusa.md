@@ -352,6 +352,8 @@ export const config: SubscriberConfig = { event: "einvoice.document_issued" };
 
 ## Where to go next
 
+- [`docs/dry-run.md`](dry-run.md) — the plugin over a period of your past orders, on a staging copy, issuing
+  nothing: what it would issue, and what it would refuse and why.
 - [`docs/mapping-reference-medusa.md`](mapping-reference-medusa.md) — exactly which Medusa field feeds
   which BT/BG number, and which ones this plugin can't source from Medusa at all yet.
 - [`docs/features/einvoice-medusa.md`](features/einvoice-medusa.md) — the storage/widget/API design, and
