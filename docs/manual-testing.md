@@ -88,8 +88,8 @@ badge naming the font (`PDF_FONT_NOT_EMBEDDED` — S23) and no PDF download icon
 All of the above was last checked on 2026-09-29, Medusa 2.21.0, on the orders the end-to-end scenarios leave
 behind — every badge, line, code link and the Retry request as described. The refused Italian invoice (S17)
 was checked again on 2026-10-02: its explanation starts with the buyer's country, the Retry button is there,
-and "Ask for support of this country" links to the country form with `seller=DE` and `buyer=IT`. The form
-itself, on GitHub, was not opened: GitHub shows it only to a signed-in account. How to repeat it:
+and "Ask for support of this country" links to the country form with `seller=DE` and `buyer=IT`; on
+2026-10-05 the form opened on GitHub, signed in, with those fields filled in. How to repeat it:
 
 1. `EINVOICE_E2E_ADMIN=1 pnpm e2e` — the scenarios run against a stand that also serves Medusa's dashboard,
    and the stand is left running with every scenario's orders, the dashboard at `http://localhost:9500/app`
@@ -151,15 +151,17 @@ The quickstart's own written claim ("about 30 minutes") was timed against a scri
 steps (`docs/quickstart-medusa.md`'s own "How this was verified" section) — a real, useful proxy, but not
 the same thing as a person who has never seen this codebase actually following the prose instructions
 themselves, hitting whatever a script doesn't (an ambiguous instruction, a missing prerequisite, a copy-paste
-error). The requirement before release — a new developer, someone who did not write the code, gets through
-the quickstart in 30 minutes — needs an actual person for that reason; not yet done.
+error). On 2026-10-24 the maintainer installed the packages into a clean `create-medusa-app` project and
+checked the main scenarios by hand. A developer who did not write the code follows the quickstart once
+v0.1.0 is on npm; what they find comes back as issues and pull requests.
 
 ## Dry run, by the documentation, on the end-to-end stand
 
-The requirement before release: someone who did not write the code runs the dry run on the end-to-end stand
-following [`docs/dry-run.md`](dry-run.md) alone, within 30 minutes. Not done yet. The end-to-end suite runs
-the same steps by script on every run (`e2e/src/scenarios/dry-run.test.ts`) — which proves the commands, not
-the prose. The stand stands in for a shop's staging copy; the steps that differ are these:
+Someone who did not write the code running the dry run by [`docs/dry-run.md`](dry-run.md) alone: not done on
+the stand. The first such run will be on a shop's own staging copy; where the documentation made them stop
+goes back into it. The end-to-end suite runs the same steps by script on every run
+(`e2e/src/scenarios/dry-run.test.ts`) — which proves the commands, not the prose. To try it on the stand,
+which stands in for a shop's staging copy, the steps that differ are these:
 
 1. `EINVOICE_E2E_KEEP_STAND=1 pnpm e2e` — the scenarios run, and the stand is left running with their orders
    ([`docs/e2e.md`](e2e.md)).

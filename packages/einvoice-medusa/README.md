@@ -70,8 +70,10 @@ the UK.
 Semantic versioning covers the plugin's documented interface only: its options, the events
 `einvoice.document_issued` and `einvoice.issuance_blocked` with their types in
 `@normwerk/einvoice-medusa/events`, the documents read with an order (`einvoice_documents`), the Admin and
-Store API routes, the "E-Invoices" admin widget, the plugin's database tables, and the field mapping in the
-[mapping reference](https://github.com/normwerk/einvoice/blob/main/docs/mapping-reference-medusa.md). Every
+Store API routes, the "E-Invoices" admin widget, the plugin's database tables, the field mapping in the
+[mapping reference](https://github.com/normwerk/einvoice/blob/main/docs/mapping-reference-medusa.md), and the
+dry run's script and arguments ([dry run](https://github.com/normwerk/einvoice/blob/main/docs/dry-run.md));
+its report carries a format version of its own. Every
 other file in the package can be imported — Medusa loads subscribers and routes by their path — but is
 internal: paths such as `invoices/*` or `mapping/*` change in any release.
 

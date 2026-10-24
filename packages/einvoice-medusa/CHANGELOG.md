@@ -12,6 +12,9 @@
   document shows its reason and code in the order's "E-Invoices" block and can be issued again; exchanges
   and warranty replacements are refused visibly, and a price edited after the invoice is noted. The plugin
   does not start for a seller outside Germany or on a Medusa release it has not been shown to work on.
+  A dry run takes a period of past orders on a staging copy and reports, for every fulfillment, whether the
+  plugin would issue the invoice, issue it with a notice, or refuse it and why — issuing nothing, in a report
+  without personal data ([dry run](https://github.com/normwerk/einvoice/blob/main/docs/dry-run.md)).
   Semantic versioning covers its documented interface only — [Versioning](README.md#versioning); every
   other file in the package is internal.
 
